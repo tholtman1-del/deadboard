@@ -90,7 +90,6 @@
       <!-- hero -->
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow" data-t>&gt; board-level repair trainer</p>
           <h1 data-t>Bring dead boards back.</h1>
           <p class="lede lede-short" data-t>Find the fault on a broken circuit board, then fix it. Your first repair takes two minutes.</p>
           <p class="lede lede-long" data-t>
@@ -145,41 +144,34 @@ ok    board alive</code></pre>
 
       <!-- the bench -->
       <section id="bench" class="section">
-        <p class="eyebrow" data-t>&gt; the bench</p>
         <h2 data-t>Instruments that behave like instruments.</h2>
         <p class="section-lede" data-t>Every tool a technician reaches for, with the same quirks and the same limits.</p>
-        <div class="cards">
-          <article class="card">
-            <span class="card-ic" data-icon="meter"></span>
-            <h3 data-t>Multimeter</h3>
+        <div class="instruments">
+          <article class="inst">
+            <h3><span class="inst-ic" data-icon="meter"></span><span data-t>Multimeter</span></h3>
             <p data-t>A 6000-count meter, not an ideal probe: 10&nbsp;MΩ input, contact resistance, diode test. Capacitance reads high in circuit. The 10&nbsp;A input only works in series.</p>
           </article>
-          <article class="card">
-            <span class="card-ic" data-icon="power"></span>
-            <h3 data-t>Bench supply</h3>
+          <article class="inst">
+            <h3><span class="inst-ic" data-icon="power"></span><span data-t>Bench supply</span></h3>
             <p data-t>Boot current you can read: standby, sleep, running. Current limit, and voltage injection to make the culprit on a shorted rail heat up.</p>
             <svg class="viz" viewBox="0 0 220 56" aria-hidden="true"><path d="M2 52 H40 V44 H80 V36 H120 V12 H218" class="viz-amber"/></svg>
           </article>
-          <article class="card">
-            <span class="card-ic" data-icon="scope"></span>
-            <h3 data-t>Oscilloscope</h3>
+          <article class="inst">
+            <h3><span class="inst-ic" data-icon="scope"></span><span data-t>Oscilloscope</span></h3>
             <p data-t>Roll through power-up ramps and boot loops. Catch a switch node, its ripple, or a clock that never started.</p>
             <svg class="viz" viewBox="0 0 220 56" aria-hidden="true"><path d="M2 46 H22 V12 H52 V46 H82 V12 H112 V46 H142 V12 H172 V46 H202 V12 H218" class="viz-yellow"/></svg>
           </article>
-          <article class="card">
-            <span class="card-ic" data-icon="snow"></span>
-            <h3 data-t>Thermal camera</h3>
+          <article class="inst">
+            <h3><span class="inst-ic" data-icon="snow"></span><span data-t>Thermal camera</span></h3>
             <p data-t>IR that reads like IR: bare solder looks cold. Freeze spray, isopropyl and the rosin method to pin the hot part.</p>
             <svg class="viz" viewBox="0 0 220 56" aria-hidden="true"><defs><radialGradient id="hot"><stop offset="0" stop-color="#fff3b0"/><stop offset=".35" stop-color="#ff8a3d"/><stop offset=".7" stop-color="#7a1fa2"/><stop offset="1" stop-color="#1b1446" stop-opacity="0"/></radialGradient></defs><rect x="2" y="4" width="216" height="48" rx="6" fill="#1b1446"/><circle cx="140" cy="28" r="34" fill="url(#hot)"/></svg>
           </article>
-          <article class="card">
-            <span class="card-ic" data-icon="iron"></span>
-            <h3 data-t>Rework</h3>
+          <article class="inst">
+            <h3><span class="inst-ic" data-icon="iron"></span><span data-t>Rework</span></h3>
             <p data-t>Iron, hot air, preheater. Flux matters, ground pads fight back, and pads lift if you cook them.</p>
           </article>
-          <article class="card">
-            <span class="card-ic" data-icon="target"></span>
-            <h3 data-t>Boardview</h3>
+          <article class="inst">
+            <h3><span class="inst-ic" data-icon="target"></span><span data-t>Boardview</span></h3>
             <p data-t>Both sides, 2D or a full 3D orbit. Click a part to see where its nets go. Search hundreds of parts in a keystroke.</p>
           </article>
         </div>
@@ -188,7 +180,6 @@ ok    board alive</code></pre>
       <!-- faults -->
       <section id="faults" class="section split">
         <div>
-          <p class="eyebrow" data-t>&gt; the faults</p>
           <h2 data-t>Boards fail the way real boards fail.</h2>
           <p class="section-lede" data-t>
             Not "part missing, find it". Faults come with realistic severity and realistic symptoms.
@@ -206,7 +197,6 @@ ok    board alive</code></pre>
       <!-- boards -->
       <section id="boards" class="section split">
         <div>
-          <p class="eyebrow" data-t>&gt; real boards</p>
           <h2 data-t>Any board. No per-board scripting.</h2>
           <p class="section-lede" data-t>
             Import a boardview (.brd, .tvw) or a KiCad layout. DEADBOARD finds the power tree, the
@@ -219,7 +209,6 @@ ok    board alive</code></pre>
           </p>
         </div>
         <div class="honest">
-          <p class="eyebrow" data-t>&gt; honest simulation</p>
           <h3 data-t>Every number has a source.</h3>
           <p data-t>
             Values come from the board data, datasheets and design intent. Where none exist, the
@@ -233,7 +222,6 @@ ok    board alive</code></pre>
       <!-- challenges -->
       <section id="challenges" class="section challenge">
         <div class="challenge-copy">
-          <p class="eyebrow" data-t>&gt; challenges</p>
           <h2 data-t>Break it. Lock a flag. Share the link.</h2>
           <p class="section-lede" data-t>
             Start from a working board, plant faults, and lock a flag to the repaired circuit. The

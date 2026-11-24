@@ -16,13 +16,21 @@
   --accent-ink: #04140a;
   --accent-weak: rgba(75, 227, 138, 0.12);
   --accent-line: rgba(75, 227, 138, 0.45);
+  --accent-hover: #6cf0a3;
   --brand-signal: #4be38a;
   --ok: #34c77b;
   --ok-weak: rgba(52, 199, 123, 0.12);
+  --ok-line: rgba(52, 199, 123, 0.35);
   --warn: #f2b33d;
   --warn-weak: rgba(242, 179, 61, 0.12);
+  --warn-line: rgba(242, 179, 61, 0.38);
   --danger: #ff5f57;
   --danger-weak: rgba(255, 95, 87, 0.12);
+  --danger-line: rgba(255, 95, 87, 0.38);
+  --danger-text: #ff8a84;
+  /* floating windows over the board (tutorial card, supply, meter): the surface, nearly opaque */
+  --float: rgba(15, 19, 17, 0.96);
+  --probe-black: #d4d6db;
   --radius: 6px;
   --mono: 'JetBrains Mono Variable', 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
   --sans: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -47,6 +55,16 @@ html, body, #app {
 
 .ic { display: block; flex-shrink: 0; }
 code, .mono { font-family: var(--mono); font-size: 12px; }
+
+/* browser surfaces in the palette: selection, caret, scrollbars, keyboard focus */
+::selection { background: rgba(75, 227, 138, 0.28); color: var(--text); }
+input, textarea { caret-color: var(--accent); }
+* { scrollbar-color: var(--border-strong) transparent; }
+:where(button, a, select, input, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+:where(select, input, textarea):focus-visible { outline-offset: 0; }
 b { font-weight: 600; }
 
 /* ---------- Layout ---------- */
@@ -158,9 +176,9 @@ select:focus, input:focus, textarea:focus { border-color: var(--accent); }
 .btn.ghost:hover { background: var(--surface-3); color: var(--text); }
 .btn.active { background: var(--accent-weak); border-color: var(--accent); color: var(--text); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-.btn.primary:hover { background: #2f74e6; border-color: #2f74e6; }
-.btn.warn { background: var(--warn-weak); border-color: rgba(217, 160, 6, 0.4); color: var(--text); }
-.btn.danger { background: var(--danger-weak); border-color: rgba(229, 72, 77, 0.4); color: var(--text); }
+.btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn.warn { background: var(--warn-weak); border-color: var(--warn-line); color: var(--text); }
+.btn.danger { background: var(--danger-weak); border-color: var(--danger-line); color: var(--text); }
 .btn.block { width: 100%; }
 
 /* Segmented control */
@@ -216,6 +234,31 @@ select:focus, input:focus, textarea:focus { border-color: var(--accent); }
   .layout:not(.mobile) .topbar { gap: 6px; }
   .layout:not(.mobile) .topbar-divider { margin: 0 1px; }
 }
+/* Then, step by step: the wordmark goes (the mark stays and links home), the secondary buttons
+   keep only their icon (the title still names them), the fit button goes (C key), and finally
+   Run tests and Power keep only their icon. The power icon is drawn always and shown only here. */
+.layout:not(.mobile) .power .ic { display: none; }
+@media (max-width: 1280px) {
+  .layout:not(.mobile) .brand-name,
+  .layout:not(.mobile) .brand-name + .topbar-divider { display: none; }
+  .layout:not(.mobile) #btn-bench > span,
+  .layout:not(.mobile) #btn-tutorial > span { display: none; }
+  .layout:not(.mobile) #btn-bench,
+  .layout:not(.mobile) #btn-tutorial { width: 28px; padding: 0; }
+}
+@media (max-width: 1100px) {
+  .layout:not(.mobile) #btn-fit { display: none; }
+  .layout:not(.mobile) #viz-select { max-width: 104px; }
+}
+@media (max-width: 960px) {
+  .layout:not(.mobile) #btn-verify > span { display: none; }
+  .layout:not(.mobile) #btn-verify { width: 32px; padding: 0; }
+  .layout:not(.mobile) .power .lbl { display: none; }
+  .layout:not(.mobile) .power .ic { display: block; }
+  .layout:not(.mobile) .power { gap: 6px; padding: 0 8px; }
+}
+/* the board picker gives way first, but keeps its badge readable */
+.layout:not(.mobile) .board-picker-btn { min-width: 64px; }
 /* Bench setup dropdown */
 .bench-wrap { position: relative; flex-shrink: 0; }
 .bench-pop {
@@ -371,7 +414,7 @@ select:focus, input:focus, textarea:focus { border-color: var(--accent); }
 /* ---------- Bench power supply ---------- */
 .psu-card {
   width: 264px;
-  background: rgba(17, 18, 21, 0.96);
+  background: var(--float);
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
@@ -385,7 +428,7 @@ select:focus, input:focus, textarea:focus { border-color: var(--accent); }
 .psu-lcd .l.r { text-align: right; }
 .psu-chart { display: block; width: 100%; height: 64px; }
 .psu-state { padding: 4px 10px 8px; font-size: 11.5px; color: var(--text-2); min-height: 16px; }
-.psu-state.warn { color: #f0b429; }
+.psu-state.warn { color: var(--warn); }
 /* desktop: the current chart folds away under the header (boards with power states keep it open) */
 .hud-bottom-right .psu-head { cursor: pointer; }
 .hud-bottom-right .psu-head > span:first-child::after { content: ' ▾'; color: var(--muted); }
@@ -396,7 +439,7 @@ select:focus, input:focus, textarea:focus { border-color: var(--accent); }
 .tut-card {
   width: 344px;
   max-width: 100%;
-  background: rgba(17, 18, 21, 0.96);
+  background: var(--float);
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   overflow: hidden;
@@ -436,7 +479,7 @@ select:focus, input:focus, textarea:focus { border-color: var(--accent); }
   border-radius: var(--radius);
   background: var(--surface-2);
 }
-.tut-goal.done { border-color: rgba(34, 160, 107, 0.42); background: var(--ok-weak); }
+.tut-goal.done { border-color: var(--ok-line); background: var(--ok-weak); }
 .tut-goal-head {
   display: flex;
   align-items: center;
@@ -542,7 +585,7 @@ select:focus, input:focus, textarea:focus { border-color: var(--accent); }
 .probe-tag + .probe-tag { border-left: 1px solid var(--border); }
 .probe-tag::before { content: ''; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
 .probe-tag.red::before { background: var(--danger); }
-.probe-tag.blk::before { background: #d4d6db; }
+.probe-tag.blk::before { background: var(--probe-black); }
 
 /* ---------- Toasts ---------- */
 .toast-stack {
@@ -661,8 +704,8 @@ select:focus, input:focus, textarea:focus { border-color: var(--accent); }
 }
 .obj-row .t { font-size: 12.5px; font-weight: 500; color: var(--text); }
 .obj-row .d { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
-.obj-row.pass { border-color: rgba(34, 160, 107, 0.35); }
-.obj-row.fail { border-color: rgba(229, 72, 77, 0.35); }
+.obj-row.pass { border-color: var(--ok-line); }
+.obj-row.fail { border-color: var(--danger-line); }
 
 .badge {
   display: inline-flex;
@@ -678,9 +721,9 @@ select:focus, input:focus, textarea:focus { border-color: var(--accent); }
   color: var(--text-2);
   border: 1px solid var(--border);
 }
-.badge.pass { background: var(--ok-weak); color: var(--accent); border-color: rgba(52, 199, 123, 0.3); }
-.badge.fail { background: var(--danger-weak); color: #ff8a84; border-color: rgba(255, 95, 87, 0.3); }
-.badge.warn { background: var(--warn-weak); color: var(--warn); border-color: rgba(242, 179, 61, 0.3); }
+.badge.pass { background: var(--ok-weak); color: var(--accent); border-color: var(--ok-line); }
+.badge.fail { background: var(--danger-weak); color: var(--danger-text); border-color: var(--danger-line); }
+.badge.warn { background: var(--warn-weak); color: var(--warn); border-color: var(--warn-line); }
 .badge.info { font-family: var(--mono); }
 
 /* Difficulty meter */
@@ -763,7 +806,7 @@ select:focus, input:focus, textarea:focus { border-color: var(--accent); }
   line-height: 1.5;
 }
 .callout .h { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
-.callout.warn { border-color: rgba(217, 160, 6, 0.35); }
+.callout.warn { border-color: var(--warn-line); }
 
 /* ---------- Modal & overlays ---------- */
 .modal-backdrop {
@@ -796,7 +839,7 @@ select:focus, input:focus, textarea:focus { border-color: var(--accent); }
 .drop-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(11, 12, 14, 0.85);
+  background: rgba(9, 12, 10, 0.88);
   border: 1.5px dashed var(--accent);
   display: flex;
   align-items: center;
@@ -1132,7 +1175,7 @@ body.is-mobile .bp-band { padding: 12px 0 6px; }
 .submit-card .fb-field { display: grid; gap: 4px; font-size: 12px; color: var(--text-2); }
 .submit-card input[type=url], .submit-card input[type=text], .submit-card textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 12.5px; }
 .submit-card .mod-toggle { align-items: flex-start; white-space: normal; font-size: 12px; color: var(--text-2); }
-.submit-card .fail { color: #ff8a84; font-size: 12px; }
+.submit-card .fail { color: var(--danger-text); font-size: 12px; }
 .mod-warn { font-size: 12px; color: var(--text-2); }
 .mod-warn summary { cursor: pointer; color: var(--warn); }
 .mod-warn ul { margin: 6px 0 0; padding-left: 18px; }
@@ -1222,7 +1265,7 @@ body.is-mobile {
 .layout.mobile .topbar .btn.icon { width: 38px; }
 .layout.mobile .power { gap: 6px; padding: 0 9px; }
 .layout.mobile .power .lbl { display: none; }
-.layout.mobile .power.on { color: var(--ok); border-color: rgba(52, 199, 123, 0.4); }
+.layout.mobile .power.on { color: var(--ok); border-color: var(--ok-line); }
 .layout.mobile #btn-verify { width: 42px; padding: 0; }
 .layout.mobile #btn-verify span { display: none; }
 .layout.mobile:not(.panel-collapsed) #btn-panel-toggle { background: var(--accent-weak); color: var(--accent); }
@@ -1337,7 +1380,7 @@ body.is-mobile {
 .m-probes .probe-tag::before { width: 9px; height: 9px; }
 .m-probes .probe-tag.armed { color: var(--text); }
 .m-probes .probe-tag.armed.red { background: var(--danger-weak); box-shadow: inset 0 -2px 0 var(--danger); }
-.m-probes .probe-tag.armed.blk { background: rgba(212, 214, 219, 0.1); box-shadow: inset 0 -2px 0 #d4d6db; }
+.m-probes .probe-tag.armed.blk { background: rgba(212, 214, 219, 0.1); box-shadow: inset 0 -2px 0 var(--probe-black); }
 .m-hud .psu-head { cursor: pointer; padding: 6px 10px; }
 .m-hud .psu-head > span:first-child::after { content: ' ▾'; color: var(--muted); }
 .m-hud #psu-box.expanded .psu-head > span:first-child::after { content: ' ▴'; }

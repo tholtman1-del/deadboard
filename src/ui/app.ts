@@ -389,10 +389,13 @@ export class PcbApp {
   /** Canvas aspect the board was last fitted to (mobile: refit on first layout and on rotation). */
   private fitAspect = 0;
   /**
-   * Phone: the free area (clearView) the whole board was last fitted into automatically; '' once
-   * the player moves the camera. While set, the fit follows the overlays as they appear or resize.
+   * The free area (clearView) the whole board was last fitted into automatically; '' once the
+   * player moves the camera. While set, the fit follows the overlays as they appear or resize,
+   * and the canvas as it changes shape.
    */
   private autoFramed = '';
+  /** The camera right after that fit: any other camera means the player moved it (mouse, keys, Locate, search). */
+  private autoFrameCam = '';
   private autoFrameCheck = 0;
   private psuExpanded = false;
   private toolTipsShown = new Set<ToolId>();
@@ -831,7 +834,7 @@ export class PcbApp {
             <button class="btn sm" id="btn-spice-export" title="${t('Export SPICE netlist (.cir, ngspice compatible)')}">${icon('download', 13)}<span>${t('Export SPICE netlist (.cir)')}</span></button>
               </div>
             </div>
-            <button class="power" id="btn-power" title="${t('Bench supply (P)')}"><span class="dot"></span>${m ? icon('power', 15) : ''}<span class="lbl">${t('Power')}</span></button>
+            <button class="power" id="btn-power" title="${t('Bench supply (P)')}"><span class="dot"></span>${icon('power', 15)}<span class="lbl">${t('Power')}</span></button>
             <span class="topbar-divider"></span>
             <button class="btn primary" id="btn-verify" title="${t('Run test bench')}">${icon('play', 14)}<span>${t('Run tests')}</span></button>
             <button class="btn ghost" id="btn-tutorial" title="${t('Interactive beginner tutorial')}">${icon('book', 14)}<span>${t('Tutorial')}</span></button>
@@ -1943,14 +1946,16 @@ export class PcbApp {
     this.camera.bothSides = this.board.components.length > 500;
     this.cursorWorld = null;
     this.cursorSide = 'F';
+    // the camera learns the canvas shape only when it renders: give it the current one first, or
+    // the fit frames the board for its default aspect and crops it on a narrower canvas
+    if (this.canvas.clientWidth > 1 && this.canvas.clientHeight > 1) this.camera.matrices(this.canvas.clientWidth, this.canvas.clientHeight);
     this.camera.fitBoard(this.board.w, this.board.h);
     this.recompute(true);
     this.refreshScenarioSelect();
     this.renderUI();
-    if (this.mobile) {
-      // the lesson card and readouts are on screen only now (refitOnShapeChange follows them)
-      this.fitBoardInView();
-    }
+    // the lesson card (and on phones the readouts) are on screen only now; on phones
+    // refitOnShapeChange follows them as they settle
+    this.fitBoardInView();
   }
 
   /** Opens the interactive step-by-step guide when the active board is a tutorial scenario. */
@@ -2667,9 +2672,7 @@ export class PcbApp {
         this.renderUI();
       });
     });
-    q('#btn-fit').addEventListener('click', () => {
-      this.camera.fitBoard(this.board.w, this.board.h);
-    });
+    q('#btn-fit').addEventListener('click', () => this.fitBoardInView());
     q('#viz-select').addEventListener('change', (e) => {
       this.vizMode = (e.target as HTMLSelectElement).value as VizMode;
       this.renderUI();
@@ -2874,7 +2877,13 @@ export class PcbApp {
    * Phones change shape (first layout, rotation): the camera only learns the canvas aspect when it
    * renders, so a fit made before that frames a portrait screen as if it were landscape.
    */
+  private camSig(): string {
+    const c = this.camera;
+    return [c.tx, c.ty, c.orthoHalfH, c.dist, c.mode, c.side, c.bothSides].join();
+  }
+
   private refitOnShapeChange() {
+    if (this.autoFramed && this.camSig() !== this.autoFrameCam) this.autoFramed = '';
     const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
     if (w < 2 || h < 2) return;
     const a = w / h;
@@ -2893,40 +2902,48 @@ export class PcbApp {
   }
 
   /**
-   * Phone: the part of the canvas (client px, from its top-left) that the lesson card and the
-   * readouts leave uncovered, or null when nothing covers much of it. Each overlay is cut away
+   * The part of the canvas (client px, from its top-left) that the overlays leave uncovered, or
+   * null when nothing covers much of it. Phone: the lesson card and the readouts, each cut away
    * from the side that keeps the most room (portrait: card on top, readouts below; landscape:
-   * card on the left).
+   * card on the left). Desktop: the tutorial card and the readouts, each cut from the side that
+   * leaves the board biggest; a readout that would shrink the board below 60 % stays over it.
    */
   private clearView(): { x: number; y: number; w: number; h: number } | null {
-    if (!this.mobile) return null;
     const c = this.canvas.getBoundingClientRect();
     if (c.width < 2 || c.height < 2) return null;
     let x0 = c.left, y0 = c.top, x1 = c.right, y1 = c.bottom;
-    for (const el of this.mount.querySelectorAll<HTMLElement>('#tut-box .tut-card, .m-hud')) {
+    const bw = Math.max(1, this.board.w), bh = Math.max(1, this.board.h);
+    // desktop: how big the board fits in a w × h box (phones keep their area rule)
+    const room = (w: number, h: number) => (this.mobile ? w * h : Math.min(w / bw, h / bh));
+    const full = room(x1 - x0, y1 - y0);
+    for (const el of this.mount.querySelectorAll<HTMLElement>(this.mobile ? '#tut-box .tut-card, .m-hud' : '#tut-box .tut-card, #dmm-box > *, #scope-box > *, #psu-box > *')) {
       const r = el.getBoundingClientRect();
       if (r.width < 1 || r.height < 1 || r.right <= x0 || r.left >= x1 || r.bottom <= y0 || r.top >= y1) continue;
+      const keep = { x0, y0, x1, y1 };
       const cuts = [
-        { a: (x1 - x0) * (y1 - Math.max(y0, r.bottom)), f: () => { y0 = Math.max(y0, r.bottom); } },
-        { a: (x1 - x0) * (Math.min(y1, r.top) - y0), f: () => { y1 = Math.min(y1, r.top); } },
-        { a: (x1 - Math.max(x0, r.right)) * (y1 - y0), f: () => { x0 = Math.max(x0, r.right); } },
-        { a: (Math.min(x1, r.left) - x0) * (y1 - y0), f: () => { x1 = Math.min(x1, r.left); } },
+        { a: room(x1 - x0, y1 - Math.max(y0, r.bottom)), f: () => { y0 = Math.max(y0, r.bottom); } },
+        { a: room(x1 - x0, Math.min(y1, r.top) - y0), f: () => { y1 = Math.min(y1, r.top); } },
+        { a: room(x1 - Math.max(x0, r.right), y1 - y0), f: () => { x0 = Math.max(x0, r.right); } },
+        { a: room(Math.min(x1, r.left) - x0, y1 - y0), f: () => { x1 = Math.min(x1, r.left); } },
       ];
       cuts.reduce((best, k) => (k.a > best.a ? k : best)).f();
+      if (!this.mobile && !el.closest('#tut-box') && room(x1 - x0, y1 - y0) < 0.6 * full) ({ x0, y0, x1, y1 } = keep);
     }
     const w = x1 - x0, h = y1 - y0;
     if (w < 120 || h < 90 || w * h > 0.9 * c.width * c.height) return null; // nothing to dodge, or no room left
     return { x: x0 - c.left, y: y0 - c.top, w, h };
   }
 
-  /** Whole board in view; on a phone, in the part of the screen the overlays leave free. */
+  /** Whole board in view, in the part of the canvas the overlays leave free (clearView). */
   private fitBoardInView() {
     const v = this.camera.bothSides ? null : this.clearView();
-    this.autoFramed = this.mobile ? JSON.stringify(v) : '';
-    if (!v) { this.camera.fitBoard(this.board.w, this.board.h); return; }
+    this.autoFramed = JSON.stringify(v);
     this.camera.fitBoard(this.board.w, this.board.h); // remembers the board size for later fits
-    const m = 1.12; // the margin fitBoard leaves
-    this.camera.frameIn(this.board.w / 2, this.board.h / 2, (this.board.w / 2) * m, (this.board.h / 2) * m, v, this.canvas.clientWidth, this.canvas.clientHeight);
+    if (v) {
+      const m = 1.12; // the margin fitBoard leaves
+      this.camera.frameIn(this.board.w / 2, this.board.h / 2, (this.board.w / 2) * m, (this.board.h / 2) * m, v, this.canvas.clientWidth, this.canvas.clientHeight);
+    }
+    this.autoFrameCam = this.camSig();
   }
 
   /** A tutorial step's target in view (Locate): on a phone, clear of the lesson card. */
@@ -3277,7 +3294,7 @@ export class PcbApp {
       this.flipSide();
       return;
     }
-    if (k === 'c') { this.camera.fitBoard(this.board.w, this.board.h); return; }
+    if (k === 'c') { this.fitBoardInView(); return; }
     if (k === 'p') { this.togglePower(); return; }
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -4232,11 +4249,11 @@ export class PcbApp {
       <div class="card">
         <div class="card-title lg">
           <span>${this.esc(t(s.meta.title))}</span>
-          <span class="badge info">${t('{moves} moves', { moves: `${this.moves}${s.meta.par ? ` / ${s.meta.par}` : ''}` })}</span>
+          <span class="badge info"${s.meta.par ? ` title="${this.esc(t('Your moves / par: the fewest moves that fix this board'))}"` : ''}>${t('{moves} moves', { moves: `${this.moves}${s.meta.par ? ` / ${s.meta.par}` : ''}` })}</span>
         </div>
         <div class="row" style="justify-content:space-between">
           <span class="muted">${t('By {author}', { author: this.esc(t(s.meta.author)) })}</span>
-          ${this.levelPill(s)}
+          ${this.levelPill(s, { named: true })}
         </div>
         <div class="text-2">${this.esc(this.txt(t(s.meta.description)))}</div>
         ${s.meta.credits ? `
@@ -4306,7 +4323,7 @@ export class PcbApp {
       <div class="card">
         <div class="card-title">
           <span>${t('Objectives')}</span>
-          <button class="btn sm primary" id="btn-panel-verify">${icon('play', 12)}<span>${t('Run tests')}</span></button>
+          <button class="btn sm" id="btn-panel-verify">${icon('play', 12)}<span>${t('Run tests')}</span></button>
         </div>
         ${v && this.lastVerifyBy ? `<div class="muted" style="font-size:12px">${t('Tested with the solver mod {solver}, not an official solver.', { solver: this.esc(this.codeHost.solvers().find((x) => x.address === this.lastVerifyBy)?.name ?? this.lastVerifyBy) })}</div>` : ''}
         ${s.objectives.length === 0 ? `<div class="muted">${t('No objectives defined.')}</div>` : ''}
@@ -6191,7 +6208,9 @@ export class PcbApp {
     }
     this.thermal?.step(dt);
     this.flex.advance(dt);
-    if (this.mobile) this.refitOnShapeChange();
+    // phones refit on every change of shape; desktops on the first frame (the first with the real
+    // canvas shape) and then only while the view is the untouched automatic fit
+    if (this.mobile || !this.fitAspect || this.autoFramed) this.refitOnShapeChange();
     if (this.rework && this.reworkMode.realistic) {
       const evs = this.rework.update(dt);
       if (evs.length) this.onReworkEvents(evs);
