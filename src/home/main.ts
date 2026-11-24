@@ -51,7 +51,7 @@ try {
 } catch { /* not supported */ }
 addEventListener('load', () => { if (shownMs < 0) shownMs = performance.now(); });
 const msBucket = (ms: number) => (ms < 0 ? 'not yet' : ms < 1000 ? '<1s' : ms < 2500 ? '1-2.5s' : ms < 4000 ? '2.5-4s' : '4s+');
-let hero = 'picture';
+let hero = 'teaser';
 let teaserState = 'none';
 onFirstHide(() => {
   if ((navigator as Navigator & { webdriver?: boolean }).webdriver) return;
@@ -99,75 +99,9 @@ void setLanguage().catch(() => document.documentElement.classList.remove('i18n-w
 
 for (const el of document.querySelectorAll<HTMLElement>('[data-year]')) el.textContent = String(new Date().getFullYear());
 
-// Power-up log: lines appear like a terminal as the block scrolls into view (static when reduced motion is on).
-const log = document.querySelector<HTMLElement>('[data-bootlog] code');
-const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-if (log && !reduce && 'IntersectionObserver' in window) {
-  const lines = log.textContent!.split('\n');
-  log.textContent = '';
-  const io = new IntersectionObserver((entries) => {
-    if (!entries.some((e) => e.isIntersecting)) return;
-    io.disconnect();
-    let i = 0;
-    const next = () => {
-      if (i >= lines.length) { log.classList.add('done'); return; }
-      const line = document.createElement('span');
-      line.className = i === lines.length - 1 ? 'ok' : i === 0 ? 'cmd' : '';
-      line.textContent = lines[i] + '\n';
-      log.appendChild(line);
-      i++;
-      setTimeout(next, i === 1 ? 500 : 380);
-    };
-    next();
-  }, { threshold: 0.4 });
-  io.observe(log);
-}
-
-// The hero board in live 3D, loaded once it is on screen (not on Save-Data connections). The
-// screenshot stays when the board cannot load or the browser cannot draw it.
-const shot = document.querySelector<HTMLElement>('.hero-shot');
-const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
-// Phones load it only on a tap: building the 530-part board froze a mid-range phone for ~3.5 s
-// (4× CPU throttling: one 2.9 s task) right while the visitor reads the hero, and it costs 0.7 MB.
-const phone = matchMedia('(pointer: coarse)').matches && matchMedia('(max-width: 820px), (max-height: 600px)').matches;
-async function loadBoard3d(s: HTMLElement) {
-  try {
-    const { mountBoard3d } = await import('./board3d');
-    relabelBoard = await mountBoard3d(s.querySelector('.frame')!, s.querySelector('img')!, s.querySelector('.frame-hint'), s.querySelector('figcaption'));
-    if (hero === 'picture') hero = 'live';
-  } catch (e) {
-    console.warn('3D board unavailable, keeping the screenshot:', e);
-  }
-}
-if (shot && !saveData && 'IntersectionObserver' in window && phone) {
-  const frame = shot.querySelector<HTMLElement>('.frame')!;
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'tap-3d';
-  frame.appendChild(btn);
-  const hint = shot.querySelector<HTMLElement>('.frame-hint');
-  const label = () => { btn.textContent = t('Tap to turn it in 3D'); if (hint) hint.textContent = ''; };
-  label();
-  relabelBoard = label;
-  btn.addEventListener('click', () => {
-    hero = 'tapped';
-    btn.disabled = true;
-    btn.textContent = t('Loading…');
-    void loadBoard3d(shot).finally(() => btn.remove());
-  }, { once: true });
-} else if (shot && !saveData && 'IntersectionObserver' in window) {
-  const io = new IntersectionObserver((entries) => {
-    if (!entries.some((e) => e.isIntersecting)) return;
-    io.disconnect();
-    void loadBoard3d(shot);
-  }, { rootMargin: '200px' });
-  io.observe(shot);
-}
-
-// Phones: a tiny playable first repair in the hero (index.html .hero-teaser). Pressing SW1 leaves
+// A tiny playable first repair in the hero (index.html .hero-teaser), on every screen. Pressing SW1 leaves
 // the LED dark and the supply at 0.0 mA; the way to find out why is the bench.
 const teaser = document.querySelector<HTMLElement>('[data-teaser]');
-if (teaser && teaser.offsetParent) hero = 'teaser';
 if (teaser) {
   const btn = teaser.querySelector<SVGGElement>('[data-teaser-btn]')!;
   const cap = teaser.querySelector<HTMLElement>('[data-teaser-cap]')!;

@@ -1,4 +1,4 @@
-# DEADBOARD — handoff (updated 2026-11-23: own analytics live, hidden difficulty, bench + homepage UX rounds, real boards drawn right; next: read the data ~11-26)
+# DEADBOARD — handoff (updated 2026-11-24: design pass — PRODUCT.md / DESIGN.md, keyboard + screen-reader bench, picker list, first-screen pointer, learner homepage; next: read the data ~11-26/27)
 
 Goal: make DEADBOARD (formerly PCB//FIX) a realistic board-repair trainer, as close to a real bench as possible,
 **universal** (any board, not just the MacBook), with honest provenance for every value.
@@ -6,6 +6,30 @@ No reference hardware is available, so realism is validated against *design inte
 (schematic/BOM values, rail names, datasheets) and physics checks — not measurements.
 
 ## Status (start here)
+
+- **2026-11-24 — design pass (Impeccable skill). Read this first.** Product and design records now
+  live in `PRODUCT.md` (learners and schools first; real simulation + free/open/private; WCAG 2.2 AA)
+  and `DESIGN.md` ("The Calibrated Instrument", tokens in `src/ui/tokens.css`). Pushed and live
+  14:34 UTC (`0b5d92b`): keyboard + screen-reader bench (Tab moves focus; **2D/3D is V**; Settings →
+  Key shortcuts; dialogs; board cursor in `src/ui/boardcursor.ts`, which names only what the
+  renderer draws; Inspector → Pads probing), shared tokens, phone tool strip, picker Library as a
+  ruled list. **Made after that push (see `git log`):** an on-board lesson pointer over each step's
+  target, quick actions hidden when their tool is already active, First Light step 1 reads "Click
+  push button SW1…"; homepage rebuilt for learners: the playable flashlight teaser is the hero on
+  every screen (the 3D MNT hero and `src/home/board3d.ts` are gone), sections are now
+  hero · path · bench · faults · boards ("Make your own") · final (bootlog and challenges removed).
+  - **Data read 11-24 (the baseline for these changes):** homepage (`home left`, 11-23 10:30 →
+    11-24 14:40, 410 visits): away 33 % (phones 35 %, laptops 32 %), to bench 50 %, to a page 10 %;
+    laptops: 74 % never left the hero. Bench (Umami `bench left early`, 2 days): 311 of 768 bench
+    loads left in the first minute without a tool (phones 141/301, desktop 170/467; 266 had the
+    bench up; step 1 = 176). Collector (D1, 2 days): First Light fixed 35 % desktop / 20 % phone,
+    left 40 % / 66 %; first visit desktop tool 59 % → tests 48 % → fixed 35 %, phone 56 % → 34 % →
+    20 %. HARD: ESP32 DevKit-LiPo 19 %, ESP32-C3 DevKit 15 %, ESP32-C3 Rust 25 %, MNT 5 %.
+  - **Next read (~11-26/27):** `npm run umami -- home` (note the renamed `seen` sections: `path`
+    replaces `bootlog`), `npm run umami -- values "bench left early" reached`, `npm run
+    attempts-report -- --by layout` — compare with the numbers above. No A/B (user's rule).
+  - `test/solve.test.ts` "100x pickAt" (25 ms budget) is flaky on this machine on HEAD too
+    (needs `test/private`); not caused by this work.
 
 - **NEXT SESSION — start here (around 2026-11-26).** Session of 2026-11-23 is fully pushed and live
   (last code commit `ef0bf0c`, deployed ~16:55 UTC). It was an analytics + engagement day, plus a

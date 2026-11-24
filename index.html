@@ -73,10 +73,10 @@
     <header class="nav">
       <a class="logo" href="./" aria-label="DEADBOARD home" data-t-attr="aria-label"><span data-mark></span><span class="wordmark">DEADBOARD</span></a>
       <nav aria-label="Sections" data-t-attr="aria-label">
+        <a href="#path" data-t>Path</a>
         <a href="#bench" data-t>Bench</a>
         <a href="#faults" data-t>Faults</a>
-        <a href="#boards" data-t>Boards</a>
-        <a href="#challenges" data-t>Challenges</a>
+        <a href="#boards" data-t>Make your own</a>
         <a href="./learn.html" data-t>Learn</a>
         <a href="./modding.html" data-t>Mods</a>
       </nav>
@@ -103,7 +103,7 @@
           <p class="req"><span data-t>Free · no sign-up · runs in your browser · beginners welcome</span><span class="live-stats" data-live-stats hidden></span></p>
         </div>
 
-        <!-- phones: a tiny playable first repair instead of the 3D board (src/home/main.ts) -->
+        <!-- a tiny playable first repair, the same on every screen (src/home/main.ts) -->
         <figure class="hero-teaser" data-teaser>
           <svg viewBox="0 0 320 184" role="img" aria-labelledby="teaser-cap">
             <rect x="4" y="4" width="312" height="176" rx="10" class="tz-pcb"/>
@@ -122,24 +122,26 @@
           <figcaption id="teaser-cap"><span data-teaser-cap data-t>Press the button. Does the LED light up?</span></figcaption>
         </figure>
 
-        <figure class="hero-shot">
-          <div class="frame">
-            <div class="frame-bar"><i></i><i></i><i></i><span>deadboard — bench</span><span class="frame-hint"></span></div>
-            <img data-t-attr="alt" src="./home/bench.jpg" srcset="./home/bench-1400.jpg 1400w, ./home/bench.jpg 2088w" sizes="(max-width: 700px) 100vw, 1160px" width="2088" height="990" fetchpriority="high" decoding="async" alt="The open-hardware MNT Reform 2 laptop mainboard in 3D on the DEADBOARD bench, with the oscilloscope on the 3.3 V converter's switch node and the bench supply reading 16.2 mA at 30 V." />
-          </div>
-          <figcaption data-t>MNT Reform 2 laptop mainboard (open hardware, 530 parts), repaired and running: the 3.3&nbsp;V converter switching on the scope, 16.2&nbsp;mA from 30&nbsp;V on the supply.</figcaption>
-        </figure>
       </section>
 
-      <!-- boot log -->
-      <section class="bootlog" aria-label="A simulated power-up" data-t-attr="aria-label">
-        <pre class="term" data-bootlog><code>$ power on --supply 30V --rail 30V_GATE
-G3H   standby .....................  0.0 mA
-seq   S5 → S4 → S3 → S0 ...........  0.0 mA
-S0    +5V +3V3 +1V2 up ............ 10.3 mA
-S0    loads settle ................ 16.2 mA
-ok    board alive</code></pre>
-        <p class="term-note" data-t>That's the board above, powering up on the bench (its rail names carry no power states, so every converter starts at S0). A stuck rail stalls the sequence. A short makes it loop.</p>
+      <!-- the path: lessons → training boards → real open hardware -->
+      <section id="path" class="section">
+        <h2 data-t>From a flashlight to a laptop mainboard.</h2>
+        <p class="section-lede" data-t>Every board is a real circuit with a real fault. You probe it, work out what's wrong, fix it, and the test bench proves the repair.</p>
+        <ol class="path">
+          <li>
+            <h3 data-t>Six lessons</h3>
+            <p data-t>A dead flashlight first, then a cold joint, a solder bridge, a backwards LED, Ohm's law and a voltage divider. Each one adds a tool.</p>
+          </li>
+          <li>
+            <h3 data-t>Training boards</h3>
+            <p data-t>Hand-made circuits with harder faults: a transistor switch, a short that hides, a rail that sags under load.</p>
+          </li>
+          <li>
+            <h3 data-t>Real open hardware</h3>
+            <p data-t>ESP32 development boards, the Rana Tadpole controllers, an Antmicro Jetson baseboard and the MNT Reform 2 laptop mainboard: 530 parts.</p>
+          </li>
+        </ol>
       </section>
 
       <!-- the bench -->
@@ -194,18 +196,14 @@ ok    board alive</code></pre>
         </ul>
       </section>
 
-      <!-- boards -->
+      <!-- make your own (authoring, import, mods) -->
       <section id="boards" class="section split">
         <div>
-          <h2 data-t>Any board. No per-board scripting.</h2>
+          <h2 data-t>Make your own.</h2>
           <p class="section-lede" data-t>
-            Import a boardview (.brd, .tvw) or a KiCad layout. DEADBOARD finds the power tree, the
-            regulators and the power states from the netlist and its net names, then simulates
-            the whole board with a SPICE engine. Export it as an ngspice netlist whenever you like.
-          </p>
-          <p class="section-lede" data-t>
-            Made something? Package your boards, their BOM and schematic as a <a href="./modding.html">mod</a>
-            that anyone can install.
+            Import a boardview (.brd, .tvw) or a KiCad layout: DEADBOARD finds the power tree and
+            simulates the whole board with a SPICE engine. Plant faults, lock a flag that only a real
+            repair unlocks, and share it as a link. Or package your boards as a <a href="./modding.html">mod</a>.
           </p>
         </div>
         <div class="honest">
@@ -217,25 +215,6 @@ ok    board alive</code></pre>
             against your bench.
           </p>
         </div>
-      </section>
-
-      <!-- challenges -->
-      <section id="challenges" class="section challenge">
-        <div class="challenge-copy">
-          <h2 data-t>Break it. Lock a flag. Share the link.</h2>
-          <p class="section-lede" data-t>
-            Start from a working board, plant faults, and lock a flag to the repaired circuit. The
-            flag is encrypted with the board's topology, so only a real repair unlocks it.
-            There's no peeking and no shortcut. Share it as a file or a single link.
-          </p>
-        </div>
-        <pre class="term small" aria-label="Example challenge" data-t-attr="aria-label"><code>$ verify
-✗ V(TP1) = 0.42 V   expected 2.30–2.70 V
-✗ D1 is OFF          expected ON
-<span class="dim"># …swap R2 for 10 kΩ, bridge the broken bottom trace…</span>
-$ verify
-✓ all checks green
-✓ flag captured: PCB{…}</code></pre>
       </section>
 
       <!-- final CTA -->

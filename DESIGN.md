@@ -346,8 +346,8 @@ pick.
 
 The interface is flat at rest. Structure comes from the four tonal steps (Bench Black → Surface →
 Surface 2 → Surface 3) and 1px hairlines. Shadows are reserved for objects that float over the
-board or the page: bench windows, toasts, menus, tooltips, modals and the homepage's screenshot
-frame. They are dark and soft, never coloured.
+board or the page: bench windows, toasts, menus, tooltips, modals and the lesson pointer. They
+are dark and soft, never coloured.
 
 ### Shadow Vocabulary
 - **Window** (`box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35)`): the multimeter and toasts.
@@ -368,7 +368,7 @@ Corners are small and consistent, like machined panels. **6px** (`md`) is the de
 buttons, inputs, rows, toasts and tooltips. **4px** (`sm`) is for badges, keycaps and the inner
 segments of segmented controls. **8px** (`lg`) is for floating bench windows and menus. **10px**
 (`xl`) is for modals, picker cards and the 44px touch buttons. **12px** (`frame`) is reserved for
-the homepage's large framed screenshot and callouts. Pills (`999px`) are only for filter chips and
+large callouts such as the "Every number has a source" box. Pills (`999px`) are only for filter chips and
 tags, and dots are only for status. Level numbers sit in 4px square-cornered boxes tinted with
 their band colour. Borders are always 1px; a 2px line marks only the active tab underline and
 progress bars.
@@ -478,10 +478,18 @@ Red or Probe Black. A pressed button takes the Active style. This is the meter w
 (keyboard and screen reader), and on a phone a sure hit on pads too small to tap.
 
 ### Terminal well
-On the homepage and in docs code blocks: Terminal Well background, a Hairline Strong border, a
-10px radius, mono 14px at line height 1.75 in Terminal Text. Commands are in Text, OK results in
-Phosphor Green bold, dim lines in Muted, and a blinking █ ends a finished log. It only ever shows
-output the app really produces.
+Code blocks in the docs: Terminal Well background, a Hairline Strong border, a 10px radius, mono
+13px in Terminal Text. It only ever shows real commands and output.
+
+### Lesson pointer
+A small Phosphor Green label with Phosphor Ink text and a 5px notch, pinned over the lesson step's
+target on the board ("Push button SW1"). It says where the first action is, and leaves when the
+step is done. It never takes a click, fades in once, and sits under the lesson card.
+
+### Homepage hero
+The headline and a playable first repair, side by side on laptops and stacked on phones: a tiny
+flashlight board drawn in SVG with a pulsing ring on SW1. Pressing it shows 0.0 mA and turns the
+main button into "Find the fault →". No screenshot frame and no live 3D in the hero.
 
 ### Toasts
 A 320px stack at the top right of the viewport. Surface, a 6px radius and the Window shadow,
