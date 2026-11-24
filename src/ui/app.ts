@@ -69,6 +69,7 @@ import { boardDiff, encodeSnapshot, type BenchSnapshot } from '../snapshot';
 import { BRAND, markSvg } from './logo';
 import { beginnerPrimerHtml, CHALLENGE_TRACK_IDS, lessonDock, TUTORIAL_SCENARIO_IDS, TUTORIAL_TOPICS, getTutorialSteps, isTutorialScenario, nextTutorialScenarioId, type TutorialStep } from './tutorial';
 import { TOOL_SHORT, TOOL_TIP_PHONE, TouchGestures, splitLead, touchCopy, wantsMobileLayout } from './touch';
+import { cursorStops, describeAt, stepToward } from './boardcursor';
 
 type ToolId = 'inspect' | 'dmm' | 'iron' | 'wick' | 'flip180' | 'jumper' | 'knife' | 'replace' | 'freeze' | 'ipa' | 'press' | 'hotair' | 'scope' | 'rosin';
 type PanelTab = 'mission' | 'inspect' | 'studio' | 'mods';
@@ -224,6 +225,10 @@ export class PcbApp {
   private hovered: PickHit | null = null;
   private cursorWorld: V2 | null = null;
   private cursorSide: Side = 'F';
+  /** Keyboard board cursor (docs: DESIGN.md → Board cursor); shown while the board view has keyboard focus. */
+  private kbCursor: { pt: V2; side: Side } | null = null;
+  private kbActive = false;
+  private kbUsed = false;
 
   private probeRed: ProbePin | null = null;
   private probeBlack: ProbePin | null = null;
@@ -347,6 +352,10 @@ export class PcbApp {
   private downPx = 0;
   private downPy = 0;
   private spaceHeld = false;
+  private lastSaidReading = '';
+  private announceTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Single-character keyboard shortcuts (1–9, F, C, P, V…); Settings can turn them off. */
+  private keyShortcuts = (() => { try { return localStorage.getItem('pcbfix_key_shortcuts') !== '0'; } catch { return true; } })();
 
   // Floating window & sidepanel drag state
   private tutPos: V2 = [0, 0];
@@ -765,6 +774,7 @@ export class PcbApp {
       }
     }
     this.mount.innerHTML = `
+      ${m ? '' : `<a class="skip-board" href="#gpu-canvas">${t('Skip to the board')}</a>`}
       <div class="layout${m ? ' mobile panel-collapsed' : ''}" id="layout">
         <header class="topbar">
           <div class="topbar-group">
@@ -784,18 +794,18 @@ export class PcbApp {
             <input type="file" id="file-input" accept=".brd,.tvw,.json,.pcbfix.json,.kicad_pcb,.zip" hidden />
           </div>
           <div class="topbar-group">
-            <div class="seg" id="seg-view" title="${t('Camera (Tab)')}">
+            <div class="seg" id="seg-view" role="group" aria-label="${t('Camera')}" title="${t('Camera (V)')}">
               <button data-view="2d">2D</button>
               <button data-view="3d">3D</button>
             </div>
-            <div class="seg" id="seg-side" title="${t('Board side (F)')}">
+            <div class="seg" id="seg-side" role="group" aria-label="${t('Board side')}" title="${t('Board side (F)')}">
               <button data-side="F">${t('Top')}</button>
               <button data-side="both">${t('Both')}</button>
               <button data-side="B">${t('Bottom')}</button>
             </div>
             <button class="btn ghost icon" id="btn-fit" title="${t('Fit to view (C)')}">${icon('fit')}</button>
             <span class="topbar-divider"></span>
-            <select id="viz-select" title="${t('Display mode')}">
+            <select id="viz-select" title="${t('Display mode')}" aria-label="${t('Display mode')}">
               <option value="realistic">${t('Realistic')}</option>
               <option value="heatmap">${t('Voltage map')}</option>
               <option value="thermal">${t('Thermal')}</option>
@@ -846,6 +856,7 @@ export class PcbApp {
                 <div class="bench-row"><span>${t('Sound')}</span><button class="btn sm" id="btn-sound"></button></div>
                 <div class="bench-row"><span>${t('3D orbit')}</span><button class="btn sm" id="btn-invert-orbit"></button></div>
                 ${this.statsAvailable ? `<div class="bench-row"><span>${t('Puzzle stats')}</span><button class="btn sm" id="btn-stats"></button></div>` : ''}
+                <div class="bench-row"><span>${t('Key shortcuts')}</span><button class="btn sm" id="btn-keys"></button></div>
                 <label class="bench-row"><span>${lang() === 'en' ? 'Language' : `${t('Language')} · Language`}</span>${this.langPickerHtml('full')}</label>
               </div>
             </div>
@@ -856,21 +867,22 @@ export class PcbApp {
 
         ${m ? this.mobileDockHtml() : `<aside class="tooldock" id="tooldock">
           ${TOOLS.map((tl) => `
-            <button class="tool-btn ${tl.id === this.activeTool ? 'active' : ''}" data-tool="${tl.id}" data-tip="${this.esc(t(tl.lbl))} · ${tl.key}" aria-label="${this.esc(t(tl.tip))}">
+            <button class="tool-btn ${tl.id === this.activeTool ? 'active' : ''}" data-tool="${tl.id}" data-tip="${this.esc(t(tl.lbl))} · ${tl.key}" aria-label="${this.esc(t(tl.lbl))}" aria-description="${this.esc(t(tl.tip))}" aria-keyshortcuts="${tl.key.toUpperCase()}" aria-pressed="${tl.id === this.activeTool}">
               ${icon(tl.ico, 18)}
               <span class="key">${tl.key}</span>
             </button>
           `).join('')}
-          <button class="tool-btn more-tools" id="btn-more-tools" data-tip="${t('More tools')}" hidden>${icon('plus', 18)}</button>
+          <button class="tool-btn more-tools" id="btn-more-tools" data-tip="${t('More tools')}" aria-label="${t('More tools')}" hidden>${icon('plus', 18)}</button>
           <div class="dock-spacer"></div>
           <div class="dock-sep"></div>
-          <button class="tool-btn" id="btn-undo" data-tip="${t('Undo')} · ⌘Z">${icon('undo', 18)}</button>
-          <button class="tool-btn" id="btn-redo" data-tip="${t('Redo')} · ⇧⌘Z">${icon('redo', 18)}</button>
-          <button class="tool-btn" id="btn-reset" data-tip="${t('Reset board')}">${icon('reset', 18)}</button>
+          <button class="tool-btn" id="btn-undo" data-tip="${t('Undo')} · ⌘Z" aria-label="${t('Undo')}" aria-keyshortcuts="Control+Z Meta+Z">${icon('undo', 18)}</button>
+          <button class="tool-btn" id="btn-redo" data-tip="${t('Redo')} · ⇧⌘Z" aria-label="${t('Redo')}" aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z">${icon('redo', 18)}</button>
+          <button class="tool-btn" id="btn-reset" data-tip="${t('Reset board')}" aria-label="${t('Reset board')}">${icon('reset', 18)}</button>
         </aside>`}
 
         <main class="viewport" id="viewport">
-          <canvas id="gpu-canvas"></canvas>
+          <canvas id="gpu-canvas" tabindex="0" role="application" aria-roledescription="${t('board')}" aria-describedby="board-keys"></canvas>
+          <div class="sr-only" id="board-keys">${t('Arrow keys move the board cursor between pads, traces and parts; Shift+arrows move in small steps. Enter uses the current tool there; with the multimeter, Shift+Enter places the black probe. Escape cancels a jumper.')}</div>
           <div class="hud-top-left"><div id="tut-box"></div></div>
           ${m ? `
           <div class="m-viewctl">
@@ -881,19 +893,20 @@ export class PcbApp {
           <div class="m-hud">${this.rotateHintHtml()}<div id="scope-box"></div><div id="psu-box"></div><div id="dmm-box"></div></div>` : `
           <div class="hud-bottom-left"><div id="dmm-box"></div></div>
           <div class="hud-bottom-right"><div id="scope-box"></div><div id="psu-box"></div></div>`}
-          <div class="toast-stack" id="toasts"></div>
+          <div class="toast-stack" id="toasts" role="status" aria-live="polite"></div>
+          <div class="sr-only" id="sr-live" role="status" aria-live="polite" aria-atomic="true"></div>
         </main>
 
         <aside class="sidepanel" id="sidepanel">
           <div class="sidepanel-resizer" id="sidepanel-resizer" title="${t('Drag to resize panel')}"></div>
-          <div class="tabs">
-            <button class="tab active" data-tab="mission">${t('Overview')}</button>
-            <button class="tab" data-tab="inspect">${t('Inspector')}</button>
-            <button class="tab" data-tab="studio">${t('Author')}</button>
-            <button class="tab" data-tab="mods" hidden>${t('Mods')}</button>
+          <div class="tabs" role="tablist" aria-label="${t('Panel')}">
+            <button class="tab active" role="tab" aria-selected="true" aria-controls="side-body" id="tab-mission" data-tab="mission">${t('Overview')}</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="side-body" id="tab-inspect" data-tab="inspect">${t('Inspector')}</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="side-body" id="tab-studio" data-tab="studio">${t('Author')}</button>
+            <button class="tab" role="tab" aria-selected="false" aria-controls="side-body" id="tab-mods" data-tab="mods" hidden>${t('Mods')}</button>
             ${m ? `<button class="btn ghost icon m-sheet-close" id="m-panel-close" title="${t('Close')}">${icon('x', 16)}</button>` : ''}
           </div>
-          <div class="panel-body" id="side-body"></div>
+          <div class="panel-body" id="side-body" role="tabpanel"></div>
         </aside>
 
         <footer class="statusbar">
@@ -903,7 +916,7 @@ export class PcbApp {
             <span class="sb-item"><span class="kbd">RMB</span>${t('Orbit')}</span>
             <span class="sb-item"><span class="kbd">MMB</span>${t('Pan')}</span>
             <span class="sb-item"><span class="kbd">F</span>${t('Flip')}</span>
-            <span class="sb-item"><span class="kbd">Tab</span>2D/3D</span>
+            <span class="sb-item"><span class="kbd">V</span>2D/3D</span>
           </div>
         </footer>
       </div>
@@ -924,8 +937,258 @@ export class PcbApp {
     this.modalRootEl = this.mount.querySelector('#modal-root')!;
     this.dropOverlayEl = this.mount.querySelector('#drop-overlay')!;
     this.fileInputEl = this.mount.querySelector('#file-input')!;
+    this.wireModalA11y();
+    this.sideBodyEl.addEventListener('click', (e) => this.onPadProbeClick(e));
+    this.wireBoardCursor();
     if (m) this.fillMobileMore();
     this.refreshScenarioSelect();
+  }
+
+  /**
+   * The four modals (boards, mods, help, feedback) are re-rendered as HTML on every state change.
+   * After each render this gives the window dialog semantics, moves focus into it when it opens,
+   * keeps focus on the same control across re-renders, holds Tab inside it, and hands focus back
+   * to whatever opened it when it closes.
+   */
+  private wireModalA11y() {
+    const root = this.modalRootEl;
+    let opener: HTMLElement | null = null;
+    let lastKey = '';
+    const keyOf = (el: Element) => el.id ? `#${el.id}` : [...el.attributes].filter((a) => a.name.startsWith('data-')).map((a) => `[${a.name}="${a.value}"]`).join('');
+    const focusables = (box: Element) => [...box.querySelectorAll<HTMLElement>('button, a[href], input:not([type="hidden"]), select, textarea, summary, [tabindex]:not([tabindex="-1"])')]
+      .filter((el) => !el.hidden && !(el as HTMLButtonElement).disabled && el.getClientRects().length > 0);
+    root.addEventListener('focusin', (e) => { const k = keyOf(e.target as Element); if (k) lastKey = k; });
+    root.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const box = root.querySelector<HTMLElement>('.modal');
+      if (!box) return;
+      const list = focusables(box);
+      if (!list.length) { e.preventDefault(); box.focus(); return; }
+      const first = list[0], last = list[list.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === box)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
+    new MutationObserver(() => {
+      const box = root.querySelector<HTMLElement>('.modal');
+      if (!box) {
+        // closed: back to the control that opened it
+        if (opener?.isConnected && (!document.activeElement || document.activeElement === document.body)) opener.focus({ preventScroll: true });
+        opener = null;
+        lastKey = '';
+        return;
+      }
+      if (!box.hasAttribute('role')) {
+        box.setAttribute('role', 'dialog');
+        box.setAttribute('aria-modal', 'true');
+        box.tabIndex = -1;
+        const h = box.querySelector<HTMLElement>('.modal-head h2');
+        if (h) { h.id ||= 'modal-title'; box.setAttribute('aria-labelledby', h.id); }
+      }
+      if (box.contains(document.activeElement)) return;
+      if (!opener) {
+        // just opened
+        const a = document.activeElement as HTMLElement | null;
+        opener = a && a !== document.body ? a : null;
+        // the window itself (its title is read; no phone keyboard pops up for a search field)
+        box.focus({ preventScroll: true });
+        return;
+      }
+      // re-rendered while open: the same control again, or the window
+      let same: HTMLElement | null = null;
+      try { same = lastKey ? box.querySelector<HTMLElement>(lastKey) : null; } catch { same = null; }
+      (same ?? box).focus({ preventScroll: true });
+    }).observe(root, { childList: true });
+  }
+
+  /** Canvas size in device pixels (as the camera and the pointer handlers use it). */
+  private canvasDims(): { w: number; h: number } {
+    const r = this.canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    return { w: Math.max(1, r.width * dpr), h: Math.max(1, r.height * dpr) };
+  }
+
+  /** A board point on screen (device px), the inverse of `screenToBoard` + `resolveBoardPt`. */
+  private boardToScreen(pt: V2, side: Side): { sx: number; sy: number } | null {
+    const { w, h } = this.canvasDims();
+    const { viewProj } = this.camera.matrices(w, h);
+    const both = this.camera.bothSides;
+    const x = both && side === 'B' ? this.board.w * 2 + BOTH_GAP - pt[0] : pt[0];
+    const z = ((both || side === 'F') ? 1 : -1) * this.board.thickness / 2;
+    const c = transform4(viewProj, x, pt[1], z, 1);
+    if (Math.abs(c[3]) < 1e-7) return null;
+    return { sx: (c[0] / c[3] * 0.5 + 0.5) * w, sy: (0.5 - c[1] / c[3] * 0.5) * h };
+  }
+
+  /**
+   * Keyboard board cursor: the board view is one Tab stop. Arrow keys jump between pads, vias,
+   * parts, blobs, jumper ends and points along traces (in the direction they point on screen);
+   * Shift+arrows move 0.5 mm; Enter uses the current tool there, like a click (Shift+Enter: the
+   * meter's black probe); Escape cancels a jumper. It says only what the board shows.
+   */
+  private wireBoardCursor() {
+    this.mount.querySelector('.skip-board')?.addEventListener('click', (e) => { e.preventDefault(); this.canvas.focus(); this.kbEnter(); });
+    const dirs: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    this.canvas.addEventListener('focus', () => { if (this.canvas.matches(':focus-visible')) this.kbEnter(); });
+    this.canvas.addEventListener('blur', () => { this.kbActive = false; });
+    this.canvas.addEventListener('keydown', (e) => {
+      const d = dirs[e.key];
+      if (d) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!this.kbActive) this.kbEnter();
+        this.kbMove(d, e.shiftKey);
+        return;
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!this.kbActive) { this.kbEnter(); return; }
+        this.kbApply(e.shiftKey);
+        return;
+      }
+      if (e.key === 'Escape' && this.jumperStart) {
+        e.stopPropagation();
+        this.jumperStart = null;
+        this.announce(t('Jumper cancelled.'));
+      }
+    });
+  }
+
+  private kbEnter() {
+    const side = this.camera.bothSides ? (this.kbCursor?.side ?? 'F') : this.camera.side;
+    if (!this.kbCursor || (!this.camera.bothSides && this.kbCursor.side !== side)) {
+      const sel = this.board.components.find((c) => c.id === this.selectedCompId);
+      if (sel && (this.camera.bothSides || sel.side === side)) this.kbCursor = { pt: sel.at, side: sel.side };
+      else {
+        // the stop nearest the middle of the board
+        const mid: V2 = [this.board.w / 2, this.board.h / 2];
+        let best: V2 = mid, bd = Infinity;
+        for (const p of cursorStops(this.board, side)) { const d = Math.hypot(p[0] - mid[0], p[1] - mid[1]); if (d < bd) { bd = d; best = p; } }
+        this.kbCursor = { pt: best, side };
+      }
+    }
+    this.kbActive = true;
+    const first = !this.kbUsed;
+    this.kbUsed = true;
+    const tool = TOOLS.find((x) => x.id === this.activeTool);
+    const summary = t('{board}: {n} parts, {side}. Tool: {tool}.', {
+      board: t(this.activeScenario.meta.title),
+      n: this.board.components.length,
+      side: this.camera.bothSides ? t('both sides') : side === 'F' ? t('top side') : t('bottom side'),
+      tool: tool ? t(tool.lbl) : '',
+    });
+    this.kbAfterMove(false, summary);
+    if (first) this.renderTutorial(); // the lesson card adds its keyboard line
+  }
+
+  private kbMove(dir: [number, number], fine: boolean) {
+    const cur = this.kbCursor;
+    if (!cur) return;
+    if (fine) {
+      const from = this.boardToScreen(cur.pt, cur.side);
+      if (!from) return;
+      const { w, h } = this.canvasDims();
+      const px = 0.5 * this.camera.pxPerMm(h);
+      const res = this.resolveBoardPt(this.camera.screenToBoard(from.sx + dir[0] * px, from.sy + dir[1] * px, w, h, this.board.thickness));
+      if (!res) return;
+      this.kbCursor = { pt: res.pt, side: res.side };
+      this.kbAfterMove(true);
+      return;
+    }
+    const from = this.boardToScreen(cur.pt, cur.side);
+    if (!from) return;
+    const sides: Side[] = this.camera.bothSides ? ['F', 'B'] : [cur.side];
+    const stops: { item: { pt: V2; side: Side }; sx: number; sy: number }[] = [];
+    for (const side of sides) {
+      for (const pt of cursorStops(this.board, side)) {
+        const s = this.boardToScreen(pt, side);
+        if (s) stops.push({ item: { pt, side }, sx: s.sx, sy: s.sy });
+      }
+    }
+    const next = stepToward(stops, from, dir);
+    if (!next) { this.announce(t('Edge of the board.')); return; }
+    this.kbCursor = next;
+    this.kbAfterMove(false);
+  }
+
+  /** After the cursor moved: keep it on screen, drive the hover / reticle like the mouse, say where it is. */
+  private kbAfterMove(withCoords: boolean, lead = '') {
+    const c = this.kbCursor;
+    if (!c) return;
+    const p = this.boardToScreen(c.pt, c.side);
+    const { w, h } = this.canvasDims();
+    if (p && (p.sx < w * 0.15 || p.sx > w * 0.85 || p.sy < h * 0.15 || p.sy > h * 0.85)) this.camera.panScreen(w / 2 - p.sx, h / 2 - p.sy, h);
+    this.cursorWorld = c.pt;
+    this.cursorSide = c.side;
+    this.hovered = pickAt(this.board, c.pt, c.side, this.vizMode === 'xray');
+    this.renderTopHud();
+    const said = describeAt(this.board, this.conn, c.pt, c.side) + (withCoords ? ` (${c.pt[0].toFixed(1)}, ${c.pt[1].toFixed(1)} mm)` : '');
+    this.announce(lead ? `${lead} ${said}` : said);
+  }
+
+  /** Enter on the board: the current tool at the cursor, exactly as a click there. */
+  private kbApply(black: boolean) {
+    const c = this.kbCursor;
+    if (!c) return;
+    this.cursorWorld = c.pt;
+    this.cursorSide = c.side;
+    if (this.activeTool === 'dmm') { this.placeProbe(black ? 'black' : 'red', c.pt, c.side); return; } // the meter announces its reading
+    this.applyToolAt(c.pt, c.side);
+    // say what is there now (a pressed switch, a removed blob, an empty footprint); toasts speak for themselves
+    setTimeout(() => { if (this.kbCursor === c) this.announce(describeAt(this.board, this.conn, c.pt, c.side)); }, 200);
+  }
+
+  /**
+   * The component's pads with their nets, each with a red and a black probe button: the meter
+   * without a pointer (keyboard, screen reader), and on a phone a sure hit on pads too small to tap.
+   */
+  private padsCardHtml(c: Component): string {
+    if (!c.pads.length) return '';
+    const MAX = 64;
+    const rows = c.pads.slice(0, MAX).map((p, i) => {
+      const { at } = padWorld(c, p);
+      const side: Side = p.layers === 'B' ? 'B' : p.layers === 'F' ? 'F' : c.side;
+      const hit = netAt(this.board, this.conn, at, side, false);
+      const net = hit && hit.net >= 0 ? this.conn.netNames[hit.net] : t('Open / No copper');
+      const where = `${c.ref}.${p.name} (${net})`;
+      const on = (which: 'red' | 'black') => {
+        const pr = which === 'red' ? this.probeRed : this.probeBlack;
+        return !!pr && pr.side === side && Math.hypot(pr.pos[0] - at[0], pr.pos[1] - at[1]) < 0.05;
+      };
+      return `
+        <div class="pad-row">
+          <span class="pad-name"><b>${this.esc(p.name)}</b><span>${this.esc(net)}</span></span>
+          <span class="pad-probes">
+            <button class="btn sm pad-probe red${on('red') ? ' active' : ''}" data-probe-pad="${i}" data-probe="red" aria-pressed="${on('red')}" aria-label="${this.esc(t('{probe} on {pad}', { probe: t('Red probe'), pad: where }))}"><i></i>${t('Red')}</button>
+            <button class="btn sm pad-probe blk${on('black') ? ' active' : ''}" data-probe-pad="${i}" data-probe="black" aria-pressed="${on('black')}" aria-label="${this.esc(t('{probe} on {pad}', { probe: t('Black probe'), pad: where }))}"><i></i>${t('Black')}</button>
+          </span>
+        </div>`;
+    }).join('');
+    const more = c.pads.length > MAX ? `<div class="muted">${t('Showing {shown} of {n} pads; probe the rest on the board.', { shown: MAX, n: c.pads.length })}</div>` : '';
+    return `
+      <div class="card">
+        <div class="card-title">${t('Pads')} (${c.pads.length})</div>
+        <div class="stack pad-list">${rows}</div>${more}
+      </div>`;
+  }
+
+  /** Probe buttons in the Pads card (one delegated listener: the panel is re-rendered as HTML). */
+  private onPadProbeClick(e: MouseEvent) {
+    const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-probe-pad]');
+    if (!b) return;
+    const c = this.board.components.find((x) => x.id === this.selectedCompId);
+    const p = c?.pads[Number(b.dataset.probePad)];
+    if (!c || !p) return;
+    const { at } = padWorld(c, p);
+    const side: Side = p.layers === 'B' ? 'B' : p.layers === 'F' ? 'F' : c.side;
+    if (this.activeTool !== 'dmm') this.setTool('dmm');
+    this.placeProbe(b.dataset.probe === 'black' ? 'black' : 'red', at, side);
+    // mark which pad holds which probe without rebuilding the panel (focus stays on the button)
+    this.sideBodyEl.querySelectorAll<HTMLButtonElement>(`.pad-probe.${b.dataset.probe === 'black' ? 'blk' : 'red'}`).forEach((x) => {
+      const mine = x === b;
+      x.classList.toggle('active', mine);
+      x.setAttribute('aria-pressed', String(mine));
+    });
   }
 
   /** Mobile tool strip: scrolling tools with labels, undo / redo pinned at the end (reset is in More). */
@@ -934,7 +1197,7 @@ export class PcbApp {
         <aside class="tooldock" id="tooldock">
           <div class="tool-scroll">
             ${TOOLS.map((tl) => `
-              <button class="tool-btn ${tl.id === this.activeTool ? 'active' : ''}" data-tool="${tl.id}" aria-label="${this.esc(t(tl.lbl))}">
+              <button class="tool-btn ${tl.id === this.activeTool ? 'active' : ''}" data-tool="${tl.id}" aria-label="${this.esc(t(tl.lbl))}" aria-pressed="${tl.id === this.activeTool}">
                 ${icon(tl.ico, 20)}
                 <span class="tool-lbl">${t(TOOL_SHORT[tl.id] ?? tl.lbl)}</span>
               </button>
@@ -1783,7 +2046,7 @@ export class PcbApp {
     ].filter(Boolean).join(' · ');
     const el = document.createElement('div');
     el.className = 'win-banner';
-    el.setAttribute('role', 'status');
+    this.announce([t('Board fixed'), facts, flag ? t('Flag captured: {flag}', { flag }) : ''].filter(Boolean).join('. '));
     el.innerHTML = `<span class="win-ico">${icon('check', 22)}</span><span class="win-body"><b>${t('Board fixed')}</b>${facts ? `<span>${this.esc(facts)}</span>` : ''}${flag ? `<code>${this.esc(flag)}</code>` : ''}</span>`;
     vp.appendChild(el);
     setTimeout(() => el.classList.add('out'), 3200);
@@ -1945,6 +2208,7 @@ export class PcbApp {
     this.camera.setSide('F');
     this.camera.bothSides = this.board.components.length > 500;
     this.cursorWorld = null;
+    this.kbCursor = null;
     this.cursorSide = 'F';
     // the camera learns the canvas shape only when it renders: give it the current one first, or
     // the fit frames the board for its default aspect and crops it on a narrower canvas
@@ -2193,7 +2457,7 @@ export class PcbApp {
             <div class="v" id="psu-v"></div><div class="a" id="psu-a"></div>
             <div class="l">VOLTS</div><div class="l r">AMPS</div>
           </div>
-          <canvas class="psu-chart" id="psu-chart" width="528" height="128"></canvas>
+          <canvas class="psu-chart" id="psu-chart" width="528" height="128" aria-hidden="true"></canvas>
           <div class="psu-state" id="psu-state"></div>
         </div>`;
       // the current chart folds away (click the header); boards with power states show it
@@ -2279,7 +2543,7 @@ export class PcbApp {
               <button class="btn ghost icon" id="sc-close" title="${t('Remove probe')}">${icon('x', 14)}</button>
             </div>
           </div>
-          <canvas class="scope-screen" id="sc-canvas" width="528" height="240"></canvas>
+          <canvas class="scope-screen" id="sc-canvas" width="528" height="240" role="img" aria-label="${t('Oscilloscope screen')}"></canvas>
           <div class="psu-state" id="sc-meas"></div>
           <div class="psu-state muted" id="sc-note"></div>
         </div>`;
@@ -2763,6 +3027,11 @@ export class PcbApp {
       setStatsSwitch(!statsSwitchOn());
       this.updateTopButtons();
     });
+    this.mount.querySelector('#btn-keys')?.addEventListener('click', () => {
+      this.keyShortcuts = !this.keyShortcuts;
+      try { localStorage.setItem('pcbfix_key_shortcuts', this.keyShortcuts ? '1' : '0'); } catch { /* storage unavailable */ }
+      this.updateTopButtons();
+    });
     q('#btn-feedback').addEventListener('click', () => this.openFeedback(!this.showFeedback));
     this.mount.querySelectorAll<HTMLSelectElement>('.lang-select').forEach((sel) => sel.addEventListener('change', () => this.switchLanguage(sel.value, sel)));
     q('#btn-help').addEventListener('click', () => {
@@ -2797,6 +3066,19 @@ export class PcbApp {
       btn.addEventListener('click', () => {
         this.activeTab = btn.dataset.tab as PanelTab;
         this.renderUI();
+      });
+      // tab pattern: arrows / Home / End move between the panel's tabs
+      btn.addEventListener('keydown', (e) => {
+        const tabs = [...this.mount.querySelectorAll<HTMLButtonElement>('.tab[data-tab]')].filter((b) => !b.hidden);
+        const i = tabs.indexOf(btn);
+        const next = e.key === 'ArrowRight' ? tabs[(i + 1) % tabs.length]
+          : e.key === 'ArrowLeft' ? tabs[(i - 1 + tabs.length) % tabs.length]
+            : e.key === 'Home' ? tabs[0] : e.key === 'End' ? tabs[tabs.length - 1] : null;
+        if (!next) return;
+        e.preventDefault();
+        this.activeTab = next.dataset.tab as PanelTab;
+        this.renderUI();
+        next.focus();
       });
     });
 
@@ -3034,6 +3316,7 @@ export class PcbApp {
     if (t !== 'jumper') this.jumperStart = null;
     this.mount.querySelectorAll<HTMLButtonElement>('.tool-btn[data-tool]').forEach((b) => {
       b.classList.toggle('active', b.dataset.tool === t);
+      b.setAttribute('aria-pressed', String(b.dataset.tool === t));
     });
     this.renderDmm();
     this.renderTopHud();
@@ -3269,8 +3552,20 @@ export class PcbApp {
       this.renderModal();
       return;
     }
-    const tag = (e.target as HTMLElement)?.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    const target = e.target as HTMLElement | null;
+    const tag = target?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) return;
+    // Tab always moves focus (it used to switch 2D/3D, which locked keyboard users out of the bench)
+    if (e.key === 'Tab') return;
+    // a keyboard-focused control or an open dialog keeps its keys: Space / Enter press the control,
+    // letters are not board shortcuts there (a mouse click does not set :focus-visible, so a clicked
+    // button still lets Space pan and the letters work)
+    const inDialog = !!target?.closest?.('[role="dialog"], .modal-backdrop');
+    const kbFocus = !!target?.matches?.('button, a[href], summary, [role="button"], [role="tab"], [role="menuitem"]') && target.matches(':focus-visible');
+    if ((inDialog || kbFocus) && e.key !== 'Escape') return;
+    // single-character shortcuts can be turned off (Settings), for speech input and screen readers (WCAG 2.1.4)
+    const charKey = e.key.length === 1 && e.code !== 'Space' && !e.metaKey && !e.ctrlKey && !e.altKey;
+    if (charKey && !this.keyShortcuts) return;
 
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
       e.preventDefault();
@@ -3296,8 +3591,7 @@ export class PcbApp {
     }
     if (k === 'c') { this.fitBoardInView(); return; }
     if (k === 'p') { this.togglePower(); return; }
-    if (e.key === 'Tab') {
-      e.preventDefault();
+    if (k === 'v') {
       const nextMode = this.camera.mode === '2d' ? '3d' : '2d';
       this.camera.setMode(nextMode);
       this.renderUI();
@@ -3568,7 +3862,7 @@ export class PcbApp {
       if (!this.jumperStart) {
         this.jumperStart = { a: snap, la: side };
         sfxClick();
-        this.toast(t('Jumper start set — click destination (you can flip board F first!)'), 'info');
+        this.toast(t('Jumper start set: now pick the end point (you can flip the board with F first).'), 'info');
         return;
       }
       if (dist(this.jumperStart.a, snap) < 0.3 && this.jumperStart.la === side) {
@@ -3620,6 +3914,16 @@ export class PcbApp {
     }
   }
 
+  /** Polite screen-reader announcement (a persistent live region, so re-rendered HTML cannot drop it). */
+  private announce(text: string) {
+    const el = this.mount.querySelector<HTMLElement>('#sr-live');
+    if (!el) return;
+    clearTimeout(this.announceTimer);
+    el.textContent = '';
+    // a short gap so the same text twice in a row is still read
+    this.announceTimer = setTimeout(() => { el.textContent = text; }, 60);
+  }
+
   private toast(msg: string, kind: 'info' | 'success' | 'warn' | 'danger' = 'info') {
     this.recentToasts = [...this.recentToasts, `${kind}: ${msg}`].slice(-8);
     const el = document.createElement('div');
@@ -3664,11 +3968,15 @@ export class PcbApp {
   private updateTopButtons() {
     this.updateToolDock();
     this.mount.querySelectorAll<HTMLButtonElement>('#seg-view button').forEach((b) => {
-      b.classList.toggle('on', b.dataset.view === this.camera.mode);
+      const on = b.dataset.view === this.camera.mode;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
     });
     this.mount.querySelectorAll<HTMLButtonElement>('#seg-side button').forEach((b) => {
       const activeKey = this.camera.bothSides ? 'both' : this.camera.side;
-      b.classList.toggle('on', b.dataset.side === activeKey);
+      const on = b.dataset.side === activeKey;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
     });
 
     const pBtn = this.mount.querySelector('#btn-power')!;
@@ -3683,9 +3991,22 @@ export class PcbApp {
 
     const sBtn = this.mount.querySelector('#btn-sound')!;
     sBtn.innerHTML = `${icon(soundEnabled ? 'volume' : 'mute', 13)}<span>${soundEnabled ? t('On') : t('Off')}</span>`;
+    sBtn.setAttribute('aria-pressed', String(soundEnabled));
+    sBtn.setAttribute('aria-label', t('Sound'));
+    const kBtn = this.mount.querySelector<HTMLElement>('#btn-keys');
+    if (kBtn) {
+      kBtn.innerHTML = `${icon(this.keyShortcuts ? 'check' : 'x', 13)}<span>${this.keyShortcuts ? t('On') : t('Off')}</span>`;
+      kBtn.setAttribute('aria-pressed', String(this.keyShortcuts));
+      kBtn.setAttribute('aria-label', t('Key shortcuts'));
+      kBtn.title = this.keyShortcuts
+        ? t('Single keys (1–9, F, C, P, V…) pick tools and change the view. Click to turn them off, for example with speech input.')
+        : t('Single-key shortcuts are off; use the buttons, or Ctrl/⌘ + Z for undo. Click to turn them on.');
+    }
     const statsOn = statsSwitchOn();
     const stBtn = this.mount.querySelector<HTMLElement>('#btn-stats');
     if (stBtn) {
+      stBtn.setAttribute('aria-pressed', String(statsOn));
+      stBtn.setAttribute('aria-label', t('Puzzle stats'));
       stBtn.innerHTML = `${icon(statsOn ? 'check' : 'x', 13)}<span>${statsOn ? t('On') : t('Off')}</span>`;
       stBtn.title = statsOn
         ? t('Sends anonymous puzzle results (no IDs, no cookies) to make the puzzles better. Click to turn off.')
@@ -3696,6 +4017,12 @@ export class PcbApp {
     const tutBoard = isTutorialScenario(this.activeScenario.id);
     (tBtn as HTMLElement).hidden = !tutBoard; // shown only on tutorial boards
     tBtn.classList.toggle('active', this.tutorialOpen && tutBoard);
+    tBtn.setAttribute('aria-pressed', String(this.tutorialOpen && tutBoard));
+    this.canvas?.setAttribute('aria-label', t('Board view: {board}, {side}, {mode}', {
+      board: t(this.activeScenario.meta.title),
+      side: this.camera.bothSides ? t('both sides') : this.camera.side === 'F' ? t('top side') : t('bottom side'),
+      mode: this.camera.mode.toUpperCase(),
+    }));
 
     if (this.mobile) {
       const set = (sel: string, html: string) => { const el = this.mount.querySelector<HTMLElement>(sel); if (el) el.innerHTML = html; };
@@ -3887,6 +4214,12 @@ export class PcbApp {
       }
     }
 
+    // screen readers hear each new reading once (with what the probes touch), not every re-render
+    if (this.probeRed || this.probeBlack) {
+      const said = `${reading}. ${this.probeRed?.label ?? ''}${this.probeBlack ? ` / ${this.probeBlack.label}` : ''}`;
+      if (said !== this.lastSaidReading) { this.lastSaidReading = said; this.announce(said); }
+    } else this.lastSaidReading = '';
+
     if (this.runningCode.size) {
       const name0 = (p: { net: number } | null) => (p && p.net >= 0 ? this.conn?.netNames[p.net] || `#${p.net}` : null);
       const pk = `${name0(this.probeRed)}|${name0(this.probeBlack)}`;
@@ -3906,11 +4239,11 @@ export class PcbApp {
           <span>${t('Multimeter')}</span>
           <div class="row">
             <div class="seg">
-              <button class="${this.dmmMode === 'V' ? 'on' : ''}" id="dmm-v" title="${t('DC voltage')}">V⎓</button>
-              <button class="${this.dmmMode === 'OHM' ? 'on' : ''}" id="dmm-ohm" title="${t('Resistance / continuity')}">Ω</button>
-              <button class="${this.dmmMode === 'DIODE' ? 'on' : ''}" id="dmm-diode" title="${t('Diode test')}">${t('Diode')}</button>
-              <button class="${this.dmmMode === 'CAP' ? 'on' : ''}" id="dmm-cap" title="${t('Capacitance (power off)')}">F</button>
-              <button class="${this.dmmMode === 'AMP' ? 'on' : ''}" id="dmm-amp" title="${t('Current, 10 A input (meter in series)')}">A</button>
+              <button class="${this.dmmMode === 'V' ? 'on' : ''}" id="dmm-v" title="${t('DC voltage')}" aria-label="${t('DC voltage')}" aria-pressed="${this.dmmMode === 'V'}">V⎓</button>
+              <button class="${this.dmmMode === 'OHM' ? 'on' : ''}" id="dmm-ohm" title="${t('Resistance / continuity')}" aria-label="${t('Resistance / continuity')}" aria-pressed="${this.dmmMode === 'OHM'}">Ω</button>
+              <button class="${this.dmmMode === 'DIODE' ? 'on' : ''}" id="dmm-diode" title="${t('Diode test')}" aria-label="${t('Diode test')}" aria-pressed="${this.dmmMode === 'DIODE'}">${t('Diode')}</button>
+              <button class="${this.dmmMode === 'CAP' ? 'on' : ''}" id="dmm-cap" title="${t('Capacitance (power off)')}" aria-label="${t('Capacitance (power off)')}" aria-pressed="${this.dmmMode === 'CAP'}">F</button>
+              <button class="${this.dmmMode === 'AMP' ? 'on' : ''}" id="dmm-amp" title="${t('Current, 10 A input (meter in series)')}" aria-label="${t('Current, 10 A input (meter in series)')}" aria-pressed="${this.dmmMode === 'AMP'}">A</button>
             </div>
             <button class="btn ghost icon" id="dmm-clr" title="${t('Clear probes (Esc)')}">${icon('x', 14)}</button>
           </div>
@@ -3982,6 +4315,9 @@ export class PcbApp {
     if (!author && this.activeTab === 'studio') this.activeTab = 'mission';
     this.mount.querySelectorAll<HTMLButtonElement>('.tab[data-tab]').forEach((b) => {
       b.classList.toggle('active', b.dataset.tab === this.activeTab);
+      b.setAttribute('aria-selected', String(b.dataset.tab === this.activeTab));
+      b.tabIndex = b.dataset.tab === this.activeTab ? 0 : -1;
+      if (b.dataset.tab === this.activeTab) this.sideBodyEl?.setAttribute('aria-labelledby', b.id);
       if (b.dataset.tab === 'mods') b.hidden = !hasPanels;
       if (b.dataset.tab === 'studio') b.hidden = !author;
     });
@@ -4071,6 +4407,7 @@ export class PcbApp {
               ${done ? `<span class="badge pass">${icon('check', 11)}<span>${t('Done')}</span></span>` : ''}
             </div>
             <div class="tut-goal-txt">${this.esc(this.txt(t(step.task)))}</div>
+            ${this.kbUsed ? `<div class="tut-kb">${t('Keyboard: on the board, arrow keys move the cursor and Enter uses the tool (Shift+Enter: black probe).')}</div>` : ''}
             ${step.target || step.quickAction ? `
               <div class="row wrap" style="margin-top:2px">
                 ${step.target ? `<button class="btn sm" id="tut-focus">${icon('target', 12)}<span>${t('Locate on board')}</span></button>` : ''}
@@ -4144,6 +4481,7 @@ export class PcbApp {
     this.tutBoxEl.querySelector('#tut-focus')?.addEventListener('click', () => {
       if (!step.target) return;
       this.focusTarget(step.target);
+      this.kbCursor = { pt: step.target.pos, side: step.target.side };
       this.updateTopButtons();
       this.renderTopHud();
     });
@@ -4463,6 +4801,8 @@ export class PcbApp {
           b.addEventListener('click', () => {
             const id = b.dataset.pickComp!;
             this.selectedCompId = id;
+            const chosen = this.board.components.find((x) => x.id === id);
+            if (chosen) this.kbCursor = { pt: chosen.at, side: chosen.side }; // Tab back to the board: the cursor is on it
             if (this.board.components.length > 100) {
               const picked = this.board.components.find((x) => x.id === id);
               if (picked) {
@@ -4545,6 +4885,8 @@ export class PcbApp {
           )}</span>
         </div>
       </div>
+
+      ${this.padsCardHtml(c)}
 
       <div class="card">
         <div class="card-title">${t('Rework')}</div>
@@ -5218,7 +5560,8 @@ export class PcbApp {
       return `
         <div class="bp-path">
           <div class="bp-h">${t('Your path')}</div>
-          <p class="bp-muted">${t('Every tool and part you use on a solved board shows up here.')}</p>
+          <div class="bp-bars"><div class="bp-bar"><span>${t('Lessons')}</span><span class="bp-track"><span style="width:${Math.round((TUTORIAL_SCENARIO_IDS.filter((id) => this.solvedIds.has(id)).length / TUTORIAL_SCENARIO_IDS.length) * 100)}%"></span></span><span>${TUTORIAL_SCENARIO_IDS.filter((id) => this.solvedIds.has(id)).length}/${TUTORIAL_SCENARIO_IDS.length}</span></div></div>
+          <p class="bp-muted">${t('Six short lessons, from a flashlight to a voltage divider. Every tool and part you use shows up here.')}</p>
           ${next.length ? `<div><div class="bp-sub">${t('Your first repair teaches')}</div><div class="bp-chips">${chips(next, 'nx')}</div></div>` : ''}
         </div>`;
     }
@@ -5300,22 +5643,27 @@ export class PcbApp {
             </button>`;
         }).join('');
       }
-      return `${head}<div class="bp-grid">${items.map(({ s, idx }) => {
+      // desktop: a ruled list (the symptom is the line people scan); within a band, one group per board type
+      const row = ({ s, idx }: { s: Scenario; idx: number }) => {
         const n = this.boardNames(s);
         const nw = newSkillsFor(s.id, learned)[0];
         const tut = TUTORIAL_SCENARIO_IDS.indexOf(s.id as (typeof TUTORIAL_SCENARIO_IDS)[number]);
-        const chip = s === this.activeScenario ? `<span class="bp-chip on">${t('Open now')}</span>`
+        const note = s === this.activeScenario ? `<span class="bp-chip on">${t('Open now')}</span>`
           : nw ? `<span class="bp-chip new">${t('New: {skill}', { skill: t(skillLabel(nw)) })}</span>`
           : tut >= 0 ? `<span class="bp-chip">${t('Tutorial {n}', { n: tut + 1 })}</span>`
           : this.modBoards.has(s) ? `<span class="bp-chip">${this.esc(this.modBoards.get(s)!.mod.name)}</span>` : '';
         return `
-          <button class="bp-card ${this.bpSel === s ? 'sel' : ''}" data-bp-show="${idx}">
-            ${this.boardThumb(s)}
-            <span class="bp-t">${this.esc(n.name)}</span>
-            <span class="bp-s">${this.esc(n.symptom)}</span>
-            <span class="bp-chips">${chip}</span>
+          <button class="bp-rowd ${this.bpSel === s ? 'sel' : ''}" data-bp-show="${idx}">
+            ${this.boardThumb(s, { pill: false, done: false })}
+            ${this.levelPill(s)}
+            <span class="bp-rowi-main"><span class="bp-t">${this.esc(n.name)}</span><span class="bp-s">${this.esc(n.symptom)}</span></span>
+            <span class="bp-rowd-note">${note}</span>
+            <span class="bp-rowd-ok">${this.solvedIds.has(s.id) ? `<span class="bp-ok" title="${t('Solved')}">${icon('check', 15)}<span class="sr-only">${t('Solved')}</span></span>` : ''}</span>
           </button>`;
-      }).join('')}</div>`;
+      };
+      const kindsHere = [...new Set(items.map(({ s }) => this.boardKind(s)))];
+      if (kindsHere.length < 2) return head + `<div class="bp-rows">${items.map(row).join('')}</div>`;
+      return head + kindsHere.map((k) => `<div class="bp-kind">${t(KIND_LABEL[k])}</div><div class="bp-rows">${items.filter(({ s }) => this.boardKind(s) === k).map(row).join('')}</div>`).join('');
     }).join('') || `<div class="bp-empty"><div>${t('No matching boards found.')}</div><button class="btn sm" data-bp-act="clear">${t('Clear filters')}</button></div>`;
 
     const sel = this.bpSel && this.scenarios.includes(this.bpSel) ? this.bpSel : null;
@@ -5360,7 +5708,13 @@ export class PcbApp {
       <div class="bp-d-top">${this.levelPill(s, { big: true, named: true })}${this.solvedIds.has(s.id) ? `<span class="bp-solved">${icon('check', 14)}<span>${t('Solved')}</span></span>` : ''}</div>
       <div><h3>${this.esc(n.name)}</h3><div class="bp-d-s">${this.esc(n.symptom)}</div></div>
       <p>${this.esc(t(s.meta.description))}</p>
-      ${uses.length ? `<div><div class="bp-sub">${t('You\'ll use')}</div><div class="bp-chips">${uses.map((k) => `<span class="bp-chip ${news.has(k) ? 'new' : ''}">${news.has(k) ? t('New: {skill}', { skill: t(skillLabel(k)) }) : this.esc(t(skillLabel(k)))}</span>`).join('')}</div></div>` : ''}
+      ${uses.length ? (() => {
+        const label = (k: SkillKey) => this.esc(t(skillLabel(k)));
+        const fresh = uses.filter((k) => news.has(k)), known = uses.filter((k) => !news.has(k));
+        return `<div class="bp-uses"><div class="bp-sub">${t('You\'ll use')}</div>
+          ${fresh.length ? `<p><b>${t('New for you')}:</b> ${fresh.map(label).join(', ')}</p>` : ''}
+          ${known.length ? `<p class="bp-muted">${fresh.length ? `${t('Also')}: ` : ''}${known.map(label).join(', ')}</p>` : ''}</div>`;
+      })() : ''}
       ${this.startButton(s, idx, 'primary lg bp-go')}
       <details class="bp-more" ${this.bpMoreOpen ? 'open' : ''}>
         <summary>${icon('chevronRight', 13)}<span>${t('Board details')}</span></summary>
@@ -6248,6 +6602,8 @@ export class PcbApp {
       if (!this.powerOn && !this.boot.history.length) { this.psuClock += dt; if (this.psuClock >= 0.1) { this.psuClock = 0; this.renderScope(); } }
     }
     this.camera.tick(dt);
+    // flipping the board (F, the side buttons) takes the keyboard cursor to the same spot on the other face
+    if (this.kbActive && this.kbCursor && !this.camera.bothSides && this.kbCursor.side !== this.camera.side) this.kbCursor = { pt: this.kbCursor.pt, side: this.camera.side };
     const tutSteps = this.tutorialOpen ? getTutorialSteps(this.activeScenario.id) : null;
     const tutStep = tutSteps ? tutSteps[Math.max(0, Math.min(tutSteps.length - 1, this.tutorialStep))] : null;
     this.renderer.render(this.camera, {
@@ -6269,6 +6625,7 @@ export class PcbApp {
       cursorWorld: this.cursorWorld,
       cursorSide: this.cursorSide,
       activeTool: this.activeTool,
+      kbCursor: this.kbActive && this.kbCursor ? { pos: this.kbCursor.pt, side: this.kbCursor.side } : null,
       tutorialTarget: tutStep?.target
         ? { pos: tutStep.target.pos, side: tutStep.target.side, radius: tutStep.target.radius }
         : null,

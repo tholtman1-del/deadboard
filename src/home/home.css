@@ -1,23 +1,6 @@
 /* DEADBOARD homepage — same tokens as the app (docs/BRAND.md). */
+@import '../ui/tokens.css';
 :root {
-  --bg: #090c0a;
-  --surface: #0f1311;
-  --surface-2: #141916;
-  --border: #222a25;
-  --border-strong: #2e3832;
-  --text: #e3eae5;
-  --text-2: #aeb9b1;
-  --muted: #7d8a82;
-  --accent: #4be38a;
-  --accent-ink: #04140a;
-  --accent-weak: rgba(75, 227, 138, 0.1);
-  --accent-line: rgba(75, 227, 138, 0.4);
-  --accent-hover: #6cf0a3;
-  --brand-signal: #4be38a;
-  --amber: #ffa657;
-  --scope: #f5d547;
-  --mono: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
-  --sans: 'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --wrap: 1160px;
   color-scheme: dark;
 }
@@ -38,6 +21,8 @@ body {
   background-size: 32px 32px;
 }
 a { color: inherit; }
+p, li, figcaption { text-wrap: pretty; }
+h1, h2, h3 { text-wrap: balance; }
 img { max-width: 100%; height: auto; display: block; }
 .skip { position: absolute; left: -999px; top: 8px; background: var(--accent); color: var(--accent-ink); padding: 6px 10px; border-radius: 6px; z-index: 10; }
 .skip:focus { left: 8px; }
@@ -131,11 +116,11 @@ figcaption { margin-top: 12px; font: 13px/1.5 var(--mono); color: var(--muted); 
 .term {
   margin: 0;
   padding: 22px 24px;
-  background: #050806;
+  background: var(--terminal-well);
   border: 1px solid var(--border-strong);
   border-radius: 10px;
   font: 14px/1.75 var(--mono);
-  color: #b9f5cf;
+  color: var(--terminal-text);
   overflow-x: auto;
   min-height: 12.6em;
 }
@@ -166,8 +151,8 @@ figcaption { margin-top: 12px; font: 13px/1.5 var(--mono); color: var(--muted); 
 .inst p { margin: 0; color: var(--text-2); font-size: 15px; max-width: 34em; }
 .viz { grid-column: 2; grid-row: 1 / span 2; align-self: center; width: 120px; height: 44px; }
 .viz path { fill: none; stroke-width: 3; stroke-linejoin: round; }
-.viz-amber { stroke: var(--amber); }
-.viz-yellow { stroke: var(--scope); }
+.viz-amber { stroke: var(--supply-amber); }
+.viz-yellow { stroke: var(--scope-yellow); }
 
 .tags { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; }
 .tags li {
@@ -265,6 +250,10 @@ figcaption { margin-top: 12px; font: 13px/1.5 var(--mono); color: var(--muted); 
 .doc .anchor { color: var(--border-strong); text-decoration: none; font-weight: 400; opacity: 0; }
 .doc h2:hover .anchor, .doc h3:hover .anchor, .doc .anchor:focus-visible { opacity: 1; }
 .doc p, .doc li { line-height: 1.7; }
+/* prose keeps a readable measure; tables and code still use the full column */
+.doc p, .doc ul, .doc ol, .doc blockquote { max-width: 38em; }
+.doc td { max-width: 38em; }
+.doc td code { white-space: nowrap; }
 .doc strong { color: var(--text); }
 .doc a { color: var(--accent); }
 .doc ul, .doc ol { padding-left: 22px; }
@@ -280,12 +269,12 @@ figcaption { margin-top: 12px; font: 13px/1.5 var(--mono); color: var(--muted); 
 .doc pre {
   margin: 16px 0;
   padding: 16px 18px;
-  background: #050806;
+  background: var(--terminal-well);
   border: 1px solid var(--border-strong);
   border-radius: 10px;
   overflow-x: auto;
 }
-.doc pre code { background: none; border: 0; padding: 0; font-size: 13px; line-height: 1.6; color: #b9f5cf; }
+.doc pre code { background: none; border: 0; padding: 0; font-size: 13px; line-height: 1.6; color: var(--terminal-text); }
 .doc table {
   display: block;
   overflow-x: auto;
@@ -445,7 +434,7 @@ figcaption { margin-top: 12px; font: 13px/1.5 var(--mono); color: var(--muted); 
 .tz-res rect { fill: #d9b778; }
 .tz-bands { stroke: #3a2a14; stroke-width: 4; }
 .tz-led-body { fill: #5a1414; stroke: #8a2a2a; stroke-width: 2; }
-.tz-amps { font: 600 13px var(--mono); fill: #ffa657; text-anchor: end; }
+.tz-amps { font: 600 13px var(--mono); fill: var(--supply-amber); text-anchor: end; }
 .hero-teaser figcaption { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 10px; font: 15px/1.45 var(--sans); color: var(--text-2); }
 .live-stats::before { content: ' · '; }
 

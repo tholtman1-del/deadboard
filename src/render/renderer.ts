@@ -33,6 +33,8 @@ export interface RenderSceneState {
   cursorSide?: Side;
   activeTool: string;
   tutorialTarget?: { pos: V2; side: Side; radius?: number } | null;
+  /** Keyboard board cursor (while the board view has keyboard focus): a steady phosphor ring. */
+  kbCursor?: { pos: V2; side: Side } | null;
   /** Live board thermal model (temperatures, frost / isopropyl film). */
   thermal?: {
     partTemp(id: string): number | undefined;
@@ -1133,6 +1135,29 @@ export class Renderer {
       const cz = sgn * (ht + 0.09);
       const col: [number, number, number] = scene.activeTool === 'knife' ? [1.0, 0.35, 0.30] : scene.activeTool === 'iron' ? [1.0, 0.72, 0.20] : [0.25, 0.85, 1.0];
       this.pushGlow(cp[0], cp[1], cz, 1.25, col[0], col[1], col[2], 0.45);
+    }
+
+    // 11b. Keyboard board cursor: a dashed ring in the brand phosphor, steady (no motion)
+    if (scene.kbCursor) {
+      const pos = mpt(scene.kbCursor.pos, scene.kbCursor.side);
+      // above any part body under it (a ring at the copper would hide under a switch or a cap)
+      let lift = 0.12;
+      for (const c of board.components) {
+        if (c.side !== scene.kbCursor.side || c.body.shape === 'none') continue;
+        const half = Math.max(c.body.w, c.body.h) * 0.6 + 0.5;
+        if (Math.abs(c.at[0] - scene.kbCursor.pos[0]) <= half && Math.abs(c.at[1] - scene.kbCursor.pos[1]) <= half) lift = Math.max(lift, c.body.z + 0.15);
+      }
+      const z = (effSide(scene.kbCursor.side) === 'F' ? 1 : -1) * (ht + lift);
+      const r = Math.max(1.2, Math.min(4, camera.orthoHalfH * 0.045)), segs = 10; // readable at any zoom
+      const segLen = (2 * Math.PI * r) / segs * 0.62;
+      // a pale phosphor ring on a dark halo: readable on green, red or black boards alike
+      const thick = r * 0.2;
+      for (let i = 0; i < segs; i++) {
+        const a = (i / segs) * Math.PI * 2, deg = (a * 180) / Math.PI + 90;
+        const x = pos[0] + Math.cos(a) * r, y = pos[1] + Math.sin(a) * r;
+        al.box.pushTRS(x, y, z, segLen + thick, thick * 2.2, 0.04, deg, 0.02, 0.06, 0.03, 0.85, 0, 0.05, 0.9);
+        al.box.pushTRS(x, y, z + Math.sign(z) * 0.03, segLen, thick, 0.05, deg, 0.73, 0.96, 0.81, 1, 0.9, 0.05, 0.4);
+      }
     }
 
     // 12. Tutorial Target Beacon
