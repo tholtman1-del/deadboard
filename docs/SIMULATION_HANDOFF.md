@@ -1,4 +1,4 @@
-# DEADBOARD — handoff (updated 2026-11-23: own analytics live, hidden difficulty, bench + homepage UX rounds; next: read the data ~11-26)
+# DEADBOARD — handoff (updated 2026-11-23: own analytics live, hidden difficulty, bench + homepage UX rounds, real boards drawn right; next: read the data ~11-26)
 
 Goal: make DEADBOARD (formerly PCB//FIX) a realistic board-repair trainer, as close to a real bench as possible,
 **universal** (any board, not just the MacBook), with honest provenance for every value.
@@ -8,9 +8,62 @@ No reference hardware is available, so realism is validated against *design inte
 ## Status (start here)
 
 - **NEXT SESSION — start here (around 2026-11-26).** Session of 2026-11-23 is fully pushed and live
-  (last commit `1828a0b` + handoff). It was an analytics + engagement day; nothing of the earlier
-  learning-journey work (below) changed. **First job: read the data, change nothing until then**
+  (last code commit `ef0bf0c`, deployed ~16:55 UTC). It was an analytics + engagement day, plus a
+  board-drawing fix round in the afternoon and a renderer crash fix (next bullets); nothing of the earlier learning-journey
+  work (below) changed. **First job: read the data, change nothing until then**
   (user: "gather analytics first").
+  - **Afternoon 11-23: real boards drawn right (pushed `a57d0aa`, `353d527`; live).** Found while
+    making the one-week Reddit video (user: Tadpole buttons "stretched", "pins not aligned",
+    Olimex "multiple things overlaying").
+    - **Importer (kicad.ts `inferBody`):** through-hole bodies sit over their pins (`body.off` = pad
+      centre; KiCad puts the origin on pin 1: Tadpole buttons were 2 mm off, MNT J24 14 mm). One-row
+      switches (microswitches) are long and cover every pin. `Fiducial*` footprints get body
+      `'none'`; `TESTPAD` footprints are test points. J_BENCH (benchSupply.ts) has body `'none'`;
+      pick.ts, rework.ts and the renderer skip `'none'` bodies; thermal `partsIn` honours `body.off`.
+    - **Connectivity:** abutting pads of one footprint on the same net join (USB-C A4/B9 VBUS on the
+      Tadpole V2 split once pads had their real size); bbox checks and the grid query have 1e-6 slack
+      (exactly-touching copper was skipped by rounding).
+    - **Renderer:** `dense` = > 150 parts **or > 0.5 parts/cm²** (ESP32 boards 3–5, Tadpole V2 0.8,
+      teaching boards ≤ 0.3), so small real boards get names inside bodies with collision culling.
+      Layer heights: tracks top +0.055 < silkscreen `SILK_Z` 0.05 (0.04–0.06) < SMD pads top +0.065.
+      Reversed bodies turn in place over their pads (TO-92 keeps its swing). Long switches: small
+      rectangular plunger, dark name on the plate beside it. Header pins show above the housing only
+      when every pad is drilled (or no drill data, boardviews).
+    - **Demos rebuilt** (`npx tsx scripts/build-demos.ts --fetch`); this also brought the real pad
+      sizes of `c17f6c8` into the shipped files. Every demo: faulted fails, repaired passes + flag;
+      conductor / named-net counts unchanged. `test/modphase6.test.ts`: MNT U9 netsNear at 0.3 mm
+      (real 0.25 mm gap). Thumbs re-rendered. Full `npm test` + build green.
+    - **Left as is:** Olimex silk "www.olimex.comn" is in Olimex's own file; in 2D a header's pads
+      cross its name (BAT1) and a switch body covers its pins; boardview importers (brd.ts / tvw) not
+      checked for the same pin-1-origin offset.
+  - **Evening 11-23: "GPUBufferUsage is not defined" fixed (pushed `ef0bf0c`; live, checked in the
+    served `renderer-CxRaaMxt.js`).** Players' console showed `Uncaught ReferenceError:
+    GPUBufferUsage is not defined` from `renderer-*.js`. Cause: `gpu-webgpu.ts` read
+    `GPUBufferUsage` at module top level; `renderer.ts` imports it statically, so every browser
+    without WebGPU (Firefox, older Safari, WebGPU blocked) crashed on load and never reached the
+    WebGL2 fallback of `52de4b3` (likely a blank board). Now `vertexUsage()` reads it at buffer
+    creation. Guard: end of `test/camera.test.ts` imports `gpu-webgpu`, `gpu-webgl2`, `gpuprobe` in
+    Node (no GPU globals); it fails without the fix. **Next:** in the analytics, look for a jump in
+    first-board loads on Firefox / Safari after 11-23 17:00 UTC, and whether error-screen / leave
+    events drop. Since the WebGL2 path was effectively unreachable for these players until now, watch
+    feedback for WebGL2-only rendering bugs. Flaky: `solve.test.ts:475` (100× pickAt < 25 ms) failed
+    once in the full run, passed alone.
+  - **11-24: design pass with the impeccable skill (commit `985c3d4`).** Bench: primary-button
+    hover was blue (pre-rebrand leftover), now green; the top bar collapses in steps so every
+    control fits down to 900 px (EN + RU; it overflowed from 1100 px); the first desktop fit used the
+    camera's default aspect and cropped the board; `clearView` now runs on desktop too (tutorial
+    card + readouts, a readout only if the board keeps 60 %, cut chosen for the biggest board) and
+    the fit follows overlays while the camera is untouched (`camSig` vs `autoFrameCam`). Palette
+    tokens for focus rings, selection, scrollbars, floating cards. Site: no "> label" eyebrows over
+    headings, instrument cards → ruled spec list, tinted full borders instead of side stripes.
+    **Watch:** whether the smaller first-board framing at ~1024 px reads well; analytics on
+    tutorial step 1 completion before/after.
+  - **Launch, 11-23 (local only, `launch/`, git-excluded):** one-week Reddit post = "Post 4" in
+    `launch/reddit-posts.md` (short, human tone, highlights only; user: "don't need to state
+    everything"). Video `launch/deadboard-week1.mp4` (39 s, 1080p, no audio; hook "1 week · 132
+    commits" from frame 1; scenes: new boards, picker, probe, phone + Russian, mods → Community →
+    mod.io, outro). Re-record: `npx vite --port 5199`, then `npx tsx launch/week1-video.ts`
+    (`--shots` rehearses). Not posted yet as far as this session knows.
   - **Live since 11-23, where it lives:**
     | What | Where |
     | --- | --- |
