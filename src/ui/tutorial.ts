@@ -107,7 +107,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     title: 'A broken flashlight',
     concept:
       'This board is a tiny flashlight: coin cell BT1, push button SW1, resistor R1 (100 Ω, it limits the current) and LED D1. Flat copper strips called traces carry the current between the round pads where the parts are soldered. Pressing SW1 should light D1.',
-    task: 'With Select (1), click push button SW1 to press it. Does LED D1 light up?',
+    task: 'Click push button SW1 to press it. Does LED D1 light up?',
     phone: 'Tap push button SW1. Does LED D1 light up?',
     target: { pos: [40, 27], side: 'F', radius: 5.5, zoomHalfH: 13, label: 'Push button SW1' },
     quickAction: { id: 'tool-inspect', label: 'Select tool (1)' },

@@ -755,7 +755,7 @@ const ru: Catalog = {
   "Voltage Divider": "Делитель напряжения",
   "A broken flashlight": "Сломанный фонарик",
   "This board is a tiny flashlight: coin cell BT1, push button SW1, resistor R1 (100 Ω, it limits the current) and LED D1. Flat copper strips called traces carry the current between the round pads where the parts are soldered. Pressing SW1 should light D1.": "Эта плата — маленький фонарик: батарейка-таблетка BT1, кнопка SW1, резистор R1 (100 Ом, он ограничивает ток) и светодиод D1. Плоские медные полоски — дорожки — проводят ток между круглыми площадками, к которым припаяны детали. При нажатии SW1 должен загораться D1.",
-  "With Select (1), click push button SW1 to press it. Does LED D1 light up?": "Инструментом «Выбор» (1) нажмите на кнопку SW1. Загорается ли светодиод D1?",
+  "Click push button SW1 to press it. Does LED D1 light up?": "Нажмите на кнопку SW1. Загорается ли светодиод D1?",
   "Tap push button SW1. Does LED D1 light up?": "Нажмите на кнопку SW1. Загорается ли светодиод D1?",
   "The closed circuit loop": "Замкнутая цепь",
   "D1 stays dark, so the current is not getting through. Electricity works like water in pipes: a battery (BT1) pushes current out of its positive terminal (+3V), through the components, and back to Ground (GND, 0 V). If the loop has a single break anywhere, zero current flows and nothing turns on.": "D1 не горит — значит, ток не проходит. Электричество похоже на воду в трубах: батарейка (BT1) выталкивает ток из плюсового вывода (+3V) через детали и обратно на землю (GND, 0 В). Если в контуре хоть один разрыв, ток не течёт и ничего не включается.",

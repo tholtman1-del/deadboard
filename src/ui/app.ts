@@ -228,6 +228,8 @@ export class PcbApp {
   /** Keyboard board cursor (docs: DESIGN.md → Board cursor); shown while the board view has keyboard focus. */
   private kbCursor: { pt: V2; side: Side } | null = null;
   private kbActive = false;
+  /** The lesson step's target while the step is not done: a label pointing at it on the board. */
+  private tutPointer: { pos: V2; side: Side; radius: number; label: string } | null = null;
   private kbUsed = false;
 
   private probeRed: ProbePin | null = null;
@@ -883,6 +885,7 @@ export class PcbApp {
         <main class="viewport" id="viewport">
           <canvas id="gpu-canvas" tabindex="0" role="application" aria-roledescription="${t('board')}" aria-describedby="board-keys"></canvas>
           <div class="sr-only" id="board-keys">${t('Arrow keys move the board cursor between pads, traces and parts; Shift+arrows move in small steps. Enter uses the current tool there; with the multimeter, Shift+Enter places the black probe. Escape cancels a jumper.')}</div>
+          <div class="tut-pointer" id="tut-pointer" hidden aria-hidden="true"></div>
           <div class="hud-top-left"><div id="tut-box"></div></div>
           ${m ? `
           <div class="m-viewctl">
@@ -998,6 +1001,31 @@ export class PcbApp {
       try { same = lastKey ? box.querySelector<HTMLElement>(lastKey) : null; } catch { same = null; }
       (same ?? box).focus({ preventScroll: true });
     }).observe(root, { childList: true });
+  }
+
+  /** A quick action that only picks a tool is noise when that tool is already in hand. */
+  private quickShown(step: TutorialStep): boolean {
+    const qa = step.quickAction;
+    if (!qa) return false;
+    return !(qa.id.startsWith('tool-') && this.activeTool === qa.id.slice(5));
+  }
+
+  /** Keeps the lesson's on-board label over its target (CSS px inside the viewport); hidden when off screen. */
+  private placeTutPointer() {
+    const el = this.mount.querySelector<HTMLElement>('#tut-pointer');
+    if (!el) return;
+    const tp = this.tutPointer;
+    const both = this.camera.bothSides;
+    if (!tp || (!both && tp.side !== this.camera.side)) { el.hidden = true; return; }
+    const p = this.boardToScreen(tp.pos, tp.side);
+    const r = this.canvas.getBoundingClientRect();
+    const { w, h } = this.canvasDims();
+    if (!p || p.sx < 0 || p.sy < 0 || p.sx > w || p.sy > h) { el.hidden = true; return; }
+    const k = r.width / w; // device px → CSS px
+    const ringPx = tp.radius * this.camera.pxPerMm(h) * k;
+    if (el.textContent !== tp.label) el.textContent = tp.label;
+    el.style.transform = `translate3d(${(p.sx * k).toFixed(1)}px, ${(p.sy * k - ringPx - 10).toFixed(1)}px, 0) translate(-50%, -100%)`;
+    el.hidden = false;
   }
 
   /** Canvas size in device pixels (as the camera and the pointer handlers use it). */
@@ -4342,9 +4370,9 @@ export class PcbApp {
           <div class="tut-title"><span>${this.esc(t(step.title))}</span><span class="row">${done ? `<span class="badge pass">${icon('check', 11)}<span>${t('Done')}</span></span>` : ''}<button class="btn sm ghost ${why ? 'active' : ''}" id="tut-why">${icon('help', 12)}<span>${why ? t('Hide') : t('Why?')}</span></button></span></div>
           ${why ? `<div class="tut-concept">${this.esc(this.txt(t(step.concept)))}</div>` : ''}
           <div class="tut-goal ${done ? 'done' : ''}"><div class="tut-goal-txt">${this.esc(task)}</div></div>
-          ${step.target || step.quickAction ? `<div class="row wrap">
+          ${step.target || this.quickShown(step) ? `<div class="row wrap">
             ${step.target ? `<button class="btn sm" id="tut-focus">${icon('target', 12)}<span>${t('Locate')}</span></button>` : ''}
-            ${step.quickAction ? `<button class="btn sm" id="tut-quick">${this.esc(this.txt(t(step.quickAction.label)))}</button>` : ''}
+            ${this.quickShown(step) ? `<button class="btn sm" id="tut-quick">${this.esc(this.txt(t(step.quickAction!.label)))}</button>` : ''}
           </div>` : ''}
         </div>
         <div class="tut-foot">
@@ -4361,6 +4389,7 @@ export class PcbApp {
     const steps = getTutorialSteps(this.activeScenario.id);
     if (!this.tutorialOpen || !steps) {
       this.tutBoxEl.innerHTML = '';
+      this.tutPointer = null;
       return;
     }
     const total = steps.length;
@@ -4385,6 +4414,9 @@ export class PcbApp {
       probeBlack: this.probeBlack,
       revealedFlag: this.revealedFlag,
     });
+    this.tutPointer = step.target && !done && step.target.label
+      ? { pos: step.target.pos, side: step.target.side, radius: step.target.radius ?? 3, label: t(step.target.label) }
+      : null;
     const pct = Math.round(((idx + 1) / total) * 100);
     const isLast = idx === total - 1;
     const tutIdx = TUTORIAL_SCENARIO_IDS.indexOf(this.activeScenario.id as (typeof TUTORIAL_SCENARIO_IDS)[number]);
@@ -4411,7 +4443,7 @@ export class PcbApp {
             ${step.target || step.quickAction ? `
               <div class="row wrap" style="margin-top:2px">
                 ${step.target ? `<button class="btn sm" id="tut-focus">${icon('target', 12)}<span>${t('Locate on board')}</span></button>` : ''}
-                ${step.quickAction ? `<button class="btn sm" id="tut-quick">${this.esc(this.txt(t(step.quickAction.label)))}</button>` : ''}
+                ${this.quickShown(step) ? `<button class="btn sm" id="tut-quick">${this.esc(this.txt(t(step.quickAction!.label)))}</button>` : ''}
               </div>
             ` : ''}
           </div>
@@ -6630,6 +6662,7 @@ export class PcbApp {
         ? { pos: tutStep.target.pos, side: tutStep.target.side, radius: tutStep.target.radius }
         : null,
     });
+    this.placeTutPointer();
     this.rafId = requestAnimationFrame(this.loop);
   };
 
