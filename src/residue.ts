@@ -51,3 +51,32 @@ export function cleanWithIpa(board: Board, xmm: number, ymm: number, rmm: number
   }
   return { cleaned, cleared };
 }
+
+/** World position of a pad (mm). */
+function padAt(c: Component, pi: number): [number, number] {
+  const p = c.pads[pi], a = (c.rot * Math.PI) / 180;
+  return [c.at[0] + p.at[0] * Math.cos(a) - p.at[1] * Math.sin(a), c.at[1] + p.at[0] * Math.sin(a) + p.at[1] * Math.cos(a)];
+}
+
+/** Whether a scrub at this spot would reach rework flux residue. */
+export function fluxResidueNear(board: Board, xmm: number, ymm: number, rmm: number): boolean {
+  return board.components.some((c) => c.state.fluxResidue?.some((pi) => Math.hypot(padAt(c, pi)[0] - xmm, padAt(c, pi)[1] - ymm) <= rmm));
+}
+
+/**
+ * Rework flux residue: rosin dissolves readily in alcohol, so one scrub over a pad removes it
+ * (NEETS 14 p. 3-25: 99.5 % ethyl or isopropyl alcohol). Returns "R1.2"-style names of the pads cleaned.
+ */
+export function cleanFluxWithIpa(board: Board, xmm: number, ymm: number, rmm: number): string[] {
+  const out: string[] = [];
+  for (const c of board.components) {
+    const left = (c.state.fluxResidue ?? []).filter((pi) => {
+      const [px, py] = padAt(c, pi);
+      if (Math.hypot(px - xmm, py - ymm) > rmm) return true;
+      out.push(`${c.ref}.${c.pads[pi].name}`);
+      return false;
+    });
+    if (c.state.fluxResidue && left.length !== c.state.fluxResidue.length) c.state.fluxResidue = left.length ? left : undefined;
+  }
+  return out;
+}

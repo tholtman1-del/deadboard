@@ -2,18 +2,33 @@
 //
 //   plate cell   C = ρc·t·dx²        lateral G = k_inplane·t     convection G = 2·h·dx²
 //   part body    C = ρc_body·volume  to board  G = h_joint·footprint area   to air G = h·top area
+//   THT joint    C = solder + pad copper + barrel   to board G = h_joint·pad area (both sides)
+//                to the body through its lead  G = k_lead·πd²/4 / L
+//
+// A surface-mount part's pads sit under its body, so the body and its joints share one node.
+// A through-hole part is different: the iron heats the joint (pad, barrel, solder, lead stub)
+// and the body only warms through the lead — the reason a thermal shunt on the lead protects it.
 //
 // Heat sources are SPICE dissipations per part. Freeze spray deposits frost that pins a cell at
 // 0 °C until its latent heat is paid; isopropyl evaporates at a vapour-pressure-driven rate,
 // so on a powered board both reveal the hot spot exactly as on the bench.
 // Constants are typical handbook values (estimates), kept here as data.
 import type { Board, Component } from './types';
+import { pointInPolygon } from './geom';
 
 export interface ThermalConstants {
   /** Volumetric heat capacity of the laminate+copper stack (J/m³K). */
   rhoCBoard: number;
-  /** Effective in-plane conductivity of a multilayer board with planes (W/mK). */
+  /**
+   * Effective in-plane conductivity of a multilayer board with planes (W/mK): used where the
+   * board's copper is not known (a boardview has pins but no copper). Boards with copper geometry
+   * get a per-cell value from the copper in each cell instead (`kLaminate` + copper share).
+   */
   kInPlane: number;
+  /** In-plane conductivity of bare FR-4 laminate (W/mK; glass-weave in-plane ≈ 0.8, through-plane ≈ 0.3). */
+  kLaminate: number;
+  /** Copper foil thickness per layer (m; 1 oz = 35 µm). */
+  cuThickness: number;
   /** Combined natural convection + radiation per face (W/m²K). */
   hAir: number;
   /** Solder-joint / pad spreading conductance per footprint area (W/m²K). */
@@ -25,13 +40,34 @@ export interface ThermalConstants {
 
 export const THERMAL_DEFAULTS: ThermalConstants = {
   // hJoint: 0402 part ≈ 150 K/W to the board (datasheet range ~100–200 K/W for this size)
-  rhoCBoard: 2.0e6, kInPlane: 35, hAir: 12, hJoint: 11000, rhoCPart: 2.5e6, ambient: 25,
+  rhoCBoard: 2.0e6, kInPlane: 35, kLaminate: 0.8, cuThickness: 35e-6, hAir: 12, hJoint: 11000, rhoCPart: 2.5e6, ambient: 25,
 };
 
 const ICE_LATENT = 3.34e5 * 917; // J per m³ of frost
 const IPA_LATENT = 6.7e5 * 786;  // J per m³ of liquid IPA
 
-interface PartNode { c: Component; cells: number[]; C: number; Gb: number; Ga: number; T: number; P: number; area: number; frost: number; ipa: number; rosin: number; rosinMelt: number }
+interface PartNode { c: Component; cells: number[]; C: number; Gb: number; Ga: number; T: number; P: number; area: number; frost: number; ipa: number; rosin: number; rosinMelt: number; joints: JointNode[] }
+
+/** A through-hole solder joint: pad copper both sides, plated barrel, solder, the lead stub in it. */
+interface JointNode { part: PartNode; pad: number; cell: number; C: number; Gc: number; Gl: number; Afillet: number; T: number }
+
+/**
+ * Through-hole joint constants (typical handbook values, estimates):
+ * lead = tinned copper (k 385 W/mK; copper-clad steel leads conduct less), lead diameter =
+ * drill − 0.2 mm (usual hole clearance 0.15–0.25 mm), copper 35 µm per side, barrel 25 µm,
+ * solder Sn63 ρc ≈ 8.4 g/cm³ × 0.18 J/gK, copper ρc ≈ 3.45 MJ/m³K. Lead length from the joint to
+ * the body = board thickness + the in-plane run to the body + `LEAD_RISE` (bend and standoff).
+ */
+export const THT = { kLead: 385, clearance: 0.2, cuT: 35e-6, barrelT: 25e-6, rhoCSolder: 1.5e6, rhoCCu: 3.45e6, leadRise: 1.5, pourR: 10 } as const;
+
+/**
+ * A pad inside a copper pour of its own net conducts into the pour radially:
+ * G = 2π·k_Cu·t_Cu / ln(R/a) per layer, R ≈ 10 mm (heat diffuses ≈ √(α_Cu·t) ≈ 10 mm in copper in
+ * the first second of contact), a = pad radius. Why a ground-pour joint needs a bigger tip.
+ */
+export function pourConductance(padDiameterMm: number): number {
+  return (2 * Math.PI * THT.kLead * THT.cuT) / Math.log(THT.pourR / Math.max(0.2, padDiameterMm / 2));
+}
 
 /**
  * Rosin method: a thin white rosin film (condensed vapour) melts clear on a part warmer than
@@ -55,12 +91,73 @@ const ROSIN_MELT_RATE = 1 / 15; // fraction per second per kelvin above softenin
 
 /** External heat sources used for rework. */
 export type HeatSource =
-  /** Soldering iron: tip at `temp`, conductance `g` (W/K, wetting-dependent), power limit `pmax`. */
-  | { kind: 'iron'; x: number; y: number; temp: number; g: number; pmax: number; until: number; partId?: string }
+  /**
+   * Soldering iron: tip at `temp`, conductance `g` (W/K, wetting-dependent), power limit `pmax`.
+   * On a through-hole pad (`partId` + `pad`) the tip heats that joint; otherwise the part body
+   * and the board cell under the tip together.
+   */
+  | { kind: 'iron'; x: number; y: number; temp: number; g: number; pmax: number; until: number; partId?: string; pad?: number }
   /** Hot-air nozzle: air at `temp`, forced-convection coefficient `h` (W/m²K) over radius `r`. */
   | { kind: 'hotair'; x: number; y: number; r: number; temp: number; h: number; until: number }
   /** Bottom preheater: heats the whole board from below with coefficient `h` toward `temp`. */
   | { kind: 'preheat'; temp: number; h: number; until: number };
+
+/** Cells (row-major, nx × ny, size dxmm) whose centres lie inside a polygon (scanline fill). */
+function fillPolygon(poly: [number, number][], nx: number, ny: number, dxmm: number, cb: (k: number) => void) {
+  for (let j = 0; j < ny; j++) {
+    const y = (j + 0.5) * dxmm, xs: number[] = [];
+    for (let e = 0; e < poly.length; e++) {
+      const [x0, y0] = poly[e], [x1, y1] = poly[(e + 1) % poly.length];
+      if ((y0 <= y) !== (y1 <= y)) xs.push(x0 + ((y - y0) / (y1 - y0)) * (x1 - x0));
+    }
+    xs.sort((a, b) => a - b);
+    for (let q = 0; q + 1 < xs.length; q += 2) {
+      for (let i = Math.max(0, Math.ceil(xs[q] / dxmm - 0.5)); i < nx && (i + 0.5) * dxmm <= xs[q + 1]; i++) cb(j * nx + i);
+    }
+  }
+}
+
+/**
+ * Copper thickness per thermal cell (m, summed over layers, each layer's share capped at full
+ * coverage): pours, traces and pads of both outer layers, the inner layers' copper when the
+ * board carries it. A board with hidden inner copper but no geometry for it is assumed to have
+ * two full inner planes (typical 4-layer stack; an estimate). Null when the board has no copper
+ * geometry at all (a boardview: pins only), so the caller uses the uniform multilayer value.
+ */
+export function copperThickness(board: Board, nx: number, ny: number, dxmm: number, cuT: number): Float64Array | null {
+  if (!board.traces.length && !board.zones.length && !board.inner) return null;
+  const n = nx * ny, cellA = dxmm * dxmm;
+  const at = (x: number, y: number) => Math.min(ny - 1, Math.max(0, Math.floor(y / dxmm))) * nx + Math.min(nx - 1, Math.max(0, Math.floor(x / dxmm)));
+  const layer = () => new Float64Array(n);
+  const layers = new Map<string, Float64Array>();
+  const get = (key: string) => { let a = layers.get(key); if (!a) layers.set(key, (a = layer())); return a; };
+  const stroke = (cov: Float64Array, a: [number, number], b: [number, number], w: number) => {
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]), steps = Math.max(1, Math.ceil(len / (dxmm / 2)));
+    for (let s = 0; s < steps; s++) {
+      const f = (s + 0.5) / steps;
+      cov[at(a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f)] += (w * len / steps) / cellA;
+    }
+  };
+  for (const z of board.zones) fillPolygon(z.poly, nx, ny, dxmm, (k) => { get(z.layer)[k] = 1; });
+  for (const tr of board.traces) stroke(get(tr.layer), tr.a, tr.b, tr.w);
+  for (const c of board.components) {
+    const a = (c.rot * Math.PI) / 180, cs = Math.cos(a), sn = Math.sin(a);
+    for (const p of c.pads) {
+      const k = at(c.at[0] + p.at[0] * cs - p.at[1] * sn, c.at[1] + p.at[0] * sn + p.at[1] * cs);
+      const share = Math.min(p.size[0] * p.size[1], cellA) / cellA;
+      for (const side of p.layers === 'FB' ? ['F', 'B'] : [p.layers === 'B' ? 'B' : c.side]) get(side)[k] += share;
+    }
+  }
+  if (board.inner) {
+    for (const z of board.inner.zones) fillPolygon(z.poly, nx, ny, dxmm, (k) => { get(`In${z.layer}`)[k] = 1; });
+    for (const tr of board.inner.traces) stroke(get(`In${tr.layer}`), tr.a, tr.b, tr.w);
+  } else if (board.hiddenCopperNets?.length) {
+    for (const key of ['In1', 'In2']) get(key).fill(1);
+  }
+  const out = new Float64Array(n);
+  for (const cov of layers.values()) for (let k = 0; k < n; k++) out[k] += Math.min(1, cov[k]) * cuT;
+  return out;
+}
 
 export class ThermalModel {
   readonly nx: number;
@@ -71,10 +168,16 @@ export class ThermalModel {
   readonly frost: Float64Array;
   readonly ipa: Float64Array;
   private readonly Ccell: number;
-  private readonly Glat: number;
+  /** Lateral conductance (W/K) from cell k to k+1 (gx) and to k+nx (gy). */
+  private readonly gx: Float64Array;
+  private readonly gy: Float64Array;
+  private readonly gMax: number;
+  /** The board's copper is drawn (not a pins-only boardview). */
+  private readonly copperKnown: boolean;
   private readonly Gair: number;
   private readonly parts: PartNode[] = [];
   private readonly byId = new Map<string, PartNode>();
+  private readonly joints: JointNode[] = [];
   /** Extra conductance (W/K) from a cell into the copper planes (pads on plane nets). */
   private readonly planeG: Float64Array;
   sources: HeatSource[] = [];
@@ -90,7 +193,19 @@ export class ThermalModel {
     this.ny = Math.max(2, Math.ceil(board.h / dxmm));
     const t = Math.max(0.4, board.thickness) * 1e-3;
     this.Ccell = k.rhoCBoard * t * this.dx * this.dx;
-    this.Glat = k.kInPlane * t;
+    // per-cell in-plane conductivity: laminate + the copper actually there (series pairs: harmonic mean)
+    const cu = copperThickness(board, this.nx, this.ny, dxmm, k.cuThickness);
+    this.copperKnown = !!cu;
+    const kc = (i: number) => (cu ? k.kLaminate + (385 * cu[i]) / t : k.kInPlane);
+    this.gx = new Float64Array(this.nx * this.ny);
+    this.gy = new Float64Array(this.nx * this.ny);
+    let gMax = 0;
+    for (let j = 0; j < this.ny; j++) for (let i = 0; i < this.nx; i++) {
+      const id = j * this.nx + i, a = kc(id);
+      if (i + 1 < this.nx) { const b = kc(id + 1); this.gx[id] = ((2 * a * b) / (a + b)) * t; gMax = Math.max(gMax, this.gx[id]); }
+      if (j + 1 < this.ny) { const b = kc(id + this.nx); this.gy[id] = ((2 * a * b) / (a + b)) * t; gMax = Math.max(gMax, this.gy[id]); }
+    }
+    this.gMax = gMax;
     this.Gair = 2 * k.hAir * this.dx * this.dx;
     const n = this.nx * this.ny;
     this.T = new Float64Array(n).fill(k.ambient);
@@ -102,17 +217,22 @@ export class ThermalModel {
   }
 
   /**
-   * Pads on plane nets (ground / big rails: nets with many pads) dump heat into the copper plane
-   * through their vias — the reason a ground pad needs far more heat than a signal pad.
+   * Pads on plane nets dump heat into the inner copper plane through their vias — the reason a
+   * ground pad needs far more heat than a signal pad. Which nets have a plane: on a board whose
+   * copper is drawn, the nets with hidden inner copper (outer pours are in the copper map); on a
+   * pins-only boardview, ground-named nets and nets with many pads (the usual planes).
    */
   private markPlanes(gPerPad = 0.15) {
     const count = new Map<string, number>();
     for (const c of this.board.components) for (const p of c.pads) if (p.net) count.set(p.net, (count.get(p.net) ?? 0) + 1);
+    const hidden = new Set([...(this.board.hiddenCopperNets ?? []), ...(this.board.inner?.zones ?? []).map((z) => z.net ?? '')]);
+    const isPlane = (net: string | undefined) => !!net && (this.copperKnown
+      ? hidden.has(net)
+      : (count.get(net) ?? 0) >= 40 || /^(GND|VSS|PGND|AGND)/i.test(net));
     for (const c of this.board.components) {
       const a = (c.rot * Math.PI) / 180, cs = Math.cos(a), sn = Math.sin(a);
       for (const p of c.pads) {
-        const nPads = p.net ? count.get(p.net) ?? 0 : 0;
-        if (nPads < 40 && !/^(GND|VSS|PGND|AGND)/i.test(p.net ?? '')) continue;
+        if (!isPlane(p.net)) continue;
         this.planeG[this.cellAt(c.at[0] + p.at[0] * cs - p.at[1] * sn, c.at[1] + p.at[0] * sn + p.at[1] * cs)] += gPerPad;
       }
     }
@@ -149,10 +269,45 @@ export class ThermalModel {
     const vol = w * h * z * 1e-9;
     const node: PartNode = {
       c, cells: [...cells], C: this.k.rhoCPart * vol, Gb: this.k.hJoint * Math.max(padArea, 1e-8),
-      Ga: this.k.hAir * w * h * 1e-6, T: this.k.ambient, P: 0, area: w * h * 1e-6, frost: 0, ipa: 0, rosin: 0, rosinMelt: 0,
+      Ga: this.k.hAir * w * h * 1e-6, T: this.k.ambient, P: 0, area: w * h * 1e-6, frost: 0, ipa: 0, rosin: 0, rosinMelt: 0, joints: [],
     };
+    // a through-hole part with a body (not a bare test pin or header): its body reaches the board only through its leads
+    const tht = c.body.shape !== 'none' && c.pads.length > 0 && c.pads.every((p) => (p.drill ?? 0) > 0 && p.layers === 'FB');
+    if (tht) {
+      node.Gb = 0;
+      const a = (c.rot * Math.PI) / 180, cs = Math.cos(a), sn = Math.sin(a);
+      const [ox, oy] = c.body.off ?? [0, 0];
+      c.pads.forEach((p, pi) => {
+        const drill = p.drill!, D = Math.max(p.size[0], p.size[1], drill + 0.2);
+        const d = Math.max(0.3, drill - THT.clearance) * 1e-3;
+        const t = Math.max(0.4, this.board.thickness) * 1e-3;
+        // the lead's run in the board plane from the pad to the body outline (footprint-local)
+        const run = Math.hypot(Math.max(0, Math.abs(p.at[0] - ox) - w / 2), Math.max(0, Math.abs(p.at[1] - oy) - h / 2));
+        const L = t + (run + THT.leadRise) * 1e-3;
+        const ring = (Math.PI / 4) * (D * D - drill * drill) * 1e-6;          // m², one side
+        const vCu = 2 * ring * THT.cuT + Math.PI * drill * 1e-3 * t * THT.barrelT;
+        const vSolder = (Math.PI / 4) * Math.max(0, (drill * 1e-3) ** 2 - d * d) * t + 2 * 0.3 * (Math.PI / 4) * (D * 1e-3) ** 2 * 0.3e-3; // hole fill + two cone fillets
+        const vLead = (Math.PI / 4) * d * d * (t + 1e-3);                     // the stub in the hole and its clipped end
+        const px = c.at[0] + p.at[0] * cs - p.at[1] * sn, py = c.at[1] + p.at[0] * sn + p.at[1] * cs;
+        const pours = p.net ? this.board.zones.filter((z) => z.net === p.net && pointInPolygon([px, py], z.poly)).length : 0;
+        node.joints.push({
+          part: node, pad: pi, cell: this.cellAt(px, py),
+          C: THT.rhoCCu * (vCu + vLead) + THT.rhoCSolder * vSolder,
+          Gc: this.k.hJoint * 2 * ring + pours * pourConductance(D),
+          Gl: (THT.kLead * Math.PI * d * d) / 4 / L,
+          Afillet: 2 * (Math.PI / 4) * (D * 1e-3) ** 2,
+          T: this.k.ambient,
+        });
+      });
+      this.joints.push(...node.joints);
+    }
     this.parts.push(node);
     this.byId.set(c.id, node);
+  }
+
+  /** The through-hole joint of a pad, if the part is through-hole. */
+  private joint(c: Component, pad: number): JointNode | undefined {
+    return this.byId.get(c.id)?.joints.find((j) => j.pad === pad);
   }
 
   /** Sets dissipated power per component id (W). */
@@ -163,10 +318,10 @@ export class ThermalModel {
   /** Advances the model by `dt` seconds (internally sub-stepped for stability). */
   step(dt: number) {
     if (!(dt > 0)) return; // dt = 0 (e.g. the first animation frame) would divide by zero
-    const hmax = (0.9 * this.Ccell) / (4 * this.Glat + this.Gair);
+    const hmax = (0.9 * this.Ccell) / (4 * this.gMax + this.Gair);
     const nsub = Math.max(1, Math.ceil(dt / hmax));
     const h = dt / nsub;
-    const { nx, ny, T, Ccell, Glat, Gair } = this;
+    const { nx, ny, T, Ccell, gx, gy, Gair } = this;
     const amb = this.k.ambient;
     const q = new Float64Array(T.length);
     let planeT = 0;
@@ -174,11 +329,17 @@ export class ThermalModel {
     planeT /= T.length;
     this.sources = this.sources.filter((src) => src.until > this.time);
     let srcP = 0;
+    const drive = new Map<JointNode, { g: number; temp: number; pmax: number; air: number; airT: number }>();
     for (let s = 0; s < nsub; s++) {
       q.fill(0);
+      drive.clear();
       // rework heat sources
       for (const src of this.sources) {
         if (src.until <= this.time) continue;
+        if (src.kind === 'iron' && src.partId !== undefined && src.pad !== undefined) {
+          const jn = this.byId.get(src.partId)?.joints.find((j) => j.pad === src.pad);
+          if (jn) { const d = drive.get(jn); drive.set(jn, { g: src.g, temp: src.temp, pmax: src.pmax, air: d?.air ?? 0, airT: d?.airT ?? 0 }); continue; }
+        }
         if (src.kind === 'iron') {
           const k = this.cellAt(src.x, src.y);
           const node = src.partId ? this.byId.get(src.partId) : undefined;
@@ -199,18 +360,45 @@ export class ThermalModel {
             const [px, py] = n.c.at;
             if ((px - src.x) ** 2 + (py - src.y) ** 2 <= src.r * src.r) { const p = src.h * Math.max(1e-8, n.Ga / this.k.hAir) * (src.temp - n.T); n.T += (p * h) / n.C; srcP += p / nsub; }
           }
+          // the jet also blows on through-hole fillets in its disc
+          const s1 = this.dx * 1e3;
+          for (const j of this.joints) {
+            const jx = ((j.cell % this.nx) + 0.5) * s1, jy = (Math.floor(j.cell / this.nx) + 0.5) * s1;
+            if ((jx - src.x) ** 2 + (jy - src.y) ** 2 > src.r * src.r) continue;
+            const d = drive.get(j) ?? { g: 0, temp: 0, pmax: 0, air: 0, airT: 0 };
+            drive.set(j, { ...d, air: d.air + src.h * j.Afillet, airT: src.temp });
+          }
         } else {
           const g = src.h * this.dx * this.dx;
           for (let k = 0; k < T.length; k++) q[k] += g * (src.temp - T[k]);
         }
       }
 
+      // through-hole joints: implicit local update against the board cell, the body (through the
+      // lead), the iron tip (power-limited) and hot air; their heat then flows into the board cell
+      for (const j of this.joints) {
+        const live = j.part.c.state.populated;
+        const gl = live ? j.Gl : 0, tb = T[j.cell], tBody = j.part.T;
+        const d = drive.get(j);
+        const g = d?.g ?? 0, air = d?.air ?? 0;
+        const den = j.C / h + j.Gc + gl + g + air;
+        let Tj = (j.C / h * j.T + j.Gc * tb + gl * tBody + g * (d?.temp ?? 0) + air * (d?.airT ?? 0)) / den;
+        if (d && g > 0 && g * (d.temp - Tj) > d.pmax) {
+          // the station cannot deliver more than its power: fixed power instead of fixed tip temperature
+          Tj = (j.C / h * j.T + j.Gc * tb + gl * tBody + d.pmax + air * d.airT) / (j.C / h + j.Gc + gl + air);
+          srcP += d.pmax / nsub;
+        } else if (d && g > 0) srcP += (g * (d.temp - Tj)) / nsub;
+        j.T = Tj;
+        q[j.cell] += j.Gc * (Tj - tb);
+      }
       // parts: implicit local update, then their heat flows into the footprint cells
       for (const n of this.parts) {
         let tb = 0;
         for (const i of n.cells) tb += T[i];
         tb /= n.cells.length;
-        let Tn = (n.C / h * n.T + n.P + n.Gb * tb + n.Ga * amb) / (n.C / h + n.Gb + n.Ga);
+        let gl = 0, glT = 0;
+        if (n.c.state.populated) for (const j of n.joints) { gl += j.Gl; glT += j.Gl * j.T; }
+        let Tn = (n.C / h * n.T + n.P + n.Gb * tb + n.Ga * amb + glT) / (n.C / h + n.Gb + n.Ga + gl);
         // frost on the body pins it at 0 °C until the latent heat is paid by the part's own heat
         if (n.frost > 0 && Tn > 0) {
           const e = n.C * Tn, cap = n.frost * n.area * ICE_LATENT;
@@ -232,10 +420,10 @@ export class ThermalModel {
         for (let i = 0; i < nx; i++) {
           const k = j * nx + i, t0 = T[k];
           let f = q[k] - Gair * (t0 - amb);
-          if (i > 0) f += Glat * (T[k - 1] - t0);
-          if (i < nx - 1) f += Glat * (T[k + 1] - t0);
-          if (j > 0) f += Glat * (T[k - nx] - t0);
-          if (j < ny - 1) f += Glat * (T[k + nx] - t0);
+          if (i > 0) f += gx[k - 1] * (T[k - 1] - t0);
+          if (i < nx - 1) f += gx[k] * (T[k + 1] - t0);
+          if (j > 0) f += gy[k - nx] * (T[k - nx] - t0);
+          if (j < ny - 1) f += gy[k] * (T[k + nx] - t0);
           // plane sink treated implicitly (unconditionally stable for many stitched pads in one cell)
           const gp = this.planeG[k];
           let t1 = gp > 0 ? (t0 + (h * (f + gp * planeT)) / Ccell) / (1 + (h * gp) / Ccell) : t0 + (h * f) / Ccell;
@@ -261,8 +449,13 @@ export class ThermalModel {
     this.sourcePower = srcP;
   }
 
-  /** Board cell temperature under a pad, and the part body temperature. */
+  /**
+   * Solder joint temperature: a through-hole joint's own node; for a surface-mount part the
+   * mean of the board cell under the pad and the part body.
+   */
   jointTemp(c: Component, padIndex: number): number {
+    const j = this.joint(c, padIndex);
+    if (j) return j.T;
     const n = this.byId.get(c.id);
     const p = c.pads[padIndex];
     const a = (c.rot * Math.PI) / 180, cs = Math.cos(a), sn = Math.sin(a);
@@ -288,6 +481,7 @@ export class ThermalModel {
     let m = -Infinity;
     for (const v of this.T) if (v > m) m = v;
     for (const n of this.parts) if (n.T > m) m = n.T;
+    for (const j of this.joints) if (j.T > m) m = j.T;
     return m;
   }
   hottestPart(): { c: Component; T: number } | null {
@@ -361,6 +555,7 @@ export class ThermalModel {
   reset() {
     this.T.fill(this.k.ambient); this.frost.fill(0); this.ipa.fill(0);
     for (const n of this.parts) { n.T = this.k.ambient; n.frost = 0; n.ipa = 0; n.rosin = 0; n.rosinMelt = 0; }
+    for (const j of this.joints) j.T = this.k.ambient;
     this.time = 0;
   }
 }

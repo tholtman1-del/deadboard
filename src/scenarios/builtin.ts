@@ -5,6 +5,7 @@ import { addBlob, cutTrace, removePart } from '../ops';
 import { Builder } from './builder';
 import { setReference } from './reference';
 import { realisticScenarios } from './realistic';
+import { solderingScenarios } from './soldering';
 
 async function finalize(id: string, meta: ScenarioMeta, b: Board, objectives: Objective[], flag: string, sabotage: (b: Board) => void): Promise<Scenario> {
   const lock = await lockFlag(flag, topology(b, buildConnectivity(b), id));
@@ -335,7 +336,7 @@ async function transistorSwitch(): Promise<Scenario> {
 }
 
 export async function builtinScenarios(): Promise<Scenario[]> {
-  const [base, extra] = await Promise.all([
+  const [base, extra, soldering] = await Promise.all([
     Promise.all([
       firstLight(),
       tutColdJoint(),
@@ -349,6 +350,7 @@ export async function builtinScenarios(): Promise<Scenario[]> {
       ghostShort(),
     ]),
     realisticScenarios(),
+    solderingScenarios(),
   ]);
-  return [...base, ...extra];
+  return [...base, ...extra, ...soldering];
 }

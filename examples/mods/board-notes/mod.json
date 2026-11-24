@@ -2,7 +2,7 @@
   "format": "deadboard-mod/2",
   "id": "board-notes",
   "name": "Board notes (knowledge packs for the shipped boards)",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "author": "Biga73 (idea) · DEADBOARD",
   "description": "An example data mod: a knowledge pack for every board that ships with DEADBOARD. Rails, where each one comes from, what to expect at which pin, and what a low reading usually means, each marked documented, derived or estimated. The packs describe the working board and point at likely causes, the way the board's hints do; they don't name the planted faults. Based on the device knowledge pack RFC by Biga73.",
   "license": "CC0-1.0",
@@ -729,6 +729,143 @@
       "notes": [
         "Power path, worked out from the board (derived): USB breakout → flat cable U2 → +5V → U1 (XC6206) → D1 → 3vDiode → RP2040 (IO, and its regulator → +1V1).",
         "Dead and cold on USB, with +5V present: follow it through the regulator. A pin can be cut off from its pad while the part itself is fine."
+      ]
+    },
+    {
+      "id": "hr-solder-flux",
+      "board": "official-boards/boards/hr-solder-flux",
+      "title": "Solder and Flux",
+      "provenance": { "kind": "board design + simulator", "where": "part values from the board; readings from DEADBOARD's simulator on the working board", "confidence": "derived" },
+      "rails": [
+        {
+          "net": "+5V",
+          "nominal": 5.0,
+          "domain": "always on",
+          "source": { "ref": "J1", "kind": "5 V DC input header" },
+          "checks": [
+            { "at": "J1", "pin": "1", "expect": "≈5.00 V with every LED lit (≈26 mA in all)", "readsLowIf": "the bench supply is off or current-limited, or something downstream draws far more" }
+          ]
+        },
+        {
+          "net": "LED1_A",
+          "nominal": 2.0,
+          "domain": "always on",
+          "source": { "ref": "R1", "kind": "330 Ω series resistor" },
+          "checks": [
+            { "at": "D1", "pin": "2", "expect": "≈2.00 V (red LED, ≈9.1 mA)", "readsLowIf": "0 V: nothing reaches D1 through R1 (an open joint on either side of R1); ≈5 V with D1 dark: D1's own cathode joint is open" }
+          ],
+          "notes": "I = (5.00 − 2.00) V / 330 Ω ≈ 9.1 mA."
+        },
+        {
+          "net": "LED2_A",
+          "nominal": 2.29,
+          "domain": "always on",
+          "source": { "ref": "R2", "kind": "330 Ω series resistor" },
+          "checks": [
+            { "at": "D2", "pin": "2", "expect": "≈2.29 V (green LED, ≈8.2 mA)", "readsLowIf": "0 V: nothing reaches D2 through R2 (an open joint on either side of R2); ≈5 V with D2 dark: D2's own cathode joint is open" }
+          ],
+          "notes": "I = (5.00 − 2.29) V / 330 Ω ≈ 8.2 mA."
+        },
+        {
+          "net": "LED3_A",
+          "nominal": 2.19,
+          "domain": "always on",
+          "source": { "ref": "R3", "kind": "330 Ω series resistor" },
+          "checks": [
+            { "at": "D3", "pin": "2", "expect": "≈2.19 V (yellow LED, ≈8.5 mA)", "readsLowIf": "0 V: nothing reaches D3 through R3 (an open joint on either side of R3); ≈5 V with D3 dark: D3's own cathode joint is open" }
+          ],
+          "notes": "I = (5.00 − 2.19) V / 330 Ω ≈ 8.5 mA."
+        }
+      ],
+      "powerUp": [ "+5V" ],
+      "notes": [
+        "Through-hole parts are soldered on the bottom side: a dull, grainy joint there can look fine from the top and still be open.",
+        "Soldered with 63/37 tin-lead (melts at 183 °C, 361 °F), as in NEETS Module 14 (public-domain US Navy textbook)."
+      ]
+    },
+    {
+      "id": "hr-heat-time",
+      "board": "official-boards/boards/hr-heat-time",
+      "title": "Heat and Time",
+      "provenance": { "kind": "board design + simulator", "where": "part values from the board; readings from DEADBOARD's simulator on the working board", "confidence": "derived" },
+      "rails": [
+        {
+          "net": "+5V",
+          "nominal": 5.0,
+          "domain": "always on",
+          "source": { "ref": "J1", "kind": "5 V DC input header" },
+          "checks": [
+            { "at": "J1", "pin": "1", "expect": "≈5.00 V with every LED lit (≈17 mA in all)", "readsLowIf": "the bench supply is off or current-limited, or something downstream draws far more" }
+          ]
+        },
+        {
+          "net": "LED1_A",
+          "nominal": 2.0,
+          "domain": "always on",
+          "source": { "ref": "R1", "kind": "330 Ω series resistor" },
+          "checks": [
+            { "at": "D1", "pin": "2", "expect": "≈2.00 V (red LED, ≈9.1 mA)", "readsLowIf": "0 V: nothing reaches D1 through R1 (an open joint on either side of R1); ≈5 V with D1 dark: D1's own cathode joint is open" }
+          ],
+          "notes": "I = (5.00 − 2.00) V / 330 Ω ≈ 9.1 mA."
+        },
+        {
+          "net": "LED2_A",
+          "nominal": 2.29,
+          "domain": "always on",
+          "source": { "ref": "R2", "kind": "330 Ω series resistor" },
+          "checks": [
+            { "at": "D2", "pin": "2", "expect": "≈2.29 V (green LED, ≈8.2 mA)", "readsLowIf": "0 V: nothing reaches D2 through R2 (an open joint on either side of R2); ≈5 V with D2 dark: D2's own cathode joint is open" }
+          ],
+          "notes": "I = (5.00 − 2.29) V / 330 Ω ≈ 8.2 mA."
+        }
+      ],
+      "powerUp": [ "+5V" ],
+      "notes": [
+        "Through-hole parts are soldered on the bottom side: a dull, grainy joint there can look fine from the top and still be open.",
+        "Soldered with 63/37 tin-lead (melts at 183 °C, 361 °F), as in NEETS Module 14 (public-domain US Navy textbook).",
+        "GND is a copper pour over the whole bottom side: a joint in it loses heat into the pour and needs more heat to solder than one on a thin track."
+      ]
+    },
+    {
+      "id": "hr-clean-inspect",
+      "board": "official-boards/boards/hr-clean-inspect",
+      "title": "Clean and Inspect",
+      "provenance": { "kind": "board design + simulator", "where": "part values from the board; readings from DEADBOARD's simulator on the working board", "confidence": "derived" },
+      "rails": [
+        {
+          "net": "+5V",
+          "nominal": 5.0,
+          "domain": "always on",
+          "source": { "ref": "J1", "kind": "5 V DC input header" },
+          "checks": [
+            { "at": "J1", "pin": "1", "expect": "≈5.00 V with every LED lit (≈15 mA in all)", "readsLowIf": "the bench supply is off or current-limited, or something downstream draws far more" }
+          ]
+        },
+        {
+          "net": "LED1_A",
+          "nominal": 2.0,
+          "domain": "always on",
+          "source": { "ref": "R1", "kind": "330 Ω series resistor" },
+          "checks": [
+            { "at": "D1", "pin": "2", "expect": "≈2.00 V (red LED, ≈9.1 mA)", "readsLowIf": "0 V: nothing reaches D1 through R1 (an open joint on either side of R1); ≈5 V with D1 dark: D1's own cathode joint is open" }
+          ],
+          "notes": "I = (5.00 − 2.00) V / 330 Ω ≈ 9.1 mA."
+        },
+        {
+          "net": "LED2_A",
+          "nominal": 3.14,
+          "domain": "always on",
+          "source": { "ref": "R2", "kind": "330 Ω series resistor" },
+          "checks": [
+            { "at": "D2", "pin": "2", "expect": "≈3.14 V (blue LED, ≈5.6 mA)", "readsLowIf": "≈0 V while the supply still delivers current: D2's two pins are shorted together; 0 V and no current: an open joint at R2" }
+          ],
+          "notes": "I = (5.00 − 3.14) V / 330 Ω ≈ 5.6 mA."
+        }
+      ],
+      "powerUp": [ "+5V" ],
+      "notes": [
+        "Through-hole parts are soldered on the bottom side: a dull, grainy joint there can look fine from the top and still be open.",
+        "Soldered with 63/37 tin-lead (melts at 183 °C, 361 °F), as in NEETS Module 14 (public-domain US Navy textbook)."
       ]
     }
   ]

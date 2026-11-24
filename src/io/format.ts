@@ -43,6 +43,7 @@ function normalizeComponent(c: Component): Component {
       ...(c.state?.residue && typeof c.state.residue.amount === 'number' && c.state.residue.amount > 0 && {
         residue: { amount: Math.min(1, c.state.residue.amount), ...(c.state.residue.leaky && { leaky: true }), ...(Array.isArray(c.state.residue.pads) && { pads: c.state.residue.pads.filter((x) => Number.isInteger(x)) }) },
       }),
+      ...(Array.isArray(c.state?.fluxResidue) && { fluxResidue: c.state.fluxResidue.filter((x) => Number.isInteger(x)) }),
       ...(Array.isArray(c.state?.intermittent) && { intermittent: c.state.intermittent.filter((f) => f && typeof f.threshold === 'number' && ['thermal-open', 'thermal-leak', 'flex-open', 'flex-close'].includes(f.kind)) }),
     },
   };
@@ -77,6 +78,7 @@ export function parseScenario(text: string): Scenario {
     ...(raw.generated && typeof raw.generated.from === 'string' && typeof raw.generated.title === 'string' && {
       generated: { from: raw.generated.from.slice(0, 120), title: raw.generated.title.slice(0, 120) },
     }),
+    ...((raw.alloy === 'sac305' || raw.alloy === 'sn63' || raw.alloy === 'sn60') && { alloy: raw.alloy }),
     ...((raw.solver === 'fast' || raw.solver === 'spice' || raw.solver === 'spice-power') && { solver: raw.solver }),
     ...(raw.calibration && typeof raw.calibration.loadScale === 'number' && raw.calibration.loadScale > 0 && {
       calibration: { loadScale: raw.calibration.loadScale, ...(typeof raw.calibration.source === 'string' && { source: raw.calibration.source.slice(0, 200) }) },

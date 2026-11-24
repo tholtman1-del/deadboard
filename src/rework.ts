@@ -6,9 +6,21 @@ import type { Board, Component } from './types';
 import type { ThermalModel } from './thermal';
 import { rng, seedOf, sampleSeverity } from './faults';
 
-export interface Alloy { name: string; liquidus: number }
-export const SAC305: Alloy = { name: 'SAC305 (lead-free)', liquidus: 217 };
-export const SN63: Alloy = { name: 'Sn63Pb37', liquidus: 183 };
+/**
+ * A solder alloy: solid below `solidus`, liquid above `liquidus` (°C); between them a pasty
+ * ("plastic") range. Values: NEETS Module 14 p. 2-19 for tin-lead (63/37 melts at 361 °F with no
+ * plastic state; 60/40 is plastic between 361 and 370 °F); SAC305 maker datasheets (217–220 °C).
+ */
+export interface Alloy { id: AlloyId; name: string; solidus: number; liquidus: number }
+export type AlloyId = 'sac305' | 'sn63' | 'sn60';
+export const SAC305: Alloy = { id: 'sac305', name: 'SAC305 (lead-free)', solidus: 217, liquidus: 220 };
+export const SN63: Alloy = { id: 'sn63', name: 'Sn63Pb37', solidus: 183, liquidus: 183 };
+export const SN60: Alloy = { id: 'sn60', name: 'Sn60Pb40', solidus: 183, liquidus: 188 };
+export const ALLOYS: Record<AlloyId, Alloy> = { sac305: SAC305, sn63: SN63, sn60: SN60 };
+/** The process limits for a board's alloy (lead-free unless the board says otherwise). */
+export function limitsFor(alloy?: AlloyId): ProcessLimits {
+  return { ...DEFAULT_LIMITS, alloy: ALLOYS[alloy ?? 'sac305'] ?? SAC305 };
+}
 
 export interface ProcessLimits {
   alloy: Alloy;
@@ -45,17 +57,51 @@ export const DEFAULT_LIMITS: ProcessLimits = {
   partMaxTemp: 300, partMaxSeconds: 10, mlccShockRate: 150, blowAwayH: 1400, smallPartArea: 0.6,
 };
 
-export type ReworkEventKind = 'molten' | 'reflowed' | 'dull-joint' | 'pad-lifted' | 'part-overheated' | 'mlcc-cracked' | 'part-displaced';
+export type ReworkEventKind = 'molten' | 'reflowed' | 'wetted' | 'dull-joint' | 'pad-lifted' | 'part-overheated' | 'mlcc-cracked' | 'part-displaced';
 export interface ReworkEvent { kind: ReworkEventKind; ref: string; pad?: number; detail: string }
 
-interface JointState { above: number; melted: boolean; hot: number }
+/**
+ * One heating of a solder joint, from the moment it melted until it froze again: what an
+ * inspector would want to know about how the joint was made.
+ */
+export interface JointEpisode {
+  ref: string; pad: number;
+  /** Seconds the joint was molten (above liquidus). */
+  molten: number;
+  /** Peak joint temperature (°C). */
+  peak: number;
+  /** Flux was active when it melted. */
+  flux: boolean;
+  /** Board time at melting (s). */
+  t: number;
+  /** Still molten (the episode is not over). */
+  open: boolean;
+}
+
+interface JointState { above: number; melted: boolean; hot: number; ep?: JointEpisode }
+
+/** What was done on a board, kept by the caller across monitors. */
+export interface ReworkHistory { episodes: JointEpisode[]; log: (ReworkEvent & { t: number })[] }
 interface PartState { seen: number; overheat: number; rate: number; lastT: number; base: number; flux: number; cracked: boolean; displaced: boolean; molten: boolean }
+
+const lifted0 = (c: Component, pi: number) => !!c.state.lifted?.includes(pi);
 
 export class ReworkMonitor {
   private joints = new Map<string, JointState>();
+  /** Every joint heating so far, in order (for the workmanship inspection). */
+  readonly episodes: JointEpisode[];
+  /** Every event so far, with board time. */
+  readonly log: (ReworkEvent & { t: number })[];
   private parts = new Map<string, PartState>();
 
-  constructor(readonly board: Board, readonly thermal: ThermalModel, readonly limits: ProcessLimits = DEFAULT_LIMITS) {}
+  /**
+   * `history` keeps the record across monitors: the app makes a new monitor when the board object
+   * changes (undo, redo), and the inspection still needs everything done on this board.
+   */
+  constructor(readonly board: Board, readonly thermal: ThermalModel, readonly limits: ProcessLimits = DEFAULT_LIMITS, history?: ReworkHistory) {
+    this.episodes = history?.episodes ?? [];
+    this.log = history?.log ?? [];
+  }
 
   private part(c: Component): PartState {
     let s = this.parts.get(c.id);
@@ -63,14 +109,20 @@ export class ReworkMonitor {
     return s;
   }
 
-  /** Flux applied over an area (parts whose origin lies inside). */
+  /** Flux applied over an area: parts with a pad (or their origin) inside it. */
   applyFlux(xmm: number, ymm: number, rmm = 3) {
+    const r2 = rmm * rmm;
     for (const c of this.board.components) {
-      if ((c.at[0] - xmm) ** 2 + (c.at[1] - ymm) ** 2 <= rmm * rmm) this.part(c).flux = this.limits.fluxSeconds;
+      const a = (c.rot * Math.PI) / 180, cs = Math.cos(a), sn = Math.sin(a);
+      const near = (c.at[0] - xmm) ** 2 + (c.at[1] - ymm) ** 2 <= r2
+        || c.pads.some((p) => (c.at[0] + p.at[0] * cs - p.at[1] * sn - xmm) ** 2 + (c.at[1] + p.at[0] * sn + p.at[1] * cs - ymm) ** 2 <= r2);
+      if (near) this.part(c).flux = this.limits.fluxSeconds;
     }
   }
 
   isMolten(c: Component): boolean { return this.parts.get(c.id)?.molten ?? false; }
+  /** Active flux on the part's joints (rosin applied, not yet used up). */
+  hasFlux(c: Component): boolean { return (this.parts.get(c.id)?.flux ?? 0) > 0; }
 
   /** Advance bookkeeping by dt (call after thermal.step(dt)); applies outcomes to the board. */
   update(dt: number): ReworkEvent[] {
@@ -97,14 +149,22 @@ export class ReworkMonitor {
         if (!js) this.joints.set(key, (js = { above: 0, melted: false, hot: 0 }));
         const tj = this.thermal.jointTemp(c, pi);
         if (tj >= L.alloy.liquidus) {
+          if (!js.ep) { js.ep = { ref: c.ref, pad: pi, molten: 0, peak: tj, flux: ps.flux > 0, t: this.thermal.time, open: true }; this.episodes.push(js.ep); }
+          js.ep.molten += dt;
+          js.ep.peak = Math.max(js.ep.peak, tj);
           js.above += dt;
           if (ps.flux > 0) ps.flux = Math.max(0, ps.flux - dt / c.pads.length);
         } else {
           allMolten = false;
-          if (tj < L.alloy.liquidus - 15) { js.above = 0; js.melted = false; }
+          // frozen again below the solidus (the pasty range of a non-eutectic alloy still counts as soft)
+          if (js.ep && tj < L.alloy.solidus) { js.ep.open = false; js.ep = undefined; }
+          if (tj < L.alloy.solidus - 15) { js.above = 0; js.melted = false; }
         }
         if (!js.melted && js.above >= L.reflowSeconds) {
           js.melted = true;
+          // rosin flux breaks down at soldering temperature and stays behind as residue (NEETS p. 3-25: remove it with alcohol)
+          if (ps.flux > 0 && !lifted0(c, pi) && !c.state.fluxResidue?.includes(pi)) c.state.fluxResidue = [...(c.state.fluxResidue ?? []), pi].sort((a, b) => a - b);
+          if (!c.state.cold.includes(pi) && !c.state.intermittent?.some((f) => f.pad === pi)) ev.push({ kind: 'wetted', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: solder flowed', { ref: c.ref, pad: p.name }) });
           const lifted = c.state.lifted?.includes(pi);
           if (!lifted && c.state.cold.includes(pi)) {
             const ok = ps.flux > 0 || rng(seedOf(`${c.ref}|${pi}|${Math.round(this.thermal.time)}`))() < 0.4;
@@ -148,7 +208,7 @@ export class ReworkMonitor {
         ev.push({ kind: 'mlcc-cracked', ref: c.ref, detail: t('{ref} cracked by thermal shock ({rate} K/s) — now leaks {r} Ω; preheat the board first', { ref: c.ref, rate: ps.rate.toFixed(0), r: ohms }) });
       }
       // small molten part under strong airflow is blown off its pads (tombstone / skew)
-      if (allMolten && !ps.displaced && c.body.w * c.body.h <= L.smallPartArea) {
+      if (allMolten && !ps.displaced && c.body.w * c.body.h <= L.smallPartArea && !c.pads.some((p) => (p.drill ?? 0) > 0)) {
         const strong = hotAir.some((s) => s.kind === 'hotair' && s.h >= L.blowAwayH && (c.at[0] - s.x) ** 2 + (c.at[1] - s.y) ** 2 <= s.r * s.r);
         if (strong) {
           ps.displaced = true;
@@ -157,6 +217,7 @@ export class ReworkMonitor {
         }
       }
     }
+    for (const e of ev) this.log.push({ ...e, t: this.thermal.time });
     return ev;
   }
 }

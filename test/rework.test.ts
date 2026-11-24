@@ -36,7 +36,8 @@ function main() {
   assert(!sig.b.components[0].state.cold.includes(0), 'reflow fixed the cold joint');
 
   // the same joint on a ground-plane pad takes longer (heat sinks into the plane through its vias)
-  const gnd = (() => { const b = board(); b.components[1].state.cold = [1]; return run(b, 4, (m, rw) => { rw.applyFlux(50, 20); iron(m, 50.5, 'C1'); }); })();
+  // (lead-free SAC305 is liquid only from 220 °C: at 350 °C a plane pad sits just above it, so it takes seconds)
+  const gnd = (() => { const b = board(); b.components[1].state.cold = [1]; return run(b, 8, (m, rw) => { rw.applyFlux(50, 20); iron(m, 50.5, 'C1', 350, IRON_G.flux, 8); }); })();
   const tGnd = gnd.first('reflowed', 'C1')?.t;
   assert(tGnd !== undefined && tGnd > tSig!, `ground-plane pad needs longer than a signal pad (${tGnd} s vs ${tSig} s)`);
 

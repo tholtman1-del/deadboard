@@ -112,6 +112,9 @@ A `/2` mod with only `requires` and no items is a **pack**: share a set of mods 
 | `solver` | no | `"fast"`, `"spice"`, `"spice-power"`, or an address: `official-solvers/solvers/…`, or a code mod's solver (that mod in `requires`; players without it get SPICE). |
 | `credits`, `license`, `source` | no | Attribution for a board you didn't design; `source` must be `https://`. |
 
+A `.pcbfix.json` may also carry `"alloy"`: `"sac305"` (lead-free, the default), `"sn63"` (63/37
+tin-lead) or `"sn60"` (60/40). It sets the melting points for realistic rework on that board.
+
 **Objectives:**
 
 ```json
@@ -316,6 +319,9 @@ how often the planted part is in the top 3, with and without your rules.
 | `official-boards/boards/builtin-ghost-short` | Ghost Short |
 | `official-boards/boards/builtin-smoke-test` | Smoke Test |
 | `official-boards/boards/builtin-sagging-rail` | The Sagging Rail |
+| `official-boards/boards/hr-solder-flux` | Solder and Flux |
+| `official-boards/boards/hr-heat-time` | Heat and Time |
+| `official-boards/boards/hr-clean-inspect` | Clean and Inspect |
 | `official-boards/boards/demo-mnt-reform2-mb30` | MNT Reform 2 · dead 3.3 V rail (demo, loads when opened) |
 | `official-boards/boards/demo-antmicro-jetson-nano-bb` | Antmicro baseboard · no 3.3 V, flaky 5 V (demo, loads when opened) |
 | `official-boards/boards/demo-olimex-esp32-devkit-lipo` | Olimex ESP32-DevKit-LiPo · dead on USB, won't charge (demo, loads when opened) |

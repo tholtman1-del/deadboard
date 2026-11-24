@@ -1013,7 +1013,7 @@ select:focus, input:focus, textarea:focus { border-color: var(--accent); }
 .bp-sk.off { border-color: var(--border); background: none; color: var(--muted); }
 .bp-sk.off::before { background: var(--border-strong); }
 .bp-link { justify-self: start; padding: 0; border: 0; background: none; color: var(--accent); font: 12.5px var(--sans); cursor: pointer; }
-.bp-daily { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.bp-daily { flex-shrink: 0; display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
 .bp-cal { display: grid; place-items: center; align-content: center; width: 42px; height: 42px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface); line-height: 1.05; }
 .bp-cal small { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
 .bp-cal b { font: 700 15px var(--mono); }
@@ -1763,3 +1763,49 @@ body.is-mobile .loadout-bar select { flex: 1 1 auto; width: auto; max-width: non
 @media (prefers-reduced-motion: reduce) { .win-banner, .win-banner.out { animation: none; } .win-banner.out { opacity: 0; } }
 .layout.mobile .win-banner { top: 12px; max-width: calc(100% - 24px); }
 .tool-btn[hidden] { display: none !important; }
+
+/* Soldering-track lesson (before) and inspection (after): a spec-sheet reading layout */
+.lesson-modal { width: min(640px, 94vw); }
+.lesson, .inspection { padding: 14px 16px; display: grid; gap: 12px; max-height: min(64vh, 640px); overflow-y: auto; }
+.lesson-src { margin: 0; font-size: 12px; }
+.lesson-src a { color: var(--text-2); }
+.modal .lesson-points { gap: 7px; }
+.modal .lesson-points li { color: var(--text); font-size: 13px; }
+.lesson-nums { margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.lesson-nums > div { background: var(--surface-2); padding: 7px 10px; display: grid; gap: 2px; }
+.lesson-nums dt { font-size: 11px; color: var(--muted); }
+.lesson-nums dd { margin: 0; font-size: 12.5px; color: var(--text); }
+/* the textbook's line drawings are black on white: shown on their own paper */
+.lesson-fig { margin: 0; display: grid; justify-items: center; gap: 6px; }
+.lesson-fig img { background: #fff; border-radius: var(--radius); padding: 8px; max-width: min(260px, 70%); height: auto; }
+.lesson-fig figcaption { font-size: 11.5px; color: var(--muted); }
+.lesson-task { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--accent-line); background: var(--accent-weak); border-radius: var(--radius); font-size: 13px; line-height: 1.5; }
+.lesson-task b { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); }
+.lesson-orig summary, .ins-q summary { cursor: pointer; font-size: 12.5px; color: var(--text-2); }
+.lesson-orig p { font-size: 13px; line-height: 1.6; color: var(--text-2); margin: 8px 0 0; padding-left: 10px; border-left: 2px solid var(--border-strong); }
+.lesson-orig p.muted { font-size: 11.5px; color: var(--muted); border-left: none; padding-left: 0; }
+.lesson-actions { padding: 12px 16px; border-top: 1px solid var(--border); justify-content: flex-end; gap: 8px; }
+.ins-verdict { display: grid; gap: 3px; padding: 10px 12px; border-radius: var(--radius); border: 1px solid var(--ok-line); background: var(--ok-weak); }
+.ins-verdict b { font-size: 15px; color: var(--accent); }
+.ins-verdict.bad { border-color: var(--danger-line); background: var(--danger-weak); }
+.ins-verdict.bad b { color: var(--danger-text); }
+.ins-verdict span { font-size: 12.5px; color: var(--text-2); }
+.modal .ins-list { padding: 0; list-style: none; gap: 8px; }
+.ins-f { border-left: 2px solid var(--warn); padding-left: 10px; display: grid; gap: 2px; }
+.ins-f.bad { border-left-color: var(--danger); }
+.ins-h b { color: var(--text); }
+.ins-rule { font-size: 12px; }
+.ins-joints { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ins-joints th { text-align: left; font-weight: 500; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
+.ins-joints td { padding: 4px 6px; border-bottom: 1px solid var(--border); color: var(--text-2); }
+.ins-joints td.warn { color: var(--warn); }
+.ins-ref { margin: 0; font-size: 11.5px; }
+.ins-qs { display: grid; gap: 6px; }
+.ins-q p { margin: 6px 0 0 18px; font-size: 12.5px; color: var(--text); }
+/* the held iron: which joint, how long, molten or not */
+.iron-hud { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 25; padding: 5px 10px; border-radius: var(--radius); background: var(--float); border: 1px solid var(--border-strong); font-size: 12px; color: var(--text-2); pointer-events: none; }
+.iron-hud.molten { border-color: var(--supply-amber); color: var(--supply-amber); }
+@media (max-width: 600px) {
+  .lesson, .inspection { padding: 12px; max-height: 70vh; }
+  .lesson-nums { grid-template-columns: 1fr 1fr; }
+}

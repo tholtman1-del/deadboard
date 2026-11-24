@@ -954,6 +954,13 @@ export class Renderer {
           const leadZ = c.side === 'F' ? -ht - 0.42 : ht + 0.42;
           op.cyl.pushTRS(padPos[0], padPos[1], leadZ, Math.min(0.55, p.drill * 0.65), Math.min(0.55, p.drill * 0.65), 0.72, 0, 0.82, 0.84, 0.88, 1, 0, 0.95, 0.2);
         }
+        // Rework flux residue: a glossy amber rosin film around the joint, on the side it was soldered
+        // from (a through-hole joint's solder side, else the pad's side), until scrubbed with alcohol
+        if (!both && !thermal && c.state.fluxResidue?.includes(pi)) {
+          const d = Math.max(p.size[0], p.size[1]) * 1.7;
+          const z = p.drill ? (c.side === 'F' ? -ht - 0.03 : ht + 0.03) : (dPadSide === 'B' ? -ht - 0.07 : ht + 0.07);
+          al.cyl.pushTRS(padPos[0], padPos[1], z, d, d * 0.9, 0.02, padRot + 17, 0.62, 0.40, 0.10, 0.5, 0, 0, 0.12);
+        }
       }
 
       // no body (a fiducial; the bench supply's clips on the board's own pads): no outline, name or body

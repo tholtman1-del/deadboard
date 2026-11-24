@@ -1,4 +1,4 @@
-# DEADBOARD — handoff (updated 2026-11-24: design pass — PRODUCT.md / DESIGN.md, keyboard + screen-reader bench, picker list, first-screen pointer, learner homepage; next: read the data ~11-26/27)
+# DEADBOARD — handoff (updated end of 2026-11-24: design pass live — PRODUCT.md / DESIGN.md, keyboard + screen-reader bench, picker list, lesson pointer, learner homepage; next: read the data from 11-27)
 
 Goal: make DEADBOARD (formerly PCB//FIX) a realistic board-repair trainer, as close to a real bench as possible,
 **universal** (any board, not just the MacBook), with honest provenance for every value.
@@ -7,31 +7,99 @@ No reference hardware is available, so realism is validated against *design inte
 
 ## Status (start here)
 
-- **2026-11-24 — design pass (Impeccable skill). Read this first.** Product and design records now
-  live in `PRODUCT.md` (learners and schools first; real simulation + free/open/private; WCAG 2.2 AA)
-  and `DESIGN.md` ("The Calibrated Instrument", tokens in `src/ui/tokens.css`). Pushed and live
-  14:34 UTC (`0b5d92b`): keyboard + screen-reader bench (Tab moves focus; **2D/3D is V**; Settings →
-  Key shortcuts; dialogs; board cursor in `src/ui/boardcursor.ts`, which names only what the
-  renderer draws; Inspector → Pads probing), shared tokens, phone tool strip, picker Library as a
-  ruled list. **Made after that push (see `git log`):** an on-board lesson pointer over each step's
-  target, quick actions hidden when their tool is already active, First Light step 1 reads "Click
-  push button SW1…"; homepage rebuilt for learners: the playable flashlight teaser is the hero on
-  every screen (the 3D MNT hero and `src/home/board3d.ts` are gone), sections are now
-  hero · path · bench · faults · boards ("Make your own") · final (bootlog and challenges removed).
-  - **Data read 11-24 (the baseline for these changes):** homepage (`home left`, 11-23 10:30 →
-    11-24 14:40, 410 visits): away 33 % (phones 35 %, laptops 32 %), to bench 50 %, to a page 10 %;
-    laptops: 74 % never left the hero. Bench (Umami `bench left early`, 2 days): 311 of 768 bench
-    loads left in the first minute without a tool (phones 141/301, desktop 170/467; 266 had the
-    bench up; step 1 = 176). Collector (D1, 2 days): First Light fixed 35 % desktop / 20 % phone,
-    left 40 % / 66 %; first visit desktop tool 59 % → tests 48 % → fixed 35 %, phone 56 % → 34 % →
-    20 %. HARD: ESP32 DevKit-LiPo 19 %, ESP32-C3 DevKit 15 %, ESP32-C3 Rust 25 %, MNT 5 %.
-  - **Next read (~11-26/27):** `npm run umami -- home` (note the renamed `seen` sections: `path`
-    replaces `bootlog`), `npm run umami -- values "bench left early" reached`, `npm run
-    attempts-report -- --by layout` — compare with the numbers above. No A/B (user's rule).
-  - `test/solve.test.ts` "100x pickAt" (25 ms budget) is flaky on this machine on HEAD too
-    (needs `test/private`); not caused by this work.
+- **High-reliability soldering track, Phase 1 (built 2026-11-24 evening, NOT committed, waiting for
+  the user's review).** A separate learning path after NEETS Module 14 (NAVEDTRA 14186, Navy 2M
+  soldering; Distribution A, public domain). Research and the 3-phase plan: `ideas/navy-2m-soldering.md`
+  (local only). User's choices: lesson card + original text before, workmanship debrief + the module's
+  review questions after, realism applies to every board in realistic rework (track forces it), phases.
+  - **Physics (universal):** `src/thermal.ts` — through-hole joints are their own nodes (pad copper,
+    barrel, solder, lead stub; iron heats the joint, body warms only through the lead,
+    `THT` constants), pads in a same-net pour conduct into it (`pourConductance`), and in-plane
+    conductivity is per cell from the copper actually there (`copperThickness`: pours, traces, pads,
+    inner layers; pins-only boardviews keep the old uniform 35 W/mK). The plane-sink heuristic
+    (GND-named nets) now applies only to pins-only boards; drawn boards use `hiddenCopperNets`.
+    `src/rework.ts` — alloys with solidus/liquidus (`SN63` 183, `SN60` 183–188, `SAC305` 217–220:
+    **the old 217 °C liquidus was the solidus**; lead-free plane pads in realistic rework now take
+    ~5.7 s at 350 °C), `limitsFor(alloy)`, joint episodes (molten time, peak, flux) + event log kept
+    across undo (`ReworkHistory`), rosin flux residue (`state.fluxResidue`, cleaned by IPA,
+    `src/residue.ts`), `wetted` event, flux reaches parts by pad position (it used to need the part
+    origin within 2 mm: THT resistor joints never got the station's flux).
+  - **Inspection:** `src/workmanship.ts` — rules quoted from NEETS with page (lifted pad, overheated /
+    cracked part, dull joint, flux residue, loose solder, long heating > 3 s = note, wire repair = note).
+  - **Lessons:** `src/lessons/neets14.ts` (points, numbers °F + °C, figure, verbatim original paragraphs
+    in English, task, station, graded rules, review questions with the module's answers);
+    figures `public/lessons/neets14/` (3-16 thermal shunt for Phase 2, 3-17 preferred joint).
+    UI `src/ui/lesson-ui.ts`; app: lesson dialog on load, inspection dialog after a fix, Overview card,
+    Today strip "High-reliability soldering", Library type "Soldering track". Progress =
+    `pcbfix_track_accepted` (works + passes inspection), separate from solved.
+  - **Hold-to-solder** in realistic rework (mouse, touch, Enter): the tip stays while held, readout
+    "R1.2 · 1.4 s · molten"; rosin tool also fluxes joints in realistic mode.
+  - **Boards** `src/scenarios/soldering.ts`: `hr-solder-flux`, `hr-heat-time` (GND pour), `hr-clean-inspect`
+    (63/37, 330 Ω, THT). Board-notes example mod 1.6.0 has their packs; thumbs rendered.
+  - Checked end-to-end in Chrome (lessons 1 and 3: brief → hold iron → inspection Rejected for flux →
+    IPA → Accepted; picker strip; phone brief). `test/soldering.test.ts` new; all suites pass (solve's
+    pickAt timing still flaky). App chunk +14.5 KB gz (lesson text).
+  - **Known limits / estimates:** THT joints reach liquidus almost at once (small joint mass); a pour
+    shows as a lower peak, not a slower melt. Not calibrated to measurements.
+  - **Next (Phase 2):** desoldering methods + plated-through holes (wick vs vacuum, sweat joint),
+    skipping pattern, thermal shunt tool (fig 3-16 ready), per-part max temperatures; read the 2M
+    certification manual + T.O. 00-25-259 (the user downloads them; .mil sites refuse fetches).
 
-- **NEXT SESSION — start here (around 2026-11-26).** Session of 2026-11-23 is fully pushed and live
+- **NEXT SESSION — START HERE (written end of 2026-11-24).** All code up to `c789ba5` is pushed and
+  live; the local `.claude/` folder (skills, settings) is untracked on purpose, never commit it.
+  - **What happened on 11-24 (design pass with the Impeccable skill, in this order):**
+    1. `PRODUCT.md` (product truth, user's answers): primary users = **learners and schools**
+       (technicians / training centres secondary; this supersedes BRAND.md's older audience line);
+       positioning = **real simulation + free / open / private**; target **WCAG 2.2 AA**.
+    2. `DESIGN.md` + `.impeccable/design.json`: "The Calibrated Instrument" (user's pick); never
+       gamer-RGB, kids-edu or Hollywood-hacker; flat, shadows only for things floating over the board;
+       controls compact everywhere. Tokens now live in **`src/ui/tokens.css`** (bench + site import it).
+       Named rules: One Voice, Bench Meaning, Unit, Fold, Spec Sheet, Floats-Only, Drawn-Only.
+    3. Audit 14/20 → fixes → 18/20 (reports are local only in `.impeccable/audit/`, git-ignored).
+    4. Commits: `f9fa133` docs records · `0b5d92b` keyboard + screen-reader bench, tokens, picker list
+       (live 14:34 UTC) · `2b57c87` lesson pointer + simpler First Light step 1 · `c789ba5` learner
+       homepage (live **15:57 UTC** — use this as the cut-off when comparing data).
+  - **Behaviour players notice now:** 2D/3D is **V** (Tab moves focus); ⚙ Settings → Key shortcuts
+    on/off (`pcbfix_key_shortcuts`, local only); "Skip to the board" link; the board view is a Tab
+    stop with a **board cursor** (`src/ui/boardcursor.ts`; arrows jump between pads/traces/parts/
+    blobs, Shift+arrows 0.5 mm, Enter = the tool, Shift+Enter = black probe, Esc cancels a jumper; it
+    names **only what the renderer draws** — user's fairness rule); Inspector → component → **Pads**
+    with Red/Black probe buttons; dialogs get focus and trap Tab; toasts, readings and "Board fixed"
+    are announced; desktop **Library is a ruled list** (grouped by type within level bands); lesson
+    steps get a **green label pinned over their target** on the board until done; homepage hero =
+    the **playable flashlight teaser on every screen** (3D MNT hero and `src/home/board3d.ts` removed),
+    sections `hero · path · bench · faults · boards ("Make your own") · final`.
+  - **Data read 11-24 (baseline, before the 15:57 UTC changes):** homepage (`home left`, 11-23
+    10:30 → 11-24 14:40, 410 visits): away 33 % (phones 35 %, laptops 32 %), to bench 50 %, to a
+    page 10 %, laptops 74 % never left the hero. Bench (`bench left early`, 2 days): 311 of 768 bench
+    loads left within a minute without a tool (phones 141/301, desktop 170/467; 266 had the bench up;
+    176 on step 1). Collector (D1, 2 days): First Light fixed 35 % desktop / 20 % phone, left 40 % /
+    66 %; first visit desktop tool 59 % → tests 48 % → fixed 35 %, phone 56 % → 34 % → 20 %. HARD
+    (fixed < 30 %): ESP32 DevKit-LiPo 19 %, ESP32-C3 DevKit 15 %, ESP32-C3 Rust 25 %, MNT 5 %.
+    Cloudflare collector healthy (1,571 records 11-23; cap 15,000/day; summary rebuilt every 6 h).
+  - **Next session, first:** read the data from **11-27** (cleaner than 11-26; the changes went live
+    11-24 15:57 UTC): `npm run umami -- home --days 2` (note `seen` value `path` replaces `bootlog`;
+    if the first call errors with "Uncaught", run it again once the Umami Chrome window is up),
+    `npm run umami -- values "bench left early" reached --days 2` (and `step`, `layout`),
+    `npm run attempts-report -- --days 2 --by layout`. Compare with the baseline above. No A/B (user).
+  - **Then, depending on the numbers:**
+    - First minute still leaking (step 1 exits not down): next candidates, not built — a calmer
+      first screen on the very first visit (side panel folded until step 2), or the teaser press on
+      the homepage carrying over so step 1 is already done.
+    - The HARD open-hardware puzzles (ESP32 boards, MNT) need a look (help ladder, level, notes).
+  - **Open items / decisions on record:** "For teachers" homepage section = **not yet** (user, until
+    real classroom use); grid/list toggle in the Library = **no** (list only); board cursor does not
+    reach X-ray inner layers and has no one-key board summary (open, not asked for yet); touch
+    gestures were only emulated, never tried on a real phone; main app chunk 186 KB gz (splitting
+    measured and declined: importers are needed by the mod loader at boot).
+  - `test/solve.test.ts` "100x pickAt" (25 ms budget, needs `test/private`) is flaky on this machine
+    on HEAD too (25.4–30 ms in some runs); not caused by the design pass. Run it alone to confirm.
+  - **Working with the skill next time:** `/impeccable` commands read `PRODUCT.md` + `DESIGN.md`;
+    run `/impeccable audit` to re-score, `/impeccable critique <target>` for a design review. Its
+    detector also runs as a hook after UI edits (one recorded ignore: `side-tab` in
+    `src/ui/styles.css`, the landscape drawer's hairline edge).
+
+- **Earlier — end of 2026-11-23 (the session before the design pass).** Session of 2026-11-23 is fully pushed and live
   (last code commit `ef0bf0c`, deployed ~16:55 UTC). It was an analytics + engagement day, plus a
   board-drawing fix round in the afternoon and a renderer crash fix (next bullets); nothing of the earlier learning-journey
   work (below) changed. **First job: read the data, change nothing until then**

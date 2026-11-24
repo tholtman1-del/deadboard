@@ -65,6 +65,11 @@ export interface ComponentState {
    * film is what forms `leak`; `pads`: where it sits, default all). Removed by IPA scrubbing.
    */
   residue?: { amount: number; leaky?: boolean; pads?: number[] };
+  /**
+   * Pads with rosin flux residue left by rework (amber film). Rosin is nonconductive, so it does
+   * not change the circuit, but high-reliability work removes it with alcohol (NEETS 14 p. 3-25).
+   */
+  fluxResidue?: number[];
   /** Intermittent faults driven by temperature / board flex (see src/intermittent.ts). */
   intermittent?: import('./intermittent').IntermittentSpec[];
 }
@@ -179,6 +184,8 @@ export interface Scenario {
   modSolver?: string;
   /** Model calibration from bench measurements of a real board (see src/calibrate.ts). */
   calibration?: { loadScale?: number; source?: string };
+  /** Solder alloy on the board (rework melting points): lead-free SAC305 unless set. */
+  alloy?: 'sac305' | 'sn63' | 'sn60';
   /** A problem generated on a fixed board (src/scenarios/generate.ts): the board it started from. */
   generated?: { from: string; title: string };
   /** Import checks that failed (nets joined or split, counts off); set by importers, not saved. */

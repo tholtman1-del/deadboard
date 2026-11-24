@@ -39,6 +39,9 @@ const FIXES: Record<string, (b: Board) => void> = {
   },
   'builtin-smoke-test': (b) => { unblob(b); part(b, 'D1').state.reversed = false; installPart(part(b, 'F1'), { value: 0.5 }); },
   'builtin-sagging-rail': (b) => { installPart(part(b, 'R2'), { value: 10000 }); addBlob(b, [49, 8], 'B', 0.75); },
+  'hr-solder-flux': (b) => { toggleCold(part(b, 'R1'), 1); toggleCold(part(b, 'D2'), 0); toggleCold(part(b, 'R3'), 0); },
+  'hr-heat-time': (b) => { toggleCold(part(b, 'D1'), 0); toggleCold(part(b, 'R2'), 1); },
+  'hr-clean-inspect': (b) => { unblob(b); toggleCold(part(b, 'R1'), 0); },
 };
 
 async function fixed(sc: Scenario, solver: Solver): Promise<Board> {

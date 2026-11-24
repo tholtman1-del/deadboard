@@ -48,11 +48,15 @@ import { BOTH_GAP, Camera } from '../render/camera';
 import { EMISSIVITY, ThermalModel, apparentTemp } from '../thermal';
 import { FlexField, settleIntermittents, updateIntermittents } from '../intermittent';
 import { BootController, requiredRails, type RequiredRail } from '../boot';
-import { cleanWithIpa, residueNear } from '../residue';
+import { cleanFluxWithIpa, cleanWithIpa, fluxResidueNear, residueNear } from '../residue';
 import { discoverPowerTree, railVoltage, type PowerTree } from '../spice/powertree';
 import { fmtHz, sampleSignal, signalOn, type ScopeSignal } from '../scope';
 import type { PowerStateName } from '../spice/sequencer';
-import { HOTAIR_H, IRON_G, PREHEAT_H, ReworkMonitor, type ReworkEvent } from '../rework';
+import { HOTAIR_H, IRON_G, PREHEAT_H, ReworkMonitor, limitsFor, type ReworkEvent, type ReworkHistory } from '../rework';
+import { inspect, type Inspection } from '../workmanship';
+import { lessonFor } from '../lessons/neets14';
+import { SOLDERING_TRACK_IDS } from '../scenarios/soldering';
+import { debriefHtml, lessonAccepted, lessonBriefHtml } from './lesson-ui';
 import { Renderer, type RendererKind, type VizMode } from '../render/renderer';
 import { NoAdapterError, gpuDiagnosis, webGlInfo } from '../render/gpuprobe';
 import { gpuHelp } from './gpuhelp';
@@ -100,9 +104,9 @@ const TOOLS: { id: ToolId; key: string; ico: string; lbl: string; tip: string }[
 ];
 
 /** Board kinds in the picker's Type filter. */
-type BoardKind = 'tutorial' | 'handmade' | 'open' | 'mod' | 'custom';
+type BoardKind = 'tutorial' | 'track' | 'handmade' | 'open' | 'mod' | 'custom';
 const KIND_LABEL: Record<BoardKind, string> = {
-  tutorial: tk('Tutorial'), handmade: tk('Hand-made'), open: tk('Open hardware'), mod: tk('Mod'), custom: tk('Imported or your own'),
+  tutorial: tk('Tutorial'), track: tk('Soldering track'), handmade: tk('Hand-made'), open: tk('Open hardware'), mod: tk('Mod'), custom: tk('Imported or your own'),
 };
 
 const LED_COLOR_NAMES: Record<LedColor, string> = {
@@ -213,6 +217,17 @@ export class PcbApp {
   private rework: ReworkMonitor | null = null;
   /** Rework: 'instant' (puzzle mode) or a physical process with iron temperature and flux. */
   private reworkMode: { realistic: boolean; ironTemp: number; flux: boolean } = { realistic: false, ironTemp: 350, flux: true };
+  /** The player's own rework setting while a lesson board sets the station (restored after). */
+  private savedRework: { realistic: boolean; ironTemp: number; flux: boolean } | null = null;
+  /** Everything rework did on this board (kept across undo, which swaps the board object). */
+  private workHistory: ReworkHistory = { episodes: [], log: [] };
+  /** The iron held on a joint (realistic rework): released on pointer / key up. */
+  private ironHold: { src: { until: number }; start: number; where: string; el: HTMLElement | null; comp: Component; pad: number } | null = null;
+  /** Soldering-track lesson dialog: before the repair, or the inspection after it. */
+  private showLesson: 'brief' | 'debrief' | null = null;
+  private lastInspection: Inspection | null = null;
+  /** Soldering-track boards whose work passed inspection. */
+  private trackAccepted = new Set<string>(((): string[] => { try { return JSON.parse(localStorage.getItem('pcbfix_track_accepted') ?? '[]'); } catch { return []; } })());
   private preheatTemp = 0;
   private intermittentClock = 0;
   private vizMode: VizMode = 'realistic';
@@ -347,7 +362,9 @@ export class PcbApp {
   private refLockedHash = '';
 
   // Pointer drag state
-  private dragMode: 'none' | 'pan' | 'orbit' = 'none';
+  private dragMode: 'none' | 'pan' | 'orbit' | 'iron' = 'none';
+  /** The touch pointer holding the iron on a joint. */
+  private touchIron: number | null = null;
   private dragMoved = false;
   private lastPx = 0;
   private lastPy = 0;
@@ -1057,7 +1074,8 @@ export class PcbApp {
     this.mount.querySelector('.skip-board')?.addEventListener('click', (e) => { e.preventDefault(); this.canvas.focus(); this.kbEnter(); });
     const dirs: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
     this.canvas.addEventListener('focus', () => { if (this.canvas.matches(':focus-visible')) this.kbEnter(); });
-    this.canvas.addEventListener('blur', () => { this.kbActive = false; });
+    this.canvas.addEventListener('blur', () => { this.kbActive = false; this.endIronHold(); });
+    this.canvas.addEventListener('keyup', (e) => { if (e.key === 'Enter') this.endIronHold(); });
     this.canvas.addEventListener('keydown', (e) => {
       const d = dirs[e.key];
       if (d) {
@@ -1071,6 +1089,11 @@ export class PcbApp {
         e.preventDefault();
         e.stopPropagation();
         if (!this.kbActive) { this.kbEnter(); return; }
+        // realistic iron: Enter held = tip held on the joint
+        if (this.activeTool === 'iron' && this.reworkMode.realistic && this.kbCursor) {
+          if (e.repeat || this.ironHold) return;
+          if (this.beginIronHold(this.kbCursor.pt, this.kbCursor.side)) return;
+        }
         this.kbApply(e.shiftKey);
         return;
       }
@@ -1410,6 +1433,12 @@ export class PcbApp {
       /** The bug-report snapshot code, without sending anything. */
       snapshot: () => this.benchSnapshot(),
       side: () => this.camera.side,
+      /** Rework state of a joint: its temperature, the thermal clock, and the part's joint faults. */
+      joint: (ref: string, name: string) => {
+        const c = find(ref), pi = c ? c.pads.findIndex((p) => p.name === name) : -1;
+        if (!c || pi < 0) return null;
+        return { temp: this.thermal?.jointTemp(c, pi) ?? null, time: this.thermal?.time ?? null, cold: c.state.cold.includes(pi), residue: !!c.state.fluxResidue?.includes(pi), lifted: !!c.state.lifted?.includes(pi), sameBoard: this.thermalBoard === this.board };
+      },
       /** Board point (mm) → page pixel (CSS px), on the given side's copper surface. */
       toScreen: (x: number, y: number, side: Side = this.camera.side) => {
         const r = this.canvas.getBoundingClientRect();
@@ -2099,7 +2128,7 @@ export class PcbApp {
   private nextRepairHtml(): string {
     const v = this.lastVerify;
     const fixed = !!this.revealedFlag || (!!v?.allPassed && !v.topologyMismatch && !this.activeScenario.lock && this.activeScenario.objectives.length > 0);
-    if (!fixed) return '';
+    if (!fixed || lessonFor(this.activeScenario.id)) return ''; // a soldering lesson's next step is in its track card
     const index = new Map(this.scenarios.map((sc, i) => [sc.id, i]));
     const solved = new Set(this.solvedIds);
     solved.add(this.activeScenario.id);
@@ -2220,6 +2249,10 @@ export class PcbApp {
     this.emitBoardLoaded();
     this.authorMode = false;
     this.tutorialStep = 0;
+    this.workHistory = { episodes: [], log: [] };
+    this.endIronHold();
+    this.thermalBoard = null; // a fresh thermal model and rework monitor for the new board (its alloy, its history)
+    this.applyLesson(sc);
     if (isTutorialScenario(sc.id)) {
       if (localStorage.getItem('pcbfix_tut_dismissed') !== '1') this.tutorialOpen = true;
     } else {
@@ -2245,9 +2278,41 @@ export class PcbApp {
     this.recompute(true);
     this.refreshScenarioSelect();
     this.renderUI();
+    if (this.showLesson && !this.showBoards && !this.showMods) this.renderModal();
     // the lesson card (and on phones the readouts) are on screen only now; on phones
     // refitOnShapeChange follows them as they settle
     this.fitBoardInView();
+  }
+
+  /** Rework setting from its select value ('instant', 'r350', 'r350f', 'r400f'). */
+  private setRework(v: string) {
+    this.reworkMode = v === 'instant' ? { ...this.reworkMode, realistic: false } : { realistic: true, ironTemp: v.startsWith('r400') ? 400 : 350, flux: v.endsWith('f') };
+    const sel = this.mount.querySelector<HTMLSelectElement>('#rework-mode');
+    if (sel) sel.value = this.reworkValue();
+  }
+
+  private reworkValue(): string {
+    const m = this.reworkMode;
+    return !m.realistic ? 'instant' : `r${m.ironTemp}${m.flux ? 'f' : ''}`;
+  }
+
+  /** A soldering-track board sets its station and opens its lesson; leaving one restores the player's setting. */
+  private applyLesson(sc: Scenario) {
+    const lesson = lessonFor(sc.id);
+    this.lastInspection = null;
+    if (lesson) {
+      if (!this.savedRework) this.savedRework = { ...this.reworkMode };
+      this.setRework(lesson.station);
+      this.showLesson = 'brief';
+    } else {
+      if (this.savedRework) { this.reworkMode = this.savedRework; this.savedRework = null; this.setRework(this.reworkValue()); }
+      if (this.showLesson) this.showLesson = null;
+    }
+  }
+
+  /** The inspection of the work on this board so far. */
+  private inspectWork(): Inspection {
+    return inspect(this.board, referenceBoard(this.activeScenario) ?? undefined, this.workHistory.episodes, this.workHistory.log);
   }
 
   /** Opens the interactive step-by-step guide when the active board is a tutorial scenario. */
@@ -2390,7 +2455,7 @@ export class PcbApp {
     if (this.thermalBoard !== this.board || !this.thermal) {
       this.thermal = new ThermalModel(this.board);
       this.thermalBoard = this.board;
-      this.rework = new ReworkMonitor(this.board, this.thermal);
+      this.rework = new ReworkMonitor(this.board, this.thermal, limitsFor(this.activeScenario.alloy), this.workHistory);
     }
     const p = new Map<string, number>();
     if (this.powerOn && this.sim?.source) for (const c of this.board.components) {
@@ -2911,6 +2976,17 @@ export class PcbApp {
       sfxClick();
       this.toast(t('Bench checks failed — details in the Overview tab.'), 'warn');
     }
+    const lesson = lessonFor(this.activeScenario.id);
+    if (lesson && fixed) {
+      // the board works: now the inspector looks at how the work was done
+      this.lastInspection = this.inspectWork();
+      if (lessonAccepted(lesson, this.lastInspection)) {
+        this.trackAccepted.add(this.activeScenario.id);
+        localStorage.setItem('pcbfix_track_accepted', JSON.stringify([...this.trackAccepted]));
+      }
+      this.showLesson = 'debrief';
+      setTimeout(() => { if (this.showLesson === 'debrief' && !this.showBoards) this.renderModal(); }, 1200); // after the "Board fixed" banner has been seen
+    }
     this.activeTab = 'mission';
     this.panelOpen = true;
     this.renderUI();
@@ -2989,8 +3065,14 @@ export class PcbApp {
       }
     });
     q('#rework-mode').addEventListener('change', (e) => {
-      const v = (e.target as HTMLSelectElement).value;
-      this.reworkMode = v === 'instant' ? { ...this.reworkMode, realistic: false } : { realistic: true, ironTemp: v.startsWith('r400') ? 400 : 350, flux: v.endsWith('f') };
+      const sel = e.target as HTMLSelectElement;
+      if (sel.value === 'instant' && lessonFor(this.activeScenario.id)) {
+        // a soldering lesson is about the real process: the inspector needs the heat you applied
+        sel.value = this.reworkValue();
+        this.toast(t('This lesson needs realistic rework: the inspection measures the heat you apply.'), 'info');
+        return;
+      }
+      this.setRework(sel.value);
       if (this.reworkMode.realistic) this.toast(t('Realistic rework: joints melt, pads lift and parts crack from the actual heat you apply. Watch the Thermal view.'), 'info');
     });
     q('#preheat').addEventListener('change', (e) => {
@@ -3115,7 +3197,11 @@ export class PcbApp {
     this.mount.addEventListener('pointerdown', (e) => this.onPointerDown(e));
     window.addEventListener('pointermove', (e) => this.onPointerMove(e));
     window.addEventListener('pointerup', (e) => this.onPointerUp(e));
-    window.addEventListener('pointercancel', (e) => { if (this.gestures.has(e.pointerId)) this.gestures.cancel(e.pointerId); });
+    window.addEventListener('pointercancel', (e) => {
+      if (this.touchIron === e.pointerId) { this.touchIron = null; this.endIronHold(); }
+      if (this.gestures.has(e.pointerId)) this.gestures.cancel(e.pointerId);
+    });
+    window.addEventListener('blur', () => { if (this.dragMode === 'iron') this.dragMode = 'none'; this.touchIron = null; this.endIronHold(); });
     this.canvas.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
 
     // Keyboard shortcuts
@@ -3375,6 +3461,11 @@ export class PcbApp {
     if (e.pointerType === 'touch' && e.target === this.canvas) {
       e.preventDefault();
       this.hovered = null;
+      // realistic iron: a finger on a joint holds the tip there until it lifts
+      if (!this.gestures.active && this.touchIron === null && this.activeTool === 'iron' && this.reworkMode.realistic) {
+        const at = this.clientToBoard(e.clientX, e.clientY);
+        if (at && this.beginIronHold(at.pt, at.side)) { this.touchIron = e.pointerId; return; }
+      }
       this.gestures.down(e.pointerId, e.clientX, e.clientY);
       return;
     }
@@ -3413,6 +3504,10 @@ export class PcbApp {
 
     if (e.target !== this.canvas) return;
     const { sx, sy, w, h } = this.canvasPt(e);
+    if (e.button === 0 && !this.spaceHeld && this.activeTool === 'iron' && this.reworkMode.realistic) {
+      const at = this.resolveBoardPt(this.camera.screenToBoard(sx, sy, w, h, this.board.thickness));
+      if (at && this.beginIronHold(at.pt, at.side)) { this.dragMode = 'iron'; return; }
+    }
     this.downPx = e.clientX;
     this.downPy = e.clientY;
     this.lastPx = e.clientX;
@@ -3463,6 +3558,7 @@ export class PcbApp {
       return;
     }
 
+    if (this.dragMode === 'iron') return; // the tip stays on its joint
     if (this.dragMode !== 'none') {
       const dx = e.clientX - this.lastPx;
       const dy = e.clientY - this.lastPy;
@@ -3498,6 +3594,63 @@ export class PcbApp {
     if (this.camera.mode !== prevMode) this.renderTutorial();
   }
 
+  /** A client-pixel point on the board, if it lands on it. */
+  private clientToBoard(x: number, y: number): { pt: V2; side: Side } | null {
+    const r = this.canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    return this.resolveBoardPt(this.camera.screenToBoard((x - r.left) * dpr, (y - r.top) * dpr, Math.max(1, r.width * dpr), Math.max(1, r.height * dpr), this.board.thickness));
+  }
+
+  /**
+   * Realistic rework: the tip goes on a joint and stays there while the button, finger or Enter
+   * is held, as long as a real hand holds it (cut off after 30 s). The joint heats from the thermal
+   * model; the rework monitor decides what the solder does. False when the point is not a joint.
+   */
+  private beginIronHold(pt: V2, side: Side): boolean {
+    if (this.activeTool !== 'iron' || !this.reworkMode.realistic) return false;
+    const hit = pickAt(this.board, pt, side, this.vizMode === 'xray');
+    if (hit?.kind !== 'pad' || !hit.comp.state.populated) return false;
+    this.endIronHold();
+    this.noteOnce('tool');
+    this.attempts?.tool('iron');
+    if (!this.thermal) this.updateThermalPower();
+    this.pushUndo();
+    if (this.reworkMode.flux) this.rework!.applyFlux(hit.pos[0], hit.pos[1], 2);
+    // fluxed (fresh flux-cored solder, or rosin put on the joint): the tip wets and transfers heat; dry it barely does
+    const wet = this.reworkMode.flux || !!this.rework?.hasFlux(hit.comp);
+    const src = { kind: 'iron' as const, x: hit.pos[0], y: hit.pos[1], temp: this.reworkMode.ironTemp, g: wet ? IRON_G.flux : IRON_G.dry, pmax: 60, until: this.thermal!.time + 30, partId: hit.comp.id, pad: hit.padIndex };
+    this.thermal!.addSource(src);
+    this.renderer.spawnSmoke(hit.pos[0], hit.pos[1], side, this.board.thickness, 'flux');
+    const vp = this.mount.querySelector<HTMLElement>('#viewport');
+    const el = vp ? document.createElement('div') : null;
+    if (el && vp) { el.className = 'iron-hud mono'; el.setAttribute('aria-hidden', 'true'); vp.appendChild(el); }
+    this.ironHold = { src, start: performance.now(), where: `${hit.comp.ref}.${hit.comp.pads[hit.padIndex].name}`, el, comp: hit.comp, pad: hit.padIndex };
+    this.updateIronHud();
+    return true;
+  }
+
+  /** Lifts the iron. A tap that never held it says how it is used. */
+  private endIronHold() {
+    const h = this.ironHold;
+    if (!h) return;
+    this.ironHold = null;
+    if (this.thermal) h.src.until = Math.min(h.src.until, this.thermal.time);
+    h.el?.remove();
+    const sec = (performance.now() - h.start) / 1000;
+    if (sec < 0.3) this.toast(t('Hold the iron on the joint: a joint takes about 2–3 s of heat.'), 'info');
+    else this.announce(t('Iron off {joint} after {s} s', { joint: h.where, s: sec.toFixed(1) }));
+  }
+
+  /** The held iron's readout: which joint, for how long, and whether its solder is molten (what you would see). */
+  private updateIronHud() {
+    const h = this.ironHold;
+    if (!h?.el) return;
+    const sec = (performance.now() - h.start) / 1000;
+    const molten = !!this.thermal && !!this.rework && this.thermal.jointTemp(h.comp, h.pad) >= this.rework.limits.alloy.liquidus;
+    h.el.textContent = `${h.where} · ${sec.toFixed(1)} s${molten ? ` · ${t('molten')}` : ''}`;
+    h.el.classList.toggle('molten', molten);
+  }
+
   /** A touch tap on the board: the active tool at that point (the meter places the active probe). */
   private touchTap(x: number, y: number) {
     const r = this.canvas.getBoundingClientRect();
@@ -3518,6 +3671,8 @@ export class PcbApp {
   }
 
   private onPointerUp(e: PointerEvent) {
+    if (this.touchIron === e.pointerId) { this.touchIron = null; this.endIronHold(); return; }
+    if (this.dragMode === 'iron') { this.dragMode = 'none'; this.endIronHold(); return; }
     if (e.pointerType === 'touch' && this.gestures.has(e.pointerId)) {
       this.gestures.up(e.pointerId, e.clientX, e.clientY);
       return;
@@ -3571,7 +3726,8 @@ export class PcbApp {
       this.renderBoardsModal();
       return;
     }
-    if (e.key === 'Escape' && (this.showBoards || this.showHelp || this.showFeedback || this.showMods)) {
+    if (e.key === 'Escape' && (this.showBoards || this.showHelp || this.showFeedback || this.showMods || this.showLesson)) {
+      this.showLesson = null;
       this.showBoards = false;
       this.bpSel = null;
       this.showHelp = false;
@@ -3687,7 +3843,11 @@ export class PcbApp {
       this.thermal!.applyRosin(pt[0], pt[1], 6);
       for (const c of this.board.components) if (Math.hypot(c.at[0] - pt[0], c.at[1] - pt[1]) <= 6 + Math.max(c.body.w, c.body.h) / 2) this.rosinParts.add(c);
       sfxClick();
-      this.toast(t('Rosin film applied — on a powered board it melts clear first where a part runs hot.'), 'info');
+      if (this.reworkMode.realistic) {
+        // rosin is also the flux: the joints it covers wet when they are next melted
+        this.rework?.applyFlux(pt[0], pt[1], 6);
+        this.toast(t('Rosin flux on the joints here: they wet when you next melt them. On a powered board the film also melts clear first where a part runs hot.'), 'info');
+      } else this.toast(t('Rosin film applied — on a powered board it melts clear first where a part runs hot.'), 'info');
       return;
     }
     if (this.activeTool === 'scope') {
@@ -3715,9 +3875,13 @@ export class PcbApp {
       this.thermal!.applyIpa(pt[0], pt[1], 6);
       sfxClick();
       // scrubbing with IPA also dissolves liquid-damage residue (and the leak it forms)
-      if (residueNear(this.board, pt[0], pt[1], 3)) this.pushUndo();
+      if (residueNear(this.board, pt[0], pt[1], 3) || fluxResidueNear(this.board, pt[0], pt[1], 3)) this.pushUndo();
+      const fluxOff = cleanFluxWithIpa(this.board, pt[0], pt[1], 3);
       const { cleaned, cleared } = cleanWithIpa(this.board, pt[0], pt[1], 3);
-      if (cleaned.length) {
+      if (fluxOff.length && !cleaned.length) {
+        this.renderUI();
+        this.toast(t('Flux residue washed off {pads}.', { pads: fluxOff.join(', ') }), 'success');
+      } else if (cleaned.length) {
         this.recompute(true);
         this.renderUI();
         this.toast(cleared.length ? t('Residue scrubbed off {refs} — the board is clean there.', { refs: cleared.join(', ') }) : t('Scrubbing residue on {refs}… it is thinning, keep cleaning.', { refs: cleaned.join(', ') }), cleared.length ? 'success' : 'info');
@@ -4566,7 +4730,7 @@ export class PcbApp {
   }
 
   /** Numbered rows of a track (tutorials, challenges): the open board marked, solved ones ticked. */
-  private trackRowsHtml(ids: readonly string[], current: string): string {
+  private trackRowsHtml(ids: readonly string[], current: string, done: ReadonlySet<string> = this.solvedIds): string {
     return ids.map((id, idx) => {
       const scIdx = this.scenarios.findIndex((x) => x.id === id);
       const sc = scIdx >= 0 ? this.scenarios[scIdx] : null;
@@ -4576,7 +4740,7 @@ export class PcbApp {
       return `
         <button class="list-btn" data-open-sc="${scIdx}" style="${isCur ? 'background:var(--accent-weak);border:1px solid var(--accent-line)' : ''}">
           <span><b>${idx + 1}.</b> ${this.esc(t(sc.meta.title))}</span>
-          ${this.solvedIds.has(id) ? `<span class="badge pass">${t('Done')}</span>` : isCur ? `<span class="badge info">${t('Active')}</span>` : `<span class="sub">${level}</span>`}
+          ${done.has(id) ? `<span class="badge pass">${t('Done')}</span>` : isCur ? `<span class="badge info">${t('Active')}</span>` : `<span class="sub">${level}</span>`}
         </button>`;
     }).join('');
   }
@@ -4610,6 +4774,7 @@ export class PcbApp {
     const hints = s.meta.hints;
     const v = this.lastVerify;
     const inTutTrack = isTutorialScenario(s.id);
+    const lesson = lessonFor(s.id);
     // after the tutorials (all solved, or on the last one), and on the challenge boards themselves
     const showChallenges = (CHALLENGE_TRACK_IDS as readonly string[]).includes(s.id)
       || (inTutTrack && (TUTORIAL_SCENARIO_IDS.every((id) => this.solvedIds.has(id)) || s.id === TUTORIAL_SCENARIO_IDS[TUTORIAL_SCENARIO_IDS.length - 1]));
@@ -4652,6 +4817,7 @@ export class PcbApp {
         ` : ''}
       </div>
 
+      ${lesson ? this.lessonCardHtml(lesson.title) : ''}
       ${inTutTrack ? `
         <div class="card">
           <div class="card-title">
@@ -4745,6 +4911,10 @@ export class PcbApp {
       b.addEventListener('click', () => { this.genFaults = Number(b.dataset.genN); this.renderMissionTab(); });
     });
     this.sideBodyEl.querySelector('#btn-start-tut')?.addEventListener('click', () => this.startTutorial());
+    this.sideBodyEl.querySelectorAll<HTMLButtonElement>('[data-lesson]').forEach((b) => b.addEventListener('click', () => {
+      this.showLesson = b.dataset.lesson === 'debrief' ? 'debrief' : 'brief';
+      this.renderModal();
+    }));
     this.sideBodyEl.querySelector('#btn-open-catalog')?.addEventListener('click', () => this.openBoardCatalog());
     this.sideBodyEl.querySelector('#btn-get-notes')?.addEventListener('click', () => {
       this.showMods = true;
@@ -5409,6 +5579,7 @@ export class PcbApp {
     const root = s.generated && this.scenarios.find((x) => x.id === s.generated!.from);
     if (root && root !== s) return this.boardKind(root);
     if (isTutorialScenario(s.id)) return 'tutorial';
+    if ((SOLDERING_TRACK_IDS as readonly string[]).includes(s.id)) return 'track';
     if (this.demoUrls.has(s) || (s.id.startsWith('demo-') && BOARD_INFO[s.id])) return 'open';
     if (this.bundledIds.has(s.id)) return 'handmade';
     return 'custom';
@@ -5485,6 +5656,7 @@ export class PcbApp {
             <div class="row wrap"><button class="btn primary" data-bp-tab="library">${icon('grid', 13)}<span>${t('Open the Library')}</span></button><button class="btn" data-bp-act="mods">${icon('box', 13)}<span>${t('Mods')}</span></button></div>
           </div>
           ${this.dailyStrip()}
+          ${this.trackStrip()}
           ${this.pickerPath(null)}
         </div>`;
     }
@@ -5517,6 +5689,7 @@ export class PcbApp {
           </div>
         </div>
         ${this.dailyStrip()}
+        ${this.trackStrip()}
         <div class="bp-row">
           ${alts.length ? (this.mobile ? `<div class="bp-or"><div class="bp-h">${t('Or try')}</div><div class="bp-swipe">${altCards}</div></div>` : altCards) : ''}
           ${this.pickerPath(main.id)}
@@ -5549,6 +5722,26 @@ export class PcbApp {
         <div class="bp-daily-main"><span class="bp-t">${t('Daily repair: {board}', { board: this.esc(this.boardNames(parent).name) })}</span><span class="bp-s">${this.esc(sub)}</span></div>
         ${done ? `<span class="bp-solved">${icon('check', 14)}<span>${t('Done')}</span></span>`
           : `<button class="btn" data-bp-act="daily" ${this.dailyBusy ? 'disabled' : ''}>${this.dailyBusy ? t('Preparing…') : t('Play')}</button>`}
+      </div>`;
+  }
+
+  /**
+   * The high-reliability soldering track: its own path beside the main one (lesson, repair,
+   * inspection per board). Shows progress and the next board to do.
+   */
+  private trackStrip(): string {
+    const ids = SOLDERING_TRACK_IDS as readonly string[];
+    const nextId = ids.find((id) => !this.trackAccepted.has(id)) ?? ids[0];
+    const idx = this.scenarios.findIndex((x) => x.id === nextId);
+    if (idx < 0) return '';
+    const n = ids.filter((id) => this.trackAccepted.has(id)).length;
+    const sub = this.mobile ? t('Based on a public-domain US Navy textbook') : t('Solder, heat, cleaning and inspection, after NEETS Module 14 (a public-domain US Navy textbook)');
+    return `
+      <div class="bp-daily bp-solder-track">
+        <div class="bp-cal"><small>${t('Track')}</small><b>${n}/${ids.length}</b></div>
+        <span class="bp-daily-lv">${this.levelPill(this.scenarios[idx])}</span>
+        <div class="bp-daily-main"><span class="bp-t">${t('High-reliability soldering: {board}', { board: this.esc(t(this.scenarios[idx].meta.title)) })}</span><span class="bp-s">${this.esc(sub)}</span></div>
+        ${this.startButton(this.scenarios[idx], idx, '')}
       </div>`;
   }
 
@@ -5646,7 +5839,7 @@ export class PcbApp {
   private pickerLibrary(): string {
     const list = this.pickerFiltered();
     const learned = this.learnedSet();
-    const kinds = (['tutorial', 'handmade', 'open', 'mod', 'custom'] as const).filter((k) => this.scenarios.some((s) => this.boardKind(s) === k));
+    const kinds = (['tutorial', 'track', 'handmade', 'open', 'mod', 'custom'] as const).filter((k) => this.scenarios.some((s) => this.boardKind(s) === k));
     const skillKeys = [...new Set(this.scenarios.flatMap((s) => BOARD_INFO[s.id]?.teaches ?? []))].filter((k) => !k.startsWith('fault:'));
     const extra = (this.bpKind !== 'all' ? 1 : 0) + (this.bpSkill !== 'all' ? 1 : 0) + (this.mobile && this.bpHideSolved ? 1 : 0);
     const bandBtn = (id: 'all' | BandId, label: string) => {
@@ -6513,6 +6706,10 @@ export class PcbApp {
       this.renderFeedbackModal();
       return;
     }
+    if (this.showLesson) {
+      this.renderLessonModal();
+      return;
+    }
     if (!this.showHelp) {
       this.modalRootEl.innerHTML = '';
       return;
@@ -6581,6 +6778,68 @@ export class PcbApp {
     });
   }
 
+  /** Overview card of a soldering-track board: the lesson, the inspection, and the track. */
+  private lessonCardHtml(title: string): string {
+    const ids = SOLDERING_TRACK_IDS as readonly string[];
+    const ins = this.lastInspection;
+    const ok = ins && lessonAccepted(lessonFor(this.activeScenario.id), ins);
+    return `
+      <div class="card">
+        <div class="card-title">
+          <span>${t('High-reliability soldering')}</span>
+          <span class="badge info">${ids.filter((id) => this.trackAccepted.has(id)).length}/${ids.length}</span>
+        </div>
+        <div class="row wrap">
+          <button class="btn sm" data-lesson="brief">${icon('book', 12)}<span>${t('Lesson: {title}', { title: this.esc(t(title)) })}</span></button>
+          ${ins ? `<button class="btn sm" data-lesson="debrief"><span class="badge ${ok ? 'pass' : 'fail'}">${ok ? t('Accepted') : t('Rejected')}</span><span>${t('Inspection')}</span></button>` : ''}
+        </div>
+        <div class="muted">${t('Based on NEETS Module 14, a public-domain US Navy textbook. A board counts as done when it works and passes inspection.')}</div>
+        <div class="stack">${this.trackRowsHtml(ids, this.activeScenario.id, this.trackAccepted)}</div>
+      </div>`;
+  }
+
+  /** The lesson before a soldering-track repair, or the inspection after it. */
+  private renderLessonModal() {
+    const lesson = lessonFor(this.activeScenario.id);
+    if (!lesson || (this.showLesson === 'debrief' && !this.lastInspection)) { this.showLesson = null; this.renderModal(); return; }
+    const brief = this.showLesson === 'brief';
+    const ids = SOLDERING_TRACK_IDS as readonly string[];
+    const nextId = ids[ids.indexOf(this.activeScenario.id) + 1];
+    const nextIdx = nextId ? this.scenarios.findIndex((x) => x.id === nextId) : -1;
+    const accepted = !brief && lessonAccepted(lesson, this.lastInspection!);
+    const body = brief ? lessonBriefHtml(lesson, (x) => this.esc(x), './', this.mobile) : debriefHtml(lesson, this.lastInspection!, (x) => this.esc(x));
+    this.modalRootEl.innerHTML = `
+      <div class="modal-backdrop" id="lesson-close-bg">
+        <div class="modal lesson-modal" role="dialog" aria-modal="true" aria-labelledby="lesson-h" style="transform: translate3d(${this.modalPos[0]}px, ${this.modalPos[1]}px, 0)">
+          <div class="modal-head" title="${t('Drag to move window')}">
+            <h2 id="lesson-h">${brief ? this.esc(t(lesson.title)) : t('Inspection')}</h2>
+            <button class="btn ghost icon sm" id="lesson-close" title="${t('Close')}" aria-label="${t('Close')}">${icon('x', 14)}</button>
+          </div>
+          ${body}
+          <div class="row lesson-actions">
+            ${brief
+              ? `<button class="btn primary" id="lesson-go">${icon('play', 13)}<span>${t('Start the repair')}</span></button>`
+              : `${accepted && nextIdx >= 0 ? `<button class="btn primary" data-open-sc="${nextIdx}">${icon('play', 13)}<span>${t('Next lesson')}</span></button>` : ''}
+                 <button class="btn${accepted && nextIdx >= 0 ? '' : ' primary'}" id="lesson-go">${accepted ? t('Close') : t('Back to the board')}</button>
+                 <button class="btn ghost" id="lesson-brief">${icon('book', 13)}<span>${t('Lesson')}</span></button>`}
+          </div>
+        </div>
+      </div>`;
+    const close = () => { this.showLesson = null; this.renderModal(); this.canvas.focus({ preventScroll: true }); };
+    this.modalRootEl.querySelector('#lesson-close')?.addEventListener('click', close);
+    this.modalRootEl.querySelector('#lesson-go')?.addEventListener('click', close);
+    this.modalRootEl.querySelector('#lesson-brief')?.addEventListener('click', () => { this.showLesson = 'brief'; this.renderModal(); });
+    this.modalRootEl.querySelectorAll<HTMLButtonElement>('[data-open-sc]').forEach((b) => b.addEventListener('click', () => {
+      this.showLesson = null;
+      if (this.scenarios[Number(b.dataset.openSc)]) void this.openScenario(Number(b.dataset.openSc));
+    }));
+    this.modalRootEl.querySelector('#lesson-close-bg')?.addEventListener('click', (e) => {
+      if (this.suppressModalBgClose) { this.suppressModalBgClose = false; return; }
+      if ((e.target as HTMLElement).id === 'lesson-close-bg') close();
+    });
+    this.modalRootEl.querySelector<HTMLElement>('#lesson-go')?.focus({ preventScroll: true });
+  }
+
   private esc(s: string): string {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
@@ -6597,6 +6856,7 @@ export class PcbApp {
     // phones refit on every change of shape; desktops on the first frame (the first with the real
     // canvas shape) and then only while the view is the untouched automatic fit
     if (this.mobile || !this.fitAspect || this.autoFramed) this.refitOnShapeChange();
+    if (this.ironHold) this.updateIronHud();
     if (this.rework && this.reworkMode.realistic) {
       const evs = this.rework.update(dt);
       if (evs.length) this.onReworkEvents(evs);
