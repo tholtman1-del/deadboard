@@ -75,7 +75,7 @@ import { beginnerPrimerHtml, CHALLENGE_TRACK_IDS, lessonDock, TUTORIAL_SCENARIO_
 import { TOOL_SHORT, TOOL_TIP_PHONE, TouchGestures, splitLead, touchCopy, wantsMobileLayout } from './touch';
 import { cursorStops, describeAt, stepToward } from './boardcursor';
 
-type ToolId = 'inspect' | 'dmm' | 'iron' | 'wick' | 'flip180' | 'jumper' | 'knife' | 'replace' | 'freeze' | 'ipa' | 'press' | 'hotair' | 'scope' | 'rosin' | 'extract' | 'shunt';
+type ToolId = 'inspect' | 'dmm' | 'iron' | 'wick' | 'flip180' | 'jumper' | 'knife' | 'replace' | 'freeze' | 'ipa' | 'press' | 'hotair' | 'scope' | 'rosin' | 'extract' | 'shunt' | 'staple';
 type PanelTab = 'mission' | 'inspect' | 'studio' | 'mods';
 type DmmMode = 'V' | 'OHM' | 'DIODE' | 'CAP' | 'AMP';
 
@@ -102,6 +102,7 @@ const TOOLS: { id: ToolId; key: string; ico: string; lbl: string; tip: string }[
   { id: 'scope', key: 'o', ico: 'scope', lbl: tk('Oscilloscope'), tip: tk('Clip the scope probe (CH1) on a net: rail ramps and boot loops (Roll), switching nodes, ripple and clocks (Auto)') },
   { id: 'press', key: 'b', ico: 'hand', lbl: tk('Press / flex'), tip: tk('Press on the board for 2.5 s: reveals cracked joints that open or close under flex') },
   { id: 'extract', key: 'x', ico: 'extract', lbl: tk('Solder extractor'), tip: tk('Desoldering a through-hole joint: hold the heated tip on it until the solder is sucked out (Bench: continuous vacuum or a manual plunger)') },
+  { id: 'staple', key: 'k', ico: 'staple', lbl: tk('Clinched staple'), tip: tk('Repair a broken or nicked conductor the high-reliability way: click the copper on one side of the damage, then the other (same side of the board)') },
   { id: 'shunt', key: 's', ico: 'clip', lbl: tk('Thermal shunt'), tip: tk('Clip a heat sink on a through-hole lead (click its pad) so the part stays cool while you solder; click again to take it off') },
 ];
 
@@ -221,6 +222,8 @@ export class PcbApp {
   private reworkMode: { realistic: boolean; ironTemp: number; flux: boolean } = { realistic: false, ironTemp: 350, flux: true };
   /** Solder extractor: a motorized continuous vacuum, or a one-shot manual plunger. */
   private extractMode: 'vacuum' | 'plunger' = 'vacuum';
+  /** First end of a clinched staple being placed. */
+  private stapleStart: { a: V2; side: Side } | null = null;
   /** A timed desoldering action (plunger shot or wick) that fires when its heating is done (thermal time). */
   private pendingExtract: { comp: Component; pad: number; mode: ExtractMode; at: number } | null = null;
   /** The player's own rework setting while a lesson board sets the station (restored after). */
@@ -3440,6 +3443,7 @@ export class PcbApp {
       const tool = TOOLS.find((x) => x.id === t);
       if (tool && t !== 'inspect') this.toast(`${tr(tool.lbl)}: ${tr(TOOL_TIP_PHONE[t] ?? tool.tip)}`, 'info');
     }
+    if (t !== this.activeTool) this.stapleStart = null;
     this.activeTool = t;
     if (t !== 'jumper') this.jumperStart = null;
     this.mount.querySelectorAll<HTMLButtonElement>('.tool-btn[data-tool]').forEach((b) => {
@@ -4174,6 +4178,28 @@ export class PcbApp {
       this.jumperStart = null;
       sfxSolder();
       this.recompute(false);
+      this.renderUI();
+      return;
+    }
+
+    if (this.activeTool === 'staple') {
+      // NEETS 14 p. 3-32, fig. 3-24: holes either side of the damage, staple through them, clinched against the conductor and soldered
+      const n = netAt(this.board, this.conn, pt, side, xray);
+      if (!n || hit?.kind !== 'trace') { this.toast(t('A staple goes on a conductor: click the copper track on one side of the damage.'), 'info'); return; }
+      if (!this.stapleStart || this.stapleStart.side !== side) {
+        this.stapleStart = { a: n.snap, side };
+        sfxClick();
+        this.toast(t('First hole set: now click the conductor on the other side of the damage.'), 'info');
+        return;
+      }
+      const span = dist(this.stapleStart.a, n.snap);
+      if (span < 2 || span > 15) { this.toast(t('A staple spans 2–15 mm of conductor: pick a point the other side of the damage.'), 'info'); return; }
+      this.pushUndo();
+      addJumper(this.board, this.stapleStart.a, side, n.snap, side, 'staple');
+      this.stapleStart = null;
+      sfxSolder();
+      this.recompute(false);
+      this.toast(t('Clinched staple in: two holes, sleeved wire underneath, ends clinched against the conductor and soldered.'), 'success');
       this.renderUI();
       return;
     }

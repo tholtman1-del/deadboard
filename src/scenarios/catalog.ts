@@ -39,7 +39,7 @@ export const SKILLS: Record<SkillKind, Record<string, string>> = {
     dmm: tk('Multimeter'), flip: tk('Flip'), jumper: tk('Jumper wire'), iron: tk('Soldering iron'),
     supply: tk('Bench supply'), wick: tk('Desolder wick'), diode: tk('Diode test'), rotate: tk('Rotate 180°'),
     replace: tk('Parts bin'), thermal: tk('Thermal'), ocp: tk('Current limit'), ipa: tk('Isopropyl'),
-    press: tk('Press / flex'), freeze: tk('Freeze spray'), heatmap: tk('Voltage map'), rosin: tk('Rosin'), extract: tk('Solder extractor'), shunt: tk('Thermal shunt'),
+    press: tk('Press / flex'), freeze: tk('Freeze spray'), heatmap: tk('Voltage map'), rosin: tk('Rosin'), extract: tk('Solder extractor'), shunt: tk('Thermal shunt'), staple: tk('Clinched staple'),
   },
   part: {
     cell: tk('Coin cell'), button: tk('Push button'), bjt: tk('Transistor (NPN)'), resistor: tk('Resistor'), led: tk('LED'),
@@ -90,6 +90,7 @@ export const BOARD_INFO: Record<string, BoardInfo> = {
   'hr-heat-time': { level: 1.9, symptom: tk('Two LEDs dark on a ground-pour board'), teaches: ['tool:iron', 'tool:thermal', 'fault:cold'] },
   'hr-desoldering': { level: 2.6, symptom: tk('One of two LEDs stays dark'), teaches: ['tool:extract', 'tool:replace', 'tool:iron'] },
   'hr-skipping-pattern': { level: 3.1, symptom: tk('Four LEDs, all dark'), teaches: ['tool:iron', 'fault:cold'] },
+  'hr-conductor-repair': { level: 3.3, symptom: tk('One of two LEDs stays dark'), teaches: ['tool:staple', 'fault:open'] },
   'hr-thermal-shunt': { level: 2.9, symptom: tk('Pressed, the LEDs stay dark'), teaches: ['tool:shunt', 'part:bjt', 'fault:cold'] },
   'hr-clean-inspect': { level: 2.2, symptom: tk('Reworked, both LEDs dark, left a mess'), teaches: ['tool:wick', 'tool:ipa', 'fault:bridge'] },
   'demo-olimex-esp32-devkit-lipo': { level: 4.4, teaches: ['part:schottky', 'part:charger', 'part:mcu'] },

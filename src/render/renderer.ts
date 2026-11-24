@@ -788,6 +788,14 @@ export class Renderer {
       this.pushThermalSurface({ nx: th.nx, ny: th.ny, dx: th.dx, T: th.T }, faces);
     }
 
+    // 5b. Nicks: a notch out of the copper, in the solder mask's colour
+    for (const n of board.nicks ?? []) {
+      if (!both && effSide(n.layer) !== camera.side && camera.mode === '2d') continue;
+      const p = mpt(n.at, n.layer);
+      const z = effSide(n.layer) === 'F' ? ht + 0.07 : -ht - 0.07;
+      op.box.pushTRS(p[0], p[1], z, n.len, n.depth * n.width, 0.03, both && n.layer === 'B' ? -n.rot : n.rot, 0.05, 0.22, 0.12, 1, 0, 0.05, 0.8);
+    }
+
     // 6. Jumper Wires
     for (const j of board.jumpers) {
       const isHov = hovered?.kind === 'jumper' && hovered.jumper === j;
@@ -795,6 +803,19 @@ export class Renderer {
       const la = effSide(j.la), lb = effSide(j.lb);
       const za = la === 'F' ? ht + 0.12 : -ht - 0.12;
       const zb = lb === 'F' ? ht + 0.12 : -ht - 0.12;
+      if (j.kind === 'staple' && la === lb) {
+        // clinched staple (NEETS fig. 3-24): solder over the clinched ends on the conductor, the wire
+        // through two holes and along the other side in white sleeving
+        const sgn = la === 'F' ? 1 : -1, zo = -sgn * (ht + 0.35);
+        const tin: [number, number, number] = isHov ? [1, 0.85, 0.4] : [0.8, 0.82, 0.86];
+        op.sphere.pushTRS(pa[0], pa[1], za - sgn * 0.05, 1.0, 1.0, 0.5, 0, 0.86, 0.88, 0.92, 1, 0, 0.92, 0.15);
+        op.sphere.pushTRS(pb[0], pb[1], zb - sgn * 0.05, 1.0, 1.0, 0.5, 0, 0.86, 0.88, 0.92, 1, 0, 0.92, 0.15);
+        op.cyl.pushSeg3D([pa[0], pa[1], za], [pb[0], pb[1], zb], 0.3, 0.3, tin[0], tin[1], tin[2], 1, isHov ? 0.3 : 0, 0.9, 0.25);
+        op.cyl.pushSeg3D([pa[0], pa[1], za], [pa[0], pa[1], zo], 0.3, 0.3, tin[0], tin[1], tin[2], 1, 0, 0.9, 0.25);
+        op.cyl.pushSeg3D([pb[0], pb[1], zb], [pb[0], pb[1], zo], 0.3, 0.3, tin[0], tin[1], tin[2], 1, 0, 0.9, 0.25);
+        op.cyl.pushSeg3D([pa[0], pa[1], zo], [pb[0], pb[1], zo], 0.55, 0.55, 0.93, 0.93, 0.9, 1, isHov ? 0.3 : 0, 0.05, 0.7);
+        continue;
+      }
       const col: [number, number, number] = isHov ? [1, 0.78, 0.22] : [0.95, 0.36, 0.14];
       // Solder joints at endpoints
       op.sphere.pushTRS(pa[0], pa[1], za, 0.8, 0.8, 0.55, 0, 0.86, 0.88, 0.92, 1, 0, 0.92, 0.15);

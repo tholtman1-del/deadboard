@@ -228,6 +228,39 @@ export const LESSONS: Lesson[] = [
       { ref: 'Q24', q: tk('When removing the component, under what circumstances may component leads be clipped?'), a: tk('If the component is known to be defective or if the board may be damaged by normal desoldering.'), page: '3-31' },
     ],
   },
+  {
+    scenario: 'hr-conductor-repair',
+    title: tk('Conductor repair'),
+    source: { ...NEETS14_SOURCE, pages: '3-31 – 3-33' },
+    points: [
+      tk('Examine every conductor for nicks, tears and scratches that have not broken the circuit, as well as for complete breaks.'),
+      tk('A nick or scratch over one tenth of the conductor\'s cross-section must be repaired: it reduces the current the conductor can carry.'),
+      tk('Four repairs for a crack: a solder bridge (cracks again easily, not high-reliability), a lap-soldered wire (stronger, still not highly reliable), an eyelet in a hole drilled through the crack, and the clinched staple.'),
+      tk('The clinched staple is the most reliable repair and is recommended in nearly all cases.'),
+    ],
+    numbers: [
+      { label: tk('Nick that must be repaired'), value: tk('> 1/10 of the cross-section') },
+      { label: tk('Staple clinch on the conductor'), value: tk('≥ 1/16 in (1.6 mm) typical') },
+      { label: tk('Height over the board'), value: tk('≤ 1/8 in (3.2 mm) incl. solder') },
+    ],
+    figure: { src: 'lessons/neets14/fig-3-24.png', caption: tk('Figure 3-24. Clinched-staple repair of broken conductor.') },
+    original: [
+      'Conductor (run) and pad damage is very common. The technician must examine the board for nicks, tears, or scratches that have not broken the circuit, as well as for complete breaks, as shown in figure 3-23. Crack damage may exist as nicks or scratches in the conductor. These nicks or scratches must be repaired if over one-tenth of the cross-sectional area of the conductor is affected as current-carrying capability is reduced. Cracks may also penetrate the conductor.',
+      'CRACK REPAIR.—Four techniques are used to repair cracks in printed circuit conductors. One method is to flow solder across the crack to form a solder bridge. This is not a high-reliability repair since the solder in the break will crack easily.',
+      'The second method is to lap-solder a piece of wire across the crack. This method produces a stronger bond than a solder bridge; but it is not highly reliable, as the solder may crack.',
+      'A third repair technique is to drill a hole through the board where the crack is located and then to install an eyelet in the hole and solder it into place.',
+      'The fourth method is to use the clinched-staple method, shown in figure 3-24. It is the most reliable method and is recommended in nearly all cases.',
+      'REPLACING DAMAGED OR MISSING CONDUCTORS.—The procedures used to replace damaged or missing conductors are essentially the same as using the clinched-staple method of conductor repair.',
+    ],
+    task: tk('D1\'s track is cracked through and D2\'s has a deep nick. Repair both with a Clinched staple (K): click the conductor on one side of the damage, then the other. A solder bridge or a jumper wire would make D1 light, but the inspector rejects both here.'),
+    station: 'r350f',
+    grades: ['loose-solder', 'wire-repair', 'nick', 'pad-lifted', 'part-overheated'],
+    questions: [
+      { ref: 'Q30', q: tk('What is the preferred method of repairing cracked runs on boards?'), a: tk('Clinched staple.'), page: '3-37' },
+      { ref: 'Q31', q: tk('Damaged or missing termination pads are replaced using what procedure?'), a: tk('Epoxy a replacement pad to the board, set an eyelet, and solder it.'), page: '3-37' },
+      { ref: 'Q29', q: tk('List three causes of damage to printed circuit boards.'), a: tk('Operational failures, repairs by untrained personnel, repair using improper tools, mishandling, improper shipping, packaging, and storage.'), page: '3-37' },
+    ],
+  },
 ];
 
 export function lessonFor(scenarioId: string): Lesson | undefined {

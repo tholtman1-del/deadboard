@@ -86,9 +86,8 @@ export function lessonAccepted(l: Lesson | undefined, ins: Inspection): boolean 
   return !ins.findings.some((f) => fails(l, f.kind));
 }
 
-/** A finding fails the inspection: a reject rule this lesson grades, or a procedure the lesson teaches. */
+/** A finding fails the inspection: a rule this lesson grades (whatever its usual severity: the lesson teaches it). */
 function fails(l: Lesson | undefined, kind: keyof typeof RULES): boolean {
-  const r = RULES[kind];
-  if (!l) return r.severity === 'reject';
-  return l.grades.includes(kind) && (r.severity === 'reject' || !!r.procedural);
+  if (!l) return RULES[kind].severity === 'reject';
+  return l.grades.includes(kind);
 }

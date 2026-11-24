@@ -138,7 +138,7 @@ export function touchCopy(s: string): string {
 export const TOOL_SHORT: Record<string, string> = {
   inspect: 'Select', dmm: 'Meter', iron: 'Iron', wick: 'Wick', flip180: 'Rotate', jumper: 'Jumper',
   knife: 'Cutter', replace: 'Parts', freeze: 'Freeze', ipa: 'IPA', hotair: 'Hot air', rosin: 'Rosin',
-  scope: 'Scope', press: 'Press', extract: 'Extract', shunt: 'Shunt',
+  scope: 'Scope', press: 'Press', extract: 'Extract', shunt: 'Shunt', staple: 'Staple',
 };
 
 /** What each tool does, in one short line for the phone (the desktop shows `TOOLS[].tip` on hover). */
@@ -158,6 +158,7 @@ export const TOOL_TIP_PHONE: Record<string, string> = {
   press: 'Tap to press the board and find cracked joints.',
   extract: 'Hold on a through-hole joint to suck its solder out.',
   shunt: 'Tap a through-hole pad to clip a heat sink on its lead.',
+  staple: 'Tap the conductor on one side of a break, then the other.',
 };
 
 /**

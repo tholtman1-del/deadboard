@@ -8,6 +8,7 @@ export function normalizeBoard(b: Partial<Board>): Board {
     zones: arr(b.zones), silk: arr(b.silk), texts: arr(b.texts), nextId: num(b.nextId, 1),
     ...(Array.isArray(b.hiddenCopperNets) && { hiddenCopperNets: b.hiddenCopperNets.filter((n) => typeof n === 'string') }),
     ...(b.estimatedPads === true && { estimatedPads: true }),
+    ...(Array.isArray(b.nicks) && { nicks: b.nicks.filter((n) => n && typeof n.id === 'string' && isPt(n.at) && (n.layer === 'F' || n.layer === 'B') && [n.len, n.depth, n.rot, n.width].every((x) => typeof x === 'number' && isFinite(x))) }),
     ...(b.inner && typeof b.inner === 'object' && {
       inner: {
         traces: arr(b.inner.traces).filter((t) => t && Number.isInteger(t.layer) && isPt(t.a) && isPt(t.b) && typeof t.w === 'number'),

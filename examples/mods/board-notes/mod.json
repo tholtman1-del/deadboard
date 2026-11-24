@@ -2,7 +2,7 @@
   "format": "deadboard-mod/2",
   "id": "board-notes",
   "name": "Board notes (knowledge packs for the shipped boards)",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "author": "Biga73 (idea) · DEADBOARD",
   "description": "An example data mod: a knowledge pack for every board that ships with DEADBOARD. Rails, where each one comes from, what to expect at which pin, and what a low reading usually means, each marked documented, derived or estimated. The packs describe the working board and point at likely causes, the way the board's hints do; they don't name the planted faults. Based on the device knowledge pack RFC by Biga73.",
   "license": "CC0-1.0",
@@ -1006,6 +1006,46 @@
       "notes": [
         "RN1 is a DIP-16 network of eight isolated 330 Ω resistors: resistor n sits between pins n and 17 − n. Pins 5–12 are unused here.",
         "Through-hole parts are soldered on the bottom side: a dull, grainy joint there can look fine from the top and still be open.",
+        "Soldered with 63/37 tin-lead (melts at 183 °C, 361 °F), as in NEETS Module 14 (public-domain US Navy textbook)."
+      ]
+    },
+    {
+      "id": "hr-conductor-repair",
+      "board": "official-boards/boards/hr-conductor-repair",
+      "title": "Conductor Repair",
+      "provenance": { "kind": "board design + simulator", "where": "part values from the board; readings from DEADBOARD's simulator on the working board", "confidence": "derived" },
+      "rails": [
+        {
+          "net": "+5V",
+          "nominal": 5.0,
+          "domain": "always on",
+          "source": { "ref": "J1", "kind": "5 V DC input header" },
+          "checks": [
+            { "at": "J1", "pin": "1", "expect": "≈5.00 V with both LEDs lit (≈17 mA in all)", "readsLowIf": "the bench supply is off or current-limited, or something downstream draws far more" }
+          ]
+        },
+        {
+          "net": "LED1_A",
+          "nominal": 2.0,
+          "domain": "always on",
+          "source": { "ref": "R1", "kind": "330 Ω series resistor" },
+          "checks": [
+            { "at": "D1", "pin": "2", "expect": "≈2.00 V (red LED, ≈9.1 mA)", "readsLowIf": "0 V at D1 with ≈5 V at R1 pin 2: the track between them is broken" }
+          ]
+        },
+        {
+          "net": "LED2_A",
+          "nominal": 2.29,
+          "domain": "always on",
+          "source": { "ref": "R2", "kind": "330 Ω series resistor" },
+          "checks": [
+            { "at": "D2", "pin": "2", "expect": "≈2.29 V (green LED, ≈8.2 mA)", "readsLowIf": "0 V: nothing reaches D2 through R2" }
+          ]
+        }
+      ],
+      "powerUp": [ "+5V" ],
+      "notes": [
+        "A nick or scratch across more than a tenth of a track still conducts, but carries less current: a high-reliability inspection rejects it until it is repaired (NEETS Module 14 p. 3-31).",
         "Soldered with 63/37 tin-lead (melts at 183 °C, 361 °F), as in NEETS Module 14 (public-domain US Navy textbook)."
       ]
     }

@@ -110,7 +110,14 @@ export interface Component {
 export interface Trace { id: string; layer: Side; a: V2; b: V2; w: number; net?: string }
 export interface Via { id: string; at: V2; d: number; drill: number; side?: Side; net?: string }
 export interface Blob { id: string; at: V2; r: number; layer: Side }
-export interface Jumper { id: string; a: V2; b: V2; la: Side; lb: Side }
+/** A wire added in repair. `staple`: a clinched staple (NEETS 14 fig. 3-24): through two holes either
+ * side of a break, sleeved wire on the other side, clinched and soldered on the conductor. */
+export interface Jumper { id: string; a: V2; b: V2; la: Side; lb: Side; kind?: 'staple' }
+/**
+ * Damage that leaves a conductor conducting: a nick or scratch across `depth` of its width. Over
+ * one tenth of the cross-section it must be repaired (NEETS 14 p. 3-31). Drawn as a notch.
+ */
+export interface Nick { id: string; at: V2; layer: Side; len: number; depth: number; rot: number; /** conductor width (mm) */ width: number }
 export interface Zone { id: string; layer: Side; net?: string; poly: V2[] }
 export interface SilkLine { a: V2; b: V2; w: number; side: Side }
 export interface SilkText { at: V2; text: string; size: number; side: Side; rot?: number }
@@ -125,6 +132,8 @@ export interface Board {
   vias: Via[];
   blobs: Blob[];
   jumpers: Jumper[];
+  /** Nicked conductors (cosmetic to the circuit, not to an inspector). */
+  nicks?: Nick[];
   zones: Zone[];
   silk: SilkLine[];
   texts: SilkText[];

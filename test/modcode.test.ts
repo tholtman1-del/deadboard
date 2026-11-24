@@ -178,8 +178,8 @@ async function run() {
     // rightly warns the author about those
     // (the report lists the first six and ends with "…"; Skipping Pattern's resistor network is the seventh)
     const differs = (f?.text.split('Differs on: ')[1] ?? '').split('; ').map((x) => x.split(' (')[0]).filter((x) => x !== '…');
-    const expected = new Set(['Transistor Switch', 'Solder and Flux', 'Heat and Time', 'Clean and Inspect', 'Desoldering', 'Thermal Shunt', 'Skipping Pattern']);
-    assert(f?.level === 'warn' && /agrees with the official solvers on 11\b/.test(f.text) && /runs on all 18 working boards/.test(f.text)
+    const expected = new Set(['Transistor Switch', 'Solder and Flux', 'Heat and Time', 'Clean and Inspect', 'Desoldering', 'Thermal Shunt', 'Skipping Pattern', 'Conductor Repair']);
+    assert(f?.level === 'warn' && /agrees with the official solvers on 11\b/.test(f.text) && /runs on all 19 working boards/.test(f.text)
       && differs[0] === 'Transistor Switch' && differs.every((x) => expected.has(x))
       && !r.findings.some((x) => x.level === 'fail'), `bench check: agrees everywhere but the transistor switch and the LED drop on the soldering track:\n${formatReport(r)}`);
     h2.stopAll();

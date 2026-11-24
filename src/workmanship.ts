@@ -13,7 +13,7 @@ const src = (page: string): RuleSource => ({ doc: NEETS14, page });
 
 export type FindingKind =
   | 'pad-lifted' | 'part-overheated' | 'mlcc-cracked' | 'part-displaced' | 'dull-joint'
-  | 'flux-residue' | 'loose-solder' | 'long-dwell' | 'wire-repair' | 'no-shunt' | 'skip-pattern';
+  | 'flux-residue' | 'loose-solder' | 'long-dwell' | 'wire-repair' | 'no-shunt' | 'skip-pattern' | 'nick';
 
 /**
  * `procedural`: about how the work was done, which the finished board does not show; listed only
@@ -33,6 +33,7 @@ export const RULES: Record<FindingKind, Rule> = {
   'long-dwell': { kind: 'long-dwell', severity: 'note', title: tk('Long heating'), rule: tk('Bring the joint to about 550 °F (288 °C) rapidly and hold it there briefly: in most cases the soldering action is complete within 2 or 3 seconds.'), source: src('3-23') },
   'no-shunt': { kind: 'no-shunt', severity: 'note', procedural: true, title: tk('No thermal shunt'), rule: tk('Before heat is applied to solder the joint, a thermal shunt is attached to sensitive component leads (diodes, transistors, and ICs) to conduct heat away from the component.'), source: src('3-23') },
   'skip-pattern': { kind: 'skip-pattern', severity: 'note', procedural: true, title: tk('Neighbouring pins heated in a row'), rule: tk('When multilead components such as ICs are soldered or desoldered, a skipping pattern is used: never heat two pads next to each other, to prevent heat build-up in one area.'), source: src('3-26, 3-30') },
+  'nick': { kind: 'nick', severity: 'reject', title: tk('Nicked conductor'), rule: tk('Nicks or scratches in a conductor must be repaired if over one-tenth of its cross-sectional area is affected, as its current-carrying capability is reduced.'), source: src('3-31') },
   'wire-repair': { kind: 'wire-repair', severity: 'note', title: tk('Wire repair'), rule: tk('A wire lap-soldered across a break is stronger than a solder bridge but not highly reliable; the clinched staple is the preferred repair of a broken conductor.'), source: src('3-32') },
 };
 
@@ -83,8 +84,22 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
   // solder blobs and wires the board was not designed with
   const refBlobs = new Set((reference?.blobs ?? []).map((b) => `${b.at[0].toFixed(2)},${b.at[1].toFixed(2)}`));
   for (const b of board.blobs) if (!refBlobs.has(`${b.at[0].toFixed(2)},${b.at[1].toFixed(2)}`)) add({ kind: 'loose-solder', where: `${b.at[0].toFixed(1)}, ${b.at[1].toFixed(1)} mm` });
-  const refJumpers = (reference?.jumpers ?? []).length;
-  if (board.jumpers.length > refJumpers) add({ kind: 'wire-repair', where: String(board.jumpers.length - refJumpers) });
+  const refJumpers = (reference?.jumpers ?? []).filter((j) => j.kind !== 'staple').length;
+  const wires = board.jumpers.filter((j) => j.kind !== 'staple');
+  if (wires.length > refJumpers) add({ kind: 'wire-repair', where: String(wires.length - refJumpers) });
+
+  // a nick over a tenth of the conductor stays a defect until a staple bridges it
+  const staples = board.jumpers.filter((j) => j.kind === 'staple');
+  const distToSeg = (p: [number, number], a: [number, number], b: [number, number]) => {
+    const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy || 1e-9;
+    const u = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2));
+    return Math.hypot(p[0] - a[0] - u * dx, p[1] - a[1] - u * dy);
+  };
+  for (const n of board.nicks ?? []) {
+    if (n.depth <= 0.1) continue;
+    const bridged = staples.some((j) => j.la === n.layer && distToSeg(n.at, j.a, j.b) < 1 && Math.hypot(j.a[0] - n.at[0], j.a[1] - n.at[1]) > 0.8 && Math.hypot(j.b[0] - n.at[0], j.b[1] - n.at[1]) > 0.8);
+    if (!bridged) add({ kind: 'nick', where: `${n.at[0].toFixed(1)}, ${n.at[1].toFixed(1)} mm`, detail: `${Math.round(n.depth * 100)} %` });
+  }
 
   // how the joints were heated
   const byJoint = new Map<string, Inspection['joints'][number]>();

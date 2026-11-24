@@ -30,8 +30,8 @@ export function removeBlob(b: Board, blob: Blob) {
   b.blobs = b.blobs.filter((x) => x !== blob);
 }
 
-export function addJumper(b: Board, a: V2, la: Side, p: V2, lb: Side): Jumper {
-  const j: Jumper = { id: nid(b, 'j'), a: [a[0], a[1]], b: [p[0], p[1]], la, lb };
+export function addJumper(b: Board, a: V2, la: Side, p: V2, lb: Side, kind?: 'staple'): Jumper {
+  const j: Jumper = { id: nid(b, 'j'), a: [a[0], a[1]], b: [p[0], p[1]], la, lb, ...(kind && { kind }) };
   b.jumpers.push(j);
   return j;
 }

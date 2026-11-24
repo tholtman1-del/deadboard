@@ -45,6 +45,7 @@ const FIXES: Record<string, (b: Board) => void> = {
   'hr-desoldering': (b) => installPart(part(b, 'R2'), { value: 330 }),
   'hr-thermal-shunt': (b) => { toggleCold(part(b, 'Q1'), 1); toggleCold(part(b, 'Q1'), 2); },
   'hr-skipping-pattern': (b) => { for (const pi of [0, 1, 2, 3]) toggleCold(part(b, 'RN1'), pi); },
+  'hr-conductor-repair': (b) => { addBlob(b, [37, 11], 'F', 0.75); },
 };
 
 async function fixed(sc: Scenario, solver: Solver): Promise<Board> {

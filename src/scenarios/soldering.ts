@@ -4,7 +4,7 @@
 import type { Board, Component, LedColor, Objective, Scenario, ScenarioMeta } from '../types';
 import { buildConnectivity } from '../connectivity';
 import { lockFlag, topology } from '../crypto';
-import { addBlob } from '../ops';
+import { addBlob, cutTrace } from '../ops';
 import { Builder } from './builder';
 import { setReference } from './reference';
 
@@ -212,9 +212,32 @@ async function skippingPattern(): Promise<Scenario> {
   return sc;
 }
 
+function conductorRepair() {
+  const k = ledRows(64, 34, [{ color: 'red', y: 11 }, { color: 'green', y: 23 }], 'HI-REL 7  CONDUCTOR REPAIR');
+  return finalize('hr-conductor-repair', {
+    title: 'Conductor Repair',
+    author: 'DEADBOARD',
+    difficulty: 2,
+    description: 'D1 is dark: its track is cracked through. D2 lights, but its track has a deep nick. Repair both conductors so the board works and passes a high-reliability inspection.',
+    hints: [
+      'Look closely at the tracks between R1 and D1, and between R2 and D2, on the top side.',
+      'A solder bridge or a wire across the crack would work, but neither is a high-reliability repair. The textbook\'s choice is the clinched staple (K): click the conductor on one side of the damage, then the other.',
+      'The nick takes half the width of D2\'s track: more than a tenth, so it must be repaired too, with a staple across it.',
+    ],
+    par: 2,
+  }, k.b, [lit('D1'), lit('D2')], 'PCB{cl1nch3d_st4pl3_h1_r3l}',
+  (b) => {
+    const t1 = b.traces.find((t) => t.net === 'LED1_A' && t.layer === 'F')!;
+    cutTrace(b, t1, [37, 11], 0.5);
+    const t2 = b.traces.find((t) => t.net === 'LED2_A' && t.layer === 'F')!;
+    const depth = 0.5;
+    b.nicks = [{ id: 'n' + (b.nextId++).toString(36), at: [37, 23 + t2.w / 2 - (depth * t2.w) / 2], layer: 'F', len: 0.6, depth, rot: 0, width: t2.w }];
+  });
+}
+
 export async function solderingScenarios(): Promise<Scenario[]> {
-  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern()]);
+  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern(), conductorRepair()]);
 }
 
 /** The track's boards, in order. */
-export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern'] as const;
+export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern', 'hr-conductor-repair'] as const;

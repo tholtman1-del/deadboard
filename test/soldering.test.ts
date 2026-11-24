@@ -13,7 +13,7 @@ import { referenceBoard } from '../src/scenarios/reference';
 import { buildConnectivity } from '../src/connectivity';
 import { evaluateObjectives } from '../src/verify';
 import { BOARD_INFO, PATH_ORDER } from '../src/scenarios/catalog';
-import { addBlob, installPart, removePart } from '../src/ops';
+import { addBlob, addJumper, installPart, removePart } from '../src/ops';
 
 function assert(c: unknown, m: string): asserts c { if (!c) throw new Error(m); }
 
@@ -256,6 +256,27 @@ async function main() {
     assert(evaluateObjectives(skipped.b, buildConnectivity(skipped.b), sc.objectives, 'spice').allPassed, 'lesson 6: the DIP network lights all four LEDs once its joints are made');
     assert(!lessonAccepted(l6, inRow.ins) && inRow.ins.findings.some((f) => f.kind === 'skip-pattern'), 'lesson 6: pins 1, 2, 3, 4 in a row fail');
     assert(lessonAccepted(l6, skipped.ins), `lesson 6: pins 2, 4, 1, 3 pass (${JSON.stringify(skipped.ins.findings)})`);
+  }
+
+  {
+    // lesson 7: staples across the crack and the nick pass; a solder bridge or a wire works but fails
+    const sc = scs.find((x) => x.id === 'hr-conductor-repair')!;
+    const l7 = lessonFor('hr-conductor-repair')!;
+    const ref = referenceBoard(sc)!;
+    const check = (fix: (b: Board) => void) => {
+      const b = structuredClone(sc.board);
+      fix(b);
+      return { works: evaluateObjectives(b, buildConnectivity(b), sc.objectives, 'spice').allPassed, ins: inspect(b, ref, [], []) };
+    };
+    assert(check(() => {}).ins.findings.some((f) => f.kind === 'nick'), 'a 50 % nick is a defect even though D2 lights');
+    const blob = check((b) => addBlob(b, [37, 11], 'F', 0.75));
+    assert(blob.works && !lessonAccepted(l7, blob.ins), 'a solder bridge across the crack works but fails lesson 7');
+    const wire = check((b) => { addJumper(b, [34, 11], 'F', [40, 11], 'F'); addJumper(b, [34, 23], 'F', [40, 23], 'F'); });
+    assert(wire.works && wire.ins.findings.some((f) => f.kind === 'wire-repair') && !lessonAccepted(l7, wire.ins), 'lap-soldered wires work but fail lesson 7');
+    const staple = check((b) => { addJumper(b, [34, 11], 'F', [40, 11], 'F', 'staple'); addJumper(b, [34, 23], 'F', [40, 23], 'F', 'staple'); });
+    assert(staple.works && lessonAccepted(l7, staple.ins), `clinched staples across both pass (${JSON.stringify(staple.ins.findings)})`);
+    const one = check((b) => addJumper(b, [34, 11], 'F', [40, 11], 'F', 'staple'));
+    assert(one.works && !lessonAccepted(l7, one.ins), 'the nick left alone still fails');
   }
 
   // ---- lesson data ----
