@@ -1,0 +1,625 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-24T14:16:56.857Z",
+  "title": "Design System: DEADBOARD",
+  "extensions": {
+    "colorMeta": {
+      "phosphor-green": {
+        "role": "primary",
+        "displayName": "Phosphor Green",
+        "tonalRamp": [
+          "#001300",
+          "#003300",
+          "#005700",
+          "#007825",
+          "#009a46",
+          "#3cb970",
+          "#95d6a8",
+          "#e2f4e7"
+        ]
+      },
+      "phosphor-hover": {
+        "role": "primary",
+        "displayName": "Phosphor Hover",
+        "tonalRamp": [
+          "#001300",
+          "#003300",
+          "#005700",
+          "#007825",
+          "#009a46",
+          "#3cb970",
+          "#95d6a8",
+          "#e2f4e7"
+        ]
+      },
+      "phosphor-ink": {
+        "role": "primary",
+        "displayName": "Phosphor Ink",
+        "tonalRamp": [
+          "#001300",
+          "#003300",
+          "#005700",
+          "#007825",
+          "#009a46",
+          "#3cb970",
+          "#95d6a8",
+          "#e2f4e7"
+        ]
+      },
+      "bench-black": {
+        "role": "neutral",
+        "displayName": "Bench Black",
+        "tonalRamp": [
+          "#050806",
+          "#090c0a",
+          "#0f1311",
+          "#141916",
+          "#1a201c",
+          "#2e3832",
+          "#7d8a82",
+          "#e3eae5"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "tonalRamp": [
+          "#050806",
+          "#090c0a",
+          "#0f1311",
+          "#141916",
+          "#1a201c",
+          "#2e3832",
+          "#7d8a82",
+          "#e3eae5"
+        ]
+      },
+      "surface-2": {
+        "role": "neutral",
+        "displayName": "Surface 2",
+        "tonalRamp": [
+          "#050806",
+          "#090c0a",
+          "#0f1311",
+          "#141916",
+          "#1a201c",
+          "#2e3832",
+          "#7d8a82",
+          "#e3eae5"
+        ]
+      },
+      "surface-3": {
+        "role": "neutral",
+        "displayName": "Surface 3",
+        "tonalRamp": [
+          "#050806",
+          "#090c0a",
+          "#0f1311",
+          "#141916",
+          "#1a201c",
+          "#2e3832",
+          "#7d8a82",
+          "#e3eae5"
+        ]
+      },
+      "float": {
+        "role": "neutral",
+        "displayName": "Float",
+        "tonalRamp": [
+          "#050806",
+          "#090c0a",
+          "#0f1311",
+          "#141916",
+          "#1a201c",
+          "#2e3832",
+          "#7d8a82",
+          "#e3eae5"
+        ]
+      },
+      "terminal-well": {
+        "role": "neutral",
+        "displayName": "Terminal Well",
+        "tonalRamp": [
+          "#050806",
+          "#090c0a",
+          "#0f1311",
+          "#141916",
+          "#1a201c",
+          "#2e3832",
+          "#7d8a82",
+          "#e3eae5"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "tonalRamp": [
+          "#050806",
+          "#090c0a",
+          "#0f1311",
+          "#141916",
+          "#1a201c",
+          "#2e3832",
+          "#7d8a82",
+          "#e3eae5"
+        ]
+      },
+      "hairline-strong": {
+        "role": "neutral",
+        "displayName": "Hairline Strong",
+        "tonalRamp": [
+          "#050806",
+          "#090c0a",
+          "#0f1311",
+          "#141916",
+          "#1a201c",
+          "#2e3832",
+          "#7d8a82",
+          "#e3eae5"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Text",
+        "tonalRamp": [
+          "#050806",
+          "#090c0a",
+          "#0f1311",
+          "#141916",
+          "#1a201c",
+          "#2e3832",
+          "#7d8a82",
+          "#e3eae5"
+        ]
+      },
+      "text-2": {
+        "role": "neutral",
+        "displayName": "Text 2",
+        "tonalRamp": [
+          "#050806",
+          "#090c0a",
+          "#0f1311",
+          "#141916",
+          "#1a201c",
+          "#2e3832",
+          "#7d8a82",
+          "#e3eae5"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "tonalRamp": [
+          "#050806",
+          "#090c0a",
+          "#0f1311",
+          "#141916",
+          "#1a201c",
+          "#2e3832",
+          "#7d8a82",
+          "#e3eae5"
+        ]
+      },
+      "terminal-text": {
+        "role": "neutral",
+        "displayName": "Terminal Text",
+        "tonalRamp": [
+          "#001300",
+          "#003300",
+          "#005700",
+          "#007825",
+          "#009a46",
+          "#3cb970",
+          "#95d6a8",
+          "#e2f4e7"
+        ]
+      },
+      "ok": {
+        "role": "status",
+        "displayName": "OK",
+        "tonalRamp": [
+          "#001301",
+          "#003303",
+          "#00560f",
+          "#007630",
+          "#009850",
+          "#45b877",
+          "#98d5ad",
+          "#e3f3e8"
+        ]
+      },
+      "warn": {
+        "role": "status",
+        "displayName": "Warn",
+        "tonalRamp": [
+          "#180600",
+          "#3f1800",
+          "#672f00",
+          "#884f00",
+          "#ab7000",
+          "#c89433",
+          "#dfbf8c",
+          "#f6eddf"
+        ]
+      },
+      "danger": {
+        "role": "status",
+        "displayName": "Danger / Probe Red",
+        "tonalRamp": [
+          "#250000",
+          "#570000",
+          "#8b0000",
+          "#b20014",
+          "#d93a38",
+          "#f56e64",
+          "#ffaba1",
+          "#ffe8e5"
+        ]
+      },
+      "danger-text": {
+        "role": "status",
+        "displayName": "Danger Text",
+        "tonalRamp": [
+          "#250000",
+          "#570000",
+          "#8b0000",
+          "#b20014",
+          "#d93a38",
+          "#f56e64",
+          "#ffaba1",
+          "#ffe8e5"
+        ]
+      },
+      "level-high": {
+        "role": "status",
+        "displayName": "Level High",
+        "tonalRamp": [
+          "#200000",
+          "#4d0000",
+          "#7d0700",
+          "#a23400",
+          "#c75700",
+          "#e38143",
+          "#f2b492",
+          "#fdeae1"
+        ]
+      },
+      "probe-black": {
+        "role": "instrument",
+        "displayName": "Probe Black",
+        "tonalRamp": [
+          "#050806",
+          "#090c0a",
+          "#0f1311",
+          "#141916",
+          "#1a201c",
+          "#2e3832",
+          "#7d8a82",
+          "#e3eae5"
+        ]
+      },
+      "scope-yellow": {
+        "role": "instrument",
+        "displayName": "Scope Yellow",
+        "tonalRamp": [
+          "#140900",
+          "#352000",
+          "#593a00",
+          "#795a00",
+          "#997a00",
+          "#b79d22",
+          "#d3c588",
+          "#f3efde"
+        ]
+      },
+      "supply-volts": {
+        "role": "instrument",
+        "displayName": "Supply Volts",
+        "tonalRamp": [
+          "#001200",
+          "#003100",
+          "#005300",
+          "#007412",
+          "#259539",
+          "#5fb566",
+          "#a1d3a3",
+          "#e5f3e5"
+        ]
+      },
+      "supply-amber": {
+        "role": "instrument",
+        "displayName": "Supply Amber",
+        "tonalRamp": [
+          "#1c0300",
+          "#450f00",
+          "#712300",
+          "#944400",
+          "#b86500",
+          "#d58b4a",
+          "#e8ba95",
+          "#f9ece1"
+        ]
+      },
+      "control-edge": {
+        "role": "neutral",
+        "displayName": "Control Edge",
+        "tonalRamp": [
+          "#050806",
+          "#090c0a",
+          "#0f1311",
+          "#141916",
+          "#1a201c",
+          "#2e3832",
+          "#7d8a82",
+          "#e3eae5"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Homepage hero line only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section headings on the homepage and docs."
+      },
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "DEADBOARD wordmark, followed by the phosphor block cursor."
+      },
+      "readout": {
+        "displayName": "Readout",
+        "purpose": "Multimeter and supply values, always followed by the unit."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Board name, modal titles, picker card titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Bench interface text."
+      },
+      "body-page": {
+        "displayName": "Body Page",
+        "purpose": "Homepage, learn and docs prose."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "Key/value values, net names, status-bar values, probe tags."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase section titles and instrument window headers."
+      }
+    },
+    "shadows": [
+      {
+        "name": "window",
+        "value": "0 8px 24px rgba(0, 0, 0, 0.35)",
+        "purpose": "Multimeter and toasts floating over the board."
+      },
+      {
+        "name": "coach",
+        "value": "0 12px 32px rgba(0, 0, 0, 0.45)",
+        "purpose": "Tutorial card and similar bench windows."
+      },
+      {
+        "name": "menu",
+        "value": "0 12px 40px rgba(0, 0, 0, 0.5)",
+        "purpose": "Dropdown menus and popovers."
+      },
+      {
+        "name": "modal",
+        "value": "0 24px 64px rgba(0, 0, 0, 0.55)",
+        "purpose": "Dialogs over the 60% black backdrop."
+      },
+      {
+        "name": "inset-ring",
+        "value": "inset 0 0 0 1px var(--border-strong)",
+        "purpose": "Selected segment of a segmented control, no added height."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state",
+        "value": "0.12s",
+        "purpose": "Background, border and colour changes on buttons and tools."
+      },
+      {
+        "name": "toast-in",
+        "value": "0.16s ease-out",
+        "purpose": "Toast fade-and-drop entrance (4px)."
+      },
+      {
+        "name": "sheet",
+        "value": "0.22s ease",
+        "purpose": "Mobile bottom sheet and drawer slide."
+      },
+      {
+        "name": "thumb-zoom",
+        "value": "0.25s ease",
+        "purpose": "Board picture scale 1.03 on card hover."
+      },
+      {
+        "name": "cursor-blink",
+        "value": "1.1s steps(1) infinite",
+        "purpose": "Wordmark block cursor; static under reduced motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "640px"
+      },
+      {
+        "name": "page-2col",
+        "value": "720px"
+      },
+      {
+        "name": "page-wide",
+        "value": "980px"
+      },
+      {
+        "name": "bench-narrow",
+        "value": "1100px"
+      },
+      {
+        "name": "bench-mid",
+        "value": "1280px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Default compact bench button: Surface 2, hairline, 28px.",
+      "html": "<button class=\"ds-btn\">Reveal note</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:28px;padding:0 10px;border-radius:6px;font:500 12px var(--sans, Inter, system-ui, sans-serif);cursor:pointer;transition:background .12s,border-color .12s,color .12s;white-space:nowrap;background:var(--surface-2, #141916);color:var(--text, #e3eae5);border:1px solid var(--border, #222a25);} .ds-btn:hover{background:var(--surface-3, #1a201c);border-color:var(--border-strong, #2e3832);} .ds-btn:focus-visible{outline:2px solid var(--accent, #4be38a);outline-offset:2px;}"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one primary action in a region (Run tests). Phosphor fill, ink text.",
+      "html": "<button class=\"ds-btn-primary\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 12 12\" aria-hidden=\"true\"><path d=\"M3 2l7 4-7 4z\" fill=\"currentColor\"/></svg>Run tests</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:28px;padding:0 10px;border-radius:6px;font:500 12px var(--sans, Inter, system-ui, sans-serif);cursor:pointer;transition:background .12s,border-color .12s,color .12s;white-space:nowrap;background:var(--accent, #4be38a);color:var(--accent-ink, #04140a);border:1px solid var(--accent, #4be38a);font-weight:600;} .ds-btn-primary:hover{background:var(--accent-hover, #6cf0a3);border-color:var(--accent-hover, #6cf0a3);} .ds-btn-primary:focus-visible{outline:2px solid var(--accent, #4be38a);outline-offset:2px;}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary toolbar action: transparent, Text 2.",
+      "html": "<button class=\"ds-btn-ghost\">Bench</button>",
+      "css": ".ds-btn-ghost{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:28px;padding:0 10px;border-radius:6px;font:500 12px var(--sans, Inter, system-ui, sans-serif);cursor:pointer;transition:background .12s,border-color .12s,color .12s;white-space:nowrap;background:transparent;color:var(--text-2, #aeb9b1);border:1px solid transparent;} .ds-btn-ghost:hover{background:var(--surface-3, #1a201c);color:var(--text, #e3eae5);} .ds-btn-ghost:focus-visible{outline:2px solid var(--accent, #4be38a);outline-offset:2px;}"
+    },
+    {
+      "name": "Tool Dock Button",
+      "kind": "custom",
+      "refersTo": "tool-button",
+      "description": "34px icon tool in the left rail; active tool in phosphor, keycap digit in the corner.",
+      "html": "<div class=\"ds-dock\"><button class=\"ds-tool ds-on\" aria-label=\"Select\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M5 3l14 8-6 2-2 6z\"/></svg><span class=\"ds-key\">1</span></button><button class=\"ds-tool\" aria-label=\"Multimeter\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><rect x=\"6\" y=\"3\" width=\"12\" height=\"18\" rx=\"2\"/><rect x=\"9\" y=\"6\" width=\"6\" height=\"4\"/></svg><span class=\"ds-key\">2</span></button></div>",
+      "css": ".ds-dock{display:inline-flex;flex-direction:column;gap:2px;padding:8px 7px;background:var(--surface, #0f1311);border-right:1px solid var(--border, #222a25);} .ds-tool{position:relative;width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid transparent;border-radius:6px;color:var(--muted, #7d8a82);cursor:pointer;transition:background .12s,color .12s;} .ds-tool:hover{background:var(--surface-3, #1a201c);color:var(--text, #e3eae5);} .ds-tool.ds-on{background:var(--accent-weak, rgba(75,227,138,0.12));color:var(--accent, #4be38a);border-color:var(--accent-line, rgba(75,227,138,0.45));} .ds-tool:focus-visible{outline:2px solid var(--accent, #4be38a);outline-offset:2px;} .ds-key{position:absolute;right:2px;bottom:1px;font:8.5px var(--mono, 'JetBrains Mono', ui-monospace, monospace);color:var(--muted, #7d8a82);opacity:.8;}"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "28px field on Surface 2; border turns phosphor on focus.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Search boards\" aria-label=\"Search boards\">",
+      "css": ".ds-input{height:28px;padding:0 8px;background:var(--surface-2, #141916);color:var(--text, #e3eae5);border:1px solid var(--border-control, #5f6c64);border-radius:6px;font:13px var(--sans, Inter, system-ui, sans-serif);caret-color:var(--accent, #4be38a);} .ds-input::placeholder{color:var(--muted, #7d8a82);} .ds-input:focus{border-color:var(--accent, #4be38a);outline:none;} .ds-input:focus-visible{outline:2px solid var(--accent, #4be38a);outline-offset:0;}"
+    },
+    {
+      "name": "Panel Tabs",
+      "kind": "nav",
+      "refersTo": "tab",
+      "description": "Side-panel tabs: Muted at rest, Text with a 2px Text underline when active.",
+      "html": "<div class=\"ds-tabs\" role=\"tablist\"><button class=\"ds-tab ds-on\" role=\"tab\" aria-selected=\"true\">Overview</button><button class=\"ds-tab\" role=\"tab\" aria-selected=\"false\">Inspector</button></div>",
+      "css": ".ds-tabs{display:flex;gap:2px;padding:0 8px;height:40px;align-items:stretch;border-bottom:1px solid var(--border, #222a25);} .ds-tab{background:transparent;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;color:var(--muted, #7d8a82);padding:0 10px;font:500 12.5px var(--sans, Inter, system-ui, sans-serif);cursor:pointer;} .ds-tab:hover{color:var(--text, #e3eae5);} .ds-tab.ds-on{color:var(--text, #e3eae5);border-bottom-color:var(--text, #e3eae5);} .ds-tab:focus-visible{outline:2px solid var(--accent, #4be38a);outline-offset:2px;}"
+    },
+    {
+      "name": "Chips and Level Badge",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Pill filter chips (selected in phosphor) and the CVSS-style level number with its band name.",
+      "html": "<div class=\"ds-row\"><span class=\"ds-chip ds-on\">Beginner</span><span class=\"ds-chip\">SMD</span><span class=\"ds-lv\"><b>0.8</b><em>Low</em></span><span class=\"ds-lv ds-med\"><b>4.2</b><em>Medium</em></span></div>",
+      "css": ".ds-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;} .ds-chip{display:inline-flex;align-items:center;padding:3px 9px;border:1px solid var(--border-strong, #2e3832);border-radius:999px;color:var(--text-2, #aeb9b1);font:12px var(--sans, Inter, system-ui, sans-serif);} .ds-chip.ds-on{border-color:var(--accent-line, rgba(75,227,138,0.45));color:var(--accent, #4be38a);background:var(--accent-weak, rgba(75,227,138,0.12));} .ds-lv{--c:var(--ok, #34c77b);display:inline-flex;align-items:center;gap:6px;} .ds-lv.ds-med{--c:var(--warn, #f2b33d);} .ds-lv b{display:inline-grid;place-items:center;min-width:36px;padding:4px 6px;border-radius:4px;font:700 12.5px var(--mono, 'JetBrains Mono', ui-monospace, monospace);font-variant-numeric:tabular-nums;color:var(--c);background:color-mix(in srgb,var(--c) 16%,var(--surface, #0f1311));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 45%,transparent);} .ds-lv em{font:500 12px var(--sans, Inter, system-ui, sans-serif);font-style:normal;color:var(--c);}"
+    },
+    {
+      "name": "Objective Row",
+      "kind": "card",
+      "refersTo": "badge-pass",
+      "description": "Ruled spec-sheet row on Surface 2; pass state changes only the border, plus a pass badge.",
+      "html": "<div class=\"ds-obj ds-pass\"><span>D1 must be ON (SW1 pressed)</span><span class=\"ds-badge ds-badge-pass\">PASS</span></div>",
+      "css": ".ds-obj{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border:1px solid var(--border, #222a25);border-radius:6px;background:var(--surface-2, #141916);color:var(--text, #e3eae5);font:500 12.5px var(--sans, Inter, system-ui, sans-serif);} .ds-obj.ds-pass{border-color:var(--ok-line, rgba(52,199,123,0.35));} .ds-badge{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:4px;font:500 11px var(--sans, Inter, system-ui, sans-serif);background:var(--surface-3, #1a201c);color:var(--text-2, #aeb9b1);border:1px solid var(--border, #222a25);} .ds-badge-pass{background:var(--ok-weak, rgba(52,199,123,0.12));color:var(--accent, #4be38a);border-color:var(--ok-line, rgba(52,199,123,0.35));}"
+    },
+    {
+      "name": "Multimeter Window",
+      "kind": "custom",
+      "refersTo": "instrument-window",
+      "description": "Floating instrument: uppercase label header, mono readout with unit, probe tags.",
+      "html": "<div class=\"ds-dmm\"><div class=\"ds-dmm-head\">Multimeter · DC V</div><div class=\"ds-dmm-lcd\"><div class=\"ds-dmm-val\">3.287 V</div><div class=\"ds-dmm-sub\">Auto range</div></div><div class=\"ds-dmm-probes\"><span class=\"ds-probe ds-red\">PP3V3_S5</span><span class=\"ds-probe ds-blk\">GND</span></div></div>",
+      "css": ".ds-dmm{width:300px;background:var(--float, rgba(15,19,17,0.96));border:1px solid var(--border-strong, #2e3832);border-radius:8px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.35);color:var(--text, #e3eae5);} .ds-dmm-head{padding:8px 10px;border-bottom:1px solid var(--border, #222a25);font:600 11px var(--sans, Inter, system-ui, sans-serif);letter-spacing:.06em;text-transform:uppercase;color:var(--muted, #7d8a82);} .ds-dmm-lcd{padding:12px 12px 10px;} .ds-dmm-val{font:500 26px/1.1 var(--mono, 'JetBrains Mono', ui-monospace, monospace);font-variant-numeric:tabular-nums;letter-spacing:-.01em;} .ds-dmm-sub{margin-top:4px;font:11.5px var(--sans, Inter, system-ui, sans-serif);color:var(--muted, #7d8a82);} .ds-dmm-probes{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--border, #222a25);} .ds-probe{display:flex;align-items:center;gap:6px;padding:7px 10px;font:11px var(--mono, 'JetBrains Mono', ui-monospace, monospace);color:var(--text-2, #aeb9b1);} .ds-probe+.ds-probe{border-left:1px solid var(--border, #222a25);} .ds-probe::before{content:\"\";width:6px;height:6px;border-radius:50%;} .ds-red::before{background:var(--danger, #ff5f57);} .ds-blk::before{background:var(--probe-black, #d4d6db);}"
+    },
+    {
+      "name": "Terminal Well",
+      "kind": "custom",
+      "refersTo": "terminal",
+      "description": "Real output only: Terminal Well background, phosphor-pale mono text, OK results in green.",
+      "html": "<pre class=\"ds-term\"><span class=\"ds-cmd\">$ power on --supply 30V</span>\nG3H   standby ............ <span class=\"ds-ok\">0.0 mA</span></pre>",
+      "css": ".ds-term{margin:0;padding:22px 24px;background:#050806;border:1px solid var(--border-strong, #2e3832);border-radius:10px;font:14px/1.75 var(--mono, 'JetBrains Mono', ui-monospace, monospace);color:#b9f5cf;overflow-x:auto;} .ds-cmd{color:var(--text, #e3eae5);} .ds-ok{color:var(--accent, #4be38a);font-weight:700;}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Calibrated Instrument",
+    "overview": "DEADBOARD looks like a piece of test equipment that tells the truth. Every surface is a\nreadout or a control: labelled, ruled, exact, with nothing decorative. The board on the bench\nis the brightest object on screen. Around it the chrome sits in four green-tinted near-blacks\nseparated by 1px hairlines, the way a front panel is divided by engraved lines rather than\nraised boxes. Values come in monospace with their unit, labels in small uppercase, and\nexplanations in plain Inter.\n\nDensity stays high on every screen size. Controls are compact (28px), text is small but\nhigh-contrast, and the side panel reads like a spec sheet: titled sections, key/value lists,\nruled objective rows. The bench is an operating surface, so the only colour that means \"brand\"\nis Phosphor Green. The ok/warn/danger status colours and the instrument signal colours (probe\nred, scope yellow, supply volts green, supply amber, the thermal ramp) mean what they mean on a\nreal bench and are never decoration. The public pages (homepage, learn pages, docs) share the\nsame tokens at reading scale: larger mono headlines, 16px body, a faint 32px PCB grid behind the\npage.\n\nThe personality comes from precision and a few earned details, not ornament: the blinking block\ncursor after the wordmark, tabular-figure readouts, a terminal well that prints real output,\nlevel numbers banded like CVSS scores. DEADBOARD must never drift toward gamer RGB and neon\nglows, toward cartoon kids' education (mascots, bubbly shapes, confetti), or toward Hollywood\nhacker theatre (matrix rain, glitch effects, fake terminals that don't show real data).",
+    "keyCharacteristics": [
+      "Dark and green-tinted, with four tonal steps from back to front and 1px hairlines for structure.",
+      "One brand accent, Phosphor Green, used for active state, primary action, focus and the brand signal only.",
+      "Two families: JetBrains Mono for the brand, readings, values and headlines; Inter for interface and explanation.",
+      "Compact everywhere: 28px controls, 11–13px interface text, instrument density on phones too.",
+      "Flat by default; a shadow means the element floats over the board.",
+      "Every number carries its unit; estimated values are labelled as estimates."
+    ],
+    "rules": [
+      {
+        "name": "The One Voice Rule",
+        "body": "Phosphor Green is the only brand colour. Use it where something is active, primary, focused or alive. If two things on a screen are green, one of them is probably wrong.",
+        "section": "colors"
+      },
+      {
+        "name": "The Bench Meaning Rule",
+        "body": "Instrument and status colours mean what they mean on a real bench. Never use Scope Yellow for emphasis, Danger for a brand moment or Supply Amber as a warning. When colour carries information, add a second cue: a label, a value or a shape.",
+        "section": "colors"
+      },
+      {
+        "name": "The Unit Rule",
+        "body": "A value is never shown without its unit, and values are always set in mono with tabular figures so readings don't jitter as they change.",
+        "section": "typography"
+      },
+      {
+        "name": "The Fold Rule",
+        "body": "On phones, text is shortened or folded (a short lede, a collapsible card), never just shrunk. 11px is the floor for any text that has to be read.",
+        "section": "typography"
+      },
+      {
+        "name": "The Spec Sheet Rule",
+        "body": "Lists of things (instruments, objectives, properties) are ruled rows with a hairline between them, not floating cards. A card is used only when it is something you pick.",
+        "section": "layout"
+      },
+      {
+        "name": "The Floats-Only Rule",
+        "body": "A shadow means \"this sits over the board\". Panels, rows and cards that live in the layout get no shadow; they use a tonal step and a hairline instead.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Drawn-Only Rule",
+        "body": "The cursor names only what the renderer draws (blobs, jumpers, empty footprints, dull joints). A fault the board does not show is never named; it is found by measuring.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "**Do** keep Phosphor Green for active, primary, focused or alive states, and put Phosphor Ink text on it (`#04140a` on `#4be38a`, 11.4:1).",
+      "**Do** separate layout regions with a tonal step plus a 1px hairline; save shadows for elements that float over the board.",
+      "**Do** set every value in JetBrains Mono with tabular figures, followed by its unit (`3.00 V`, `317 mA`), and name parts and nets exactly (`R7788`, `PP3V3_S5`).",
+      "**Do** keep controls compact (28px default, 26px small) on every screen size, give key actions and floating view buttons 44px on touch, and never go below 24px for anything tappable.",
+      "**Do** pair colour-coded information with a second cue: the level number with its band name, a pass badge with its label, a probe dot with its net.",
+      "**Do** show focus with the 2px Phosphor Green outline on every interactive element, and give every icon-only control a name and every toggle its pressed or selected state.",
+      "**Do** stop the cursor blink, the smooth scroll and decorative transitions under `prefers-reduced-motion`.",
+      "**Do** change tokens only in `src/ui/tokens.css`, which both the bench and the website import, and keep `docs/BRAND.md` in step with it."
+    ],
+    "donts": [
+      "**Don't** add glows, neon gradients, RGB lighting or \"cyber\" HUD chrome. The brand guide already bans glows and gradients on the mark, and the same goes for the interface.",
+      "**Don't** use mascots, bubbly shapes, confetti or primary-colour gamification. Successes are short dry lines (\"All checks green. The board is alive.\"), not celebrations.",
+      "**Don't** fake hacker theatre: no matrix rain, no glitch effects, no terminals printing output the app didn't produce.",
+      "**Don't** put white text on Phosphor Green, or recolour the mark's trace.",
+      "**Don't** use instrument colours (Scope Yellow, Supply Amber, Probe Red) as decoration or as general emphasis.",
+      "**Don't** use a coloured side stripe as an accent on cards, callouts or rows; use a full 1px border with a tinted fill instead.",
+      "**Don't** shrink text to make it fit on phones; shorten it or fold it. On the phone tool strip, a tool is as wide as its label and the strip fades at the edge where more tools scroll in.",
+      "**Don't** bind a board shortcut to Tab or Space on a focused control; Tab moves focus, and single-key shortcuts must stay switchable off (Settings → Key shortcuts).",
+      "**Don't** wrap ruled lists (instruments, objectives, properties) in floating cards."
+    ]
+  }
+}

@@ -21,7 +21,7 @@ challenge edge (CTF-style repair puzzles). Credibility first, personality second
 - Minimum mark size: 16 px. Keep clear space of half the mark's width around it.
 - Don't recolour the trace, add glows or gradients, or put the mark on a busy background.
 
-## Colour (tokens in `src/ui/styles.css`)
+## Colour (tokens in `src/ui/tokens.css`)
 
 | Token | Value | Use |
 |---|---|---|

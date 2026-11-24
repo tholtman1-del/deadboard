@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          "index.html"
+        ],
+        "createdAt": "2026-11-24T13:13:41.817Z",
+        "reason": "Claude triage: static scan cannot see heading sizes from src/home/home.css; rendered scan of http://localhost:5199/ reports 0 anti-patterns (h1 72px vs 16px body)"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/ui/styles.css"
+        ],
+        "createdAt": "2026-11-24T13:48:04.503Z",
+        "reason": "Claude triage: L1551 is the 1px hairline on the inner edge of the landscape phone panel drawer (its other sides meet the screen edges), not an accent bar; the real side stripes (toasts, official mod card) were removed this session"
+      }
+    ]
+  }
+}
