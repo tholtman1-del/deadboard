@@ -1573,6 +1573,26 @@ const ru: Catalog = {
   "Shunt": "Теплоотвод",
   "Hold on a through-hole joint to suck its solder out.": "Держите на выводном соединении, чтобы отсосать припой.",
   "Tap a through-hole pad to clip a heat sink on its lead.": "Нажмите площадку, чтобы закрепить теплоотвод на выводе.",
+  // ---- Soldering track: skipping pattern
+  "Skipping pattern": "Пайка вразбивку",
+  "A DIP or any multilead part is always desoldered and soldered in a skipping pattern: never heat two pads next to each other one after the other.": "Корпус DIP и любую многовыводную деталь всегда выпаивают и паяют вразбивку: никогда не нагревают две соседние площадки одну за другой.",
+  "Skipping reduces heat accumulation in one area of the board and with it the chance of damage.": "Пайка вразбивку уменьшает накопление тепла в одном месте платы, а с ним и риск повреждения.",
+  "Solder each joint as quickly as possible, with only as much heat as necessary.": "Паяйте каждое соединение как можно быстрее и только с необходимым количеством тепла.",
+  "Before lifting a DIP, make sure every lead is completely free. A part known to be bad may have its leads clipped first.": "Прежде чем снимать DIP, убедитесь, что все выводы полностью свободны. У заведомо неисправной детали выводы можно сначала откусить.",
+  "Finish every repair by inspecting the workmanship and testing the card.": "Каждый ремонт заканчивайте осмотром качества работы и проверкой платы.",
+  "DIP pin pitch": "Шаг выводов DIP",
+  "A skipping pattern for pins 1–4": "Порядок вразбивку для выводов 1–4",
+  "RN1 pins 1, 2, 3 and 4 are dull, side by side. Remake all four in a skipping pattern (for example 2, 4, 1, 3), holding the iron until each one flows, then clean with Isopropyl (0). The inspector checks the order you heated them in.": "Выводы 1, 2, 3 и 4 RN1 тусклые, стоят рядом. Перепаяйте все четыре вразбивку (например 2, 4, 1, 3), держа паяльник, пока припой не растечётся, затем очистите изопропанолом (0). Контролёр проверяет, в каком порядке вы их грели.",
+  "How do you prevent excessive heat buildup on an area of a board when soldering multilead components?": "Как избежать чрезмерного накопления тепла на участке платы при пайке многовыводных деталей?",
+  "Use a skipping pattern.": "Паять вразбивку.",
+  "When removing the component, under what circumstances may component leads be clipped?": "В каких случаях при демонтаже детали её выводы можно откусить?",
+  "If the component is known to be defective or if the board may be damaged by normal desoldering.": "Если деталь заведомо неисправна или обычное выпаивание может повредить плату.",
+  "Four LEDs, all dark": "Четыре светодиода, все не светятся",
+  "Skipping Pattern": "Пайка вразбивку",
+  "Four LEDs fed through RN1, a DIP-16 resistor network. All four are dark: pins 1 to 4 of RN1, side by side, never bonded. Remake them the way the textbook says for a multilead part, without heating two neighbouring pins one after the other.": "Четыре светодиода питаются через RN1 — резисторную сборку в корпусе DIP-16. Все четыре не светятся: выводы 1–4 RN1, стоящие рядом, так и не схватились. Перепаяйте их так, как учебник велит для многовыводной детали, не нагревая два соседних вывода один за другим.",
+  "Flip to the bottom (F): RN1 pins 1, 2, 3 and 4 are dull. They sit 2.54 mm apart.": "Переверните плату (F): выводы 1, 2, 3 и 4 RN1 тусклые. Шаг между ними 2,54 мм.",
+  "A skipping pattern never heats two neighbouring pins in a row: for pins 1–4 that is 2, 4, 1, 3 (or 3, 1, 4, 2).": "При пайке вразбивку два соседних вывода подряд не греют никогда: для выводов 1–4 это 2, 4, 1, 3 (или 3, 1, 4, 2).",
+  "Hold the iron on each joint in that order until it flows, then clean the flux off with Isopropyl (0).": "Держите паяльник на каждом соединении в этом порядке, пока припой не растечётся, затем смойте флюс изопропанолом (0).",
 };
 
 export default ru;

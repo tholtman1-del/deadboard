@@ -2,7 +2,7 @@
   "format": "deadboard-mod/2",
   "id": "board-notes",
   "name": "Board notes (knowledge packs for the shipped boards)",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "author": "Biga73 (idea) · DEADBOARD",
   "description": "An example data mod: a knowledge pack for every board that ships with DEADBOARD. Rails, where each one comes from, what to expect at which pin, and what a low reading usually means, each marked documented, derived or estimated. The packs describe the working board and point at likely causes, the way the board's hints do; they don't name the planted faults. Based on the device knowledge pack RFC by Biga73.",
   "license": "CC0-1.0",
@@ -948,6 +948,65 @@
         "Through-hole parts are soldered on the bottom side: a dull, grainy joint there can look fine from the top and still be open.",
         "Soldered with 63/37 tin-lead (melts at 183 °C, 361 °F), as in NEETS Module 14 (public-domain US Navy textbook).",
         "Q1 is heat-sensitive: its short TO-92 leads carry the iron's heat straight into the body."
+      ]
+    },
+    {
+      "id": "hr-skipping-pattern",
+      "board": "official-boards/boards/hr-skipping-pattern",
+      "title": "Skipping Pattern",
+      "provenance": { "kind": "board design + simulator", "where": "part values from the board; readings from DEADBOARD's simulator (SPICE, 4116R-2-331 network model) on the working board", "confidence": "derived" },
+      "rails": [
+        {
+          "net": "+5V",
+          "nominal": 5.0,
+          "domain": "always on",
+          "source": { "ref": "J1", "kind": "5 V DC input header" },
+          "checks": [
+            { "at": "J1", "pin": "1", "expect": "≈5.00 V with all four LEDs lit (≈36 mA in all)", "readsLowIf": "the bench supply is off or current-limited, or something downstream draws far more" }
+          ]
+        },
+        {
+          "net": "LED1_A",
+          "nominal": 2.0,
+          "domain": "always on",
+          "source": { "ref": "RN1", "kind": "330 Ω resistor between RN1 pins 16 and 1" },
+          "checks": [
+            { "at": "D1", "pin": "2", "expect": "≈2.00 V (red LED, ≈9.1 mA)", "readsLowIf": "0 V: nothing reaches D1 through RN1 (an open joint at RN1 pin 1 or 16)" }
+          ]
+        },
+        {
+          "net": "LED2_A",
+          "nominal": 2.0,
+          "domain": "always on",
+          "source": { "ref": "RN1", "kind": "330 Ω resistor between RN1 pins 15 and 2" },
+          "checks": [
+            { "at": "D2", "pin": "2", "expect": "≈2.00 V (red LED, ≈9.1 mA)", "readsLowIf": "0 V: nothing reaches D2 through RN1 (an open joint at RN1 pin 2 or 15)" }
+          ]
+        },
+        {
+          "net": "LED3_A",
+          "nominal": 2.0,
+          "domain": "always on",
+          "source": { "ref": "RN1", "kind": "330 Ω resistor between RN1 pins 14 and 3" },
+          "checks": [
+            { "at": "D3", "pin": "2", "expect": "≈2.00 V (red LED, ≈9.1 mA)", "readsLowIf": "0 V: nothing reaches D3 through RN1 (an open joint at RN1 pin 3 or 14)" }
+          ]
+        },
+        {
+          "net": "LED4_A",
+          "nominal": 2.0,
+          "domain": "always on",
+          "source": { "ref": "RN1", "kind": "330 Ω resistor between RN1 pins 13 and 4" },
+          "checks": [
+            { "at": "D4", "pin": "2", "expect": "≈2.00 V (red LED, ≈9.1 mA)", "readsLowIf": "0 V: nothing reaches D4 through RN1 (an open joint at RN1 pin 4 or 13)" }
+          ]
+        }
+      ],
+      "powerUp": [ "+5V" ],
+      "notes": [
+        "RN1 is a DIP-16 network of eight isolated 330 Ω resistors: resistor n sits between pins n and 17 − n. Pins 5–12 are unused here.",
+        "Through-hole parts are soldered on the bottom side: a dull, grainy joint there can look fine from the top and still be open.",
+        "Soldered with 63/37 tin-lead (melts at 183 °C, 361 °F), as in NEETS Module 14 (public-domain US Navy textbook)."
       ]
     }
   ]

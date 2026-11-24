@@ -201,6 +201,7 @@ carry that part number (KiCad value field, BOM part number, boardview label).
 | `nmos`, `pmos` | `vth` (V), `rds` (1–4 `[ohms, \|Vgs\|]`), `body` (`[V, A]`), `caps` (`[Ciss, Crss, Coss]` F), `pins: { D, G, S }` |
 | `npn`, `pnp` | `hfe`, `vbe` (`[V, A]`), `vaf` (V), `pins: { C, B, E }` |
 | `diode`, `schottky`, `zener`, `led`, `tvs-bi` | `vf` (1–6 `[V, A]`), `bv` (`[V, A]`), `cj` (F), `pins: { A, K }` |
+| `res` | `ohms`, `pins: { 1, 2 }` (one resistor of a network or array) |
 
 Every model is fitted when the mod loads; one that can't be fitted is refused.
 
@@ -324,6 +325,7 @@ how often the planted part is in the top 3, with and without your rules.
 | `official-boards/boards/hr-clean-inspect` | Clean and Inspect |
 | `official-boards/boards/hr-desoldering` | Desoldering |
 | `official-boards/boards/hr-thermal-shunt` | Thermal Shunt |
+| `official-boards/boards/hr-skipping-pattern` | Skipping Pattern |
 | `official-boards/boards/demo-mnt-reform2-mb30` | MNT Reform 2 · dead 3.3 V rail (demo, loads when opened) |
 | `official-boards/boards/demo-antmicro-jetson-nano-bb` | Antmicro baseboard · no 3.3 V, flaky 5 V (demo, loads when opened) |
 | `official-boards/boards/demo-olimex-esp32-devkit-lipo` | Olimex ESP32-DevKit-LiPo · dead on USB, won't charge (demo, loads when opened) |
@@ -361,6 +363,7 @@ Patch an entry by its address. Numbers are the datasheet quantities; see [Device
 | `official-solvers/devices/ntmfd4902nf` | NTMFD4902NF | nmos, nmos | yes |
 | `official-solvers/devices/bc846blp` | BC846BLP | npn | yes |
 | `official-solvers/devices/mmbt3904lp` | MMBT3904LP | npn | no |
+| `official-solvers/devices/4116r-2-331` | 4116R-2-331 | res, res, res, res, res, res, res, res | no |
 | `official-solvers/devices/2n3904` | 2N3904 | npn | no |
 | `official-solvers/devices/rb160m-60` | RB160M-60 | schottky | yes |
 | `official-solvers/devices/rb521es-30` | RB521ES-30 | schottky | yes |

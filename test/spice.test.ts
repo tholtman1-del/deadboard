@@ -159,7 +159,7 @@ async function run() {
         const e = deck(`m\nVD d 0 ${u.kind === 'nmos' ? 0.1 : -0.1}\nVG g 0 0\nM1 d g 0 0 MX\n.model MX ${u.kind.toUpperCase()}(VTO=${f.vto} KP=${f.kp})\n.end`);
         e.setDc('VG', 0);
         assert(Math.abs(e.op().branches.get('i(VD)')!) < 1e-9, `${dev.mpn}: off at VGS = 0`);
-      } else if (u.kind !== 'npn' && u.kind !== 'pnp' && (u as DiodeSpec).vf.length >= 2) {
+      } else if (u.kind !== 'npn' && u.kind !== 'pnp' && u.kind !== 'res' && (u as DiodeSpec).vf.length >= 2) {
         const d = u as DiodeSpec, f = fitDiode(d.vf);
         for (const [v, i] of d.vf.slice(0, 2)) near(f.n * VT_300K * Math.log(i / f.is) + f.rs * i, v, 0.01, `${dev.mpn}: Vf at ${i} A`);
       }

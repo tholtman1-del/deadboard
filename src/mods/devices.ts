@@ -46,8 +46,11 @@ export function unitProblems(u: unknown, at: string): string[] {
     if (u.cj !== undefined && !(typeof u.cj === 'number' && u.cj >= 0 && u.cj < 1e-6)) p.push(`${at}.cj must be the junction capacitance in farads`);
     if (!pins(u.pins, ['A', 'K'])) p.push(`${at}.pins must name the A and K pins`);
     else if (!p.length) { try { diodeModelParams(u as never); } catch (e) { p.push(`${at}: the model can't be fitted (${e instanceof Error ? e.message : e})`); } }
+  } else if (u.kind === 'res') {
+    if (!pos(u.ohms, 1e9)) p.push(`${at}.ohms must be the resistance in ohms`);
+    if (!pins(u.pins, ['1', '2'])) p.push(`${at}.pins must name its two pins, "1" and "2"`);
   } else {
-    p.push(`${at}.kind must be nmos, pmos, npn, pnp, diode, schottky, zener, led or tvs-bi`);
+    p.push(`${at}.kind must be nmos, pmos, npn, pnp, diode, schottky, zener, led, tvs-bi or res`);
   }
   return p;
 }

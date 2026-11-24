@@ -89,6 +89,7 @@ export const BOARD_INFO: Record<string, BoardInfo> = {
   'hr-solder-flux': { level: 1.4, symptom: tk('Three LEDs on 5 V, none lights'), teaches: ['tool:iron', 'tool:rosin', 'fault:cold'] },
   'hr-heat-time': { level: 1.9, symptom: tk('Two LEDs dark on a ground-pour board'), teaches: ['tool:iron', 'tool:thermal', 'fault:cold'] },
   'hr-desoldering': { level: 2.6, symptom: tk('One of two LEDs stays dark'), teaches: ['tool:extract', 'tool:replace', 'tool:iron'] },
+  'hr-skipping-pattern': { level: 3.1, symptom: tk('Four LEDs, all dark'), teaches: ['tool:iron', 'fault:cold'] },
   'hr-thermal-shunt': { level: 2.9, symptom: tk('Pressed, the LEDs stay dark'), teaches: ['tool:shunt', 'part:bjt', 'fault:cold'] },
   'hr-clean-inspect': { level: 2.2, symptom: tk('Reworked, both LEDs dark, left a mess'), teaches: ['tool:wick', 'tool:ipa', 'fault:bridge'] },
   'demo-olimex-esp32-devkit-lipo': { level: 4.4, teaches: ['part:schottky', 'part:charger', 'part:mcu'] },

@@ -99,6 +99,24 @@ export class Builder {
     });
   }
 
+  /**
+   * A through-hole DIP: `pins` pads on a 2.54 mm pitch, rows 7.62 mm apart, seen from the top with
+   * pin 1 bottom left: 1 … n/2 left to right along the bottom row, then back along the top row.
+   * `label` names a part in the SPICE device library (src/spice/devicelib.ts), which models it.
+   */
+  dip(ref: string, label: string, at: V2, pins = 16) {
+    const half = pins / 2, x0 = -((half - 1) * 2.54) / 2;
+    const pads = Array.from({ length: pins }, (_, i) => {
+      const bottom = i < half, k = bottom ? i : pins - 1 - i;
+      return tht(String(i + 1), [x0 + k * 2.54, bottom ? 3.81 : -3.81], 1.6, i === 0 ? 'rect' : 'circle', 0.8);
+    });
+    return this.comp({
+      ref, kind: 'generic', value: 0, label, at, rot: 0,
+      pads, pins: Object.fromEntries(pads.map((p) => [p.name, p.name])),
+      body: { shape: 'chip', w: half * 2.54 + 0.6, h: 6.4, z: 3.3 },
+    });
+  }
+
   testpoint(ref: string, at: V2, label?: string) {
     return this.comp({
       ref, kind: 'testpoint', value: 0, label, at, rot: 0,

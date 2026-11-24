@@ -174,9 +174,47 @@ async function thermalShunt(): Promise<Scenario> {
   return sc;
 }
 
+/**
+ * A DIP-16 resistor network (8 × 330 Ω isolated) driving four LEDs: resistor n sits between pin n
+ * (bottom row, to the LED) and pin 17 − n (top row, on +5V). Pins 1–4 never bonded.
+ */
+async function skippingPattern(): Promise<Scenario> {
+  const k = new Builder(64, 46);
+  const j1 = k.header('J1', 5, [6, 22], 0, '5V DC');
+  const rn = k.dip('RN1', '4116R-2-331', [32, 22], 16);
+  const ledX = [14, 25.65, 38, 50];
+  const leds = ledX.map((x, i) => k.led(`D${i + 1}`, 'red', [x, 38], -90)); // anode up (36.73), cathode down (39.27)
+  k.track('F', [k.pad(j1, '1'), [6, 12], [30.73, 12]], 0.9, '+5V');
+  for (const n of [16, 15, 14, 13]) { const p = k.pad(rn, String(n)); k.track('F', [[p[0], 12], p], 0.8, '+5V'); }
+  const pin = (n: number) => k.pad(rn, String(n));
+  k.track('F', [pin(1), [pin(1)[0], 31], [ledX[0], 31], k.pad(leds[0], '2')], 0.8, 'LED1_A');
+  k.track('F', [pin(2), k.pad(leds[1], '2')], 0.8, 'LED2_A');
+  k.track('F', [pin(3), [pin(3)[0], 33], [ledX[2], 33], k.pad(leds[2], '2')], 0.8, 'LED3_A');
+  k.track('F', [pin(4), [pin(4)[0], 29], [ledX[3], 29], k.pad(leds[3], '2')], 0.8, 'LED4_A');
+  k.track('B', [k.pad(leds[0], '1'), [ledX[0], 42], [ledX[3], 42], k.pad(leds[3], '1')], 0.9, 'GND');
+  for (const i of [1, 2]) k.track('B', [k.pad(leds[i], '1'), [ledX[i], 42]], 0.9, 'GND');
+  k.track('B', [[ledX[0], 42], [6, 42], k.pad(j1, '2')], 0.9, 'GND');
+  k.text([16, 4], 'HI-REL 6  SKIPPING PATTERN', 1.4);
+  const sc = await finalize('hr-skipping-pattern', {
+    title: 'Skipping Pattern',
+    author: 'DEADBOARD',
+    difficulty: 2,
+    description: 'Four LEDs fed through RN1, a DIP-16 resistor network. All four are dark: pins 1 to 4 of RN1, side by side, never bonded. Remake them the way the textbook says for a multilead part, without heating two neighbouring pins one after the other.',
+    hints: [
+      'Flip to the bottom (F): RN1 pins 1, 2, 3 and 4 are dull. They sit 2.54 mm apart.',
+      'A skipping pattern never heats two neighbouring pins in a row: for pins 1–4 that is 2, 4, 1, 3 (or 3, 1, 4, 2).',
+      'Hold the iron on each joint in that order until it flows, then clean the flux off with Isopropyl (0).',
+    ],
+    par: 5,
+  }, k.b, leds.map((d) => lit(d.ref)), 'PCB{sk1p_p4tt3rn_n0_h34t_bu1ldup}',
+  (b) => { b.components.find((c) => c.ref === 'RN1')!.state.cold = [0, 1, 2, 3]; });
+  sc.solver = 'spice';
+  return sc;
+}
+
 export async function solderingScenarios(): Promise<Scenario[]> {
-  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt()]);
+  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern()]);
 }
 
 /** The track's boards, in order. */
-export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt'] as const;
+export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern'] as const;

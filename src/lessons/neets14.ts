@@ -200,6 +200,34 @@ export const LESSONS: Lesson[] = [
       { ref: 'Q22', q: tk('What term describes a device used to conduct heat away from a component?'), a: tk('A thermal shunt.'), page: '3-25' },
     ],
   },
+  {
+    scenario: 'hr-skipping-pattern',
+    title: tk('Skipping pattern'),
+    source: { ...NEETS14_SOURCE, pages: '3-26 – 3-27, 3-30' },
+    points: [
+      tk('A DIP or any multilead part is always desoldered and soldered in a skipping pattern: never heat two pads next to each other one after the other.'),
+      tk('Skipping reduces heat accumulation in one area of the board and with it the chance of damage.'),
+      tk('Solder each joint as quickly as possible, with only as much heat as necessary.'),
+      tk('Before lifting a DIP, make sure every lead is completely free. A part known to be bad may have its leads clipped first.'),
+      tk('Finish every repair by inspecting the workmanship and testing the card.'),
+    ],
+    numbers: [
+      { label: tk('DIP pin pitch'), value: '0.1 in (2.54 mm)' },
+      { label: tk('A skipping pattern for pins 1–4'), value: '2 → 4 → 1 → 3' },
+    ],
+    original: [
+      'The removal of soldered-in DIPs without conformal coatings is essentially the same as the removal of discrete components, except that a skipping pattern is always used. A skipping pattern is one that skips from pad to pad, never heating two pads next to each other. This reduces heat accumulation and reduces the chance of damage to the board. Of course, many more leads should be desoldered before the part can be removed. Special care must be exercised to make sure all leads are completely free before an attempt is made to lift the part off the board. If the part is known to be faulty or if normal removal may damage the board, then the leads should be clipped. Once this has been done, desoldering can be done from both sides of the board. After the clipped leads have been desoldered, they can be removed with tweezers or pliers.',
+      'The steps for replacing a soldered-in DIP are similar to those for replacing a plug-in DIP. Once the part is in position, it is soldered using the same standard used by the manufacturer, or as close to that standard as is possible with the available equipment. The joints should be soldered as quickly as possible using only as much heat as is necessary using a skipping pattern. The repaired card should then be visually inspected for defects in workmanship, and testing of the card should take place. Once the successful repair has been accomplished, a conformal coating should be applied to the work area.',
+      'LAP-SOLDERING CONNECTIONS.—Before a connection is lap-soldered, the solder pads are cleaned and pretinned and the component leads are tinned. This is particularly important if they are gold plated. The IC is properly positioned on the pad areas, and the soldering process is a matter of "sweating" the two conductors together. When multilead components, such as ICs, are soldered, a skipping pattern is used to prevent excessive heat buildup in a single area of the board or component. When soldering is completed, all solder connections are thoroughly cleaned. All joints should be inspected and tested. The standards of workmanship are more specific for flat-pack installation.',
+    ],
+    task: tk('RN1 pins 1, 2, 3 and 4 are dull, side by side. Remake all four in a skipping pattern (for example 2, 4, 1, 3), holding the iron until each one flows, then clean with Isopropyl (0). The inspector checks the order you heated them in.'),
+    station: 'r350f',
+    grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'skip-pattern'],
+    questions: [
+      { ref: 'Q27', q: tk('How do you prevent excessive heat buildup on an area of a board when soldering multilead components?'), a: tk('Use a skipping pattern.'), page: '3-31' },
+      { ref: 'Q24', q: tk('When removing the component, under what circumstances may component leads be clipped?'), a: tk('If the component is known to be defective or if the board may be damaged by normal desoldering.'), page: '3-31' },
+    ],
+  },
 ];
 
 export function lessonFor(scenarioId: string): Lesson | undefined {

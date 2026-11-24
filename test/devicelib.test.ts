@@ -51,6 +51,12 @@ function run() {
           const ib = Math.abs(bd.branches.get('i(VD)')!);
           assert(ib > is * 0.5 && ib < is * 2, `${tag}: body diode at ${vsd} V carries ${ib.toPrecision(3)} A, datasheet ${is} A (one diode, not two)`);
         }
+      } else if (u.kind === 'res') {
+        // one resistor of a network: 1 V across its two pins draws 1 V / ohms, the others stay out of it
+        const ties = pads.map((p) => `RT${p} ${node(p)} 0 1G`).join('\n');
+        const f = op(sub, portNodes, `${ties}\nVB ${node(u.pins['2'])} 0 0\nVA ${node(u.pins['1'])} 0 1`);
+        const ia = Math.abs(f.branches.get('i(VA)')!);
+        assert(Math.abs(1 / ia - u.ohms) / u.ohms < 0.01, `${tag}: ${(1 / ia).toFixed(1)} Ω between pins ${u.pins['1']} and ${u.pins['2']}, expected ${u.ohms} Ω`);
       } else if (u.kind !== 'npn' && u.kind !== 'pnp' && u.kind !== 'tvs-bi') {
         const dd = u as DiodeSpec;
         const [vf, i] = [...dd.vf].sort((a, b) => a[1] - b[1])[0];

@@ -173,12 +173,14 @@ async function run() {
     const r = await checkMods([ex], await shippedBoards(), undefined, h2);
     const f = r.findings.find((x) => x.item === addr);
     // it agrees on every board except the transistor boards (the example models no transistors, its
-    // description says so: Transistor Switch, Thermal Shunt) and the other soldering-track boards (its LED
+    // description says so: Transistor Switch, Thermal Shunt; nor resistor networks: Skipping Pattern) and the other soldering-track boards (its LED
     // is a fixed 1.89 V red drop; their red LED runs at 9 mA, where SPICE reads 2.00 V): the bench check
     // rightly warns the author about those
-    const differs = (f?.text.split('Differs on: ')[1] ?? '').split('; ').map((x) => x.split(' (')[0]);
-    assert(f?.level === 'warn' && /agrees with the official solvers on 11\b/.test(f.text)
-      && differs.join('|') === 'Transistor Switch|Solder and Flux|Heat and Time|Clean and Inspect|Desoldering|Thermal Shunt'
+    // (the report lists the first six and ends with "…"; Skipping Pattern's resistor network is the seventh)
+    const differs = (f?.text.split('Differs on: ')[1] ?? '').split('; ').map((x) => x.split(' (')[0]).filter((x) => x !== '…');
+    const expected = new Set(['Transistor Switch', 'Solder and Flux', 'Heat and Time', 'Clean and Inspect', 'Desoldering', 'Thermal Shunt', 'Skipping Pattern']);
+    assert(f?.level === 'warn' && /agrees with the official solvers on 11\b/.test(f.text) && /runs on all 18 working boards/.test(f.text)
+      && differs[0] === 'Transistor Switch' && differs.every((x) => expected.has(x))
       && !r.findings.some((x) => x.level === 'fail'), `bench check: agrees everywhere but the transistor switch and the LED drop on the soldering track:\n${formatReport(r)}`);
     h2.stopAll();
     const noCode = await checkMods([ex], await shippedBoards());

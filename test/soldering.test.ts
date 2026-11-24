@@ -237,6 +237,27 @@ async function main() {
     assert(!inspect(k.b, k.b, [ep(0, 0), ep(2, 3), ep(4, 6), ep(1, 9), ep(3, 12), ep(5, 15)], []).findings.some((f) => f.kind === 'skip-pattern'), 'pins 1, 3, 5, 2, 4, 6: a skipping pattern');
   }
 
+  {
+    // lesson 6 on its board: the same four joints in a row fail, in a skipping pattern they pass
+    const sc = scs.find((x) => x.id === 'hr-skipping-pattern')!;
+    const play = (order: number[]) => {
+      const b = structuredClone(sc.board), rn = b.components.find((c) => c.ref === 'RN1')!;
+      const m = new ThermalModel(b), rw = new ReworkMonitor(b, m, limitsFor('sn63'));
+      for (const pi of order) {
+        rw.applyFlux(rn.at[0], rn.at[1], 14);
+        m.addSource({ kind: 'iron', x: 0, y: 0, temp: 350, g: IRON_G.flux, pmax: 60, until: m.time + 2, partId: rn.id, pad: pi });
+        for (let t = 0; t < 3; t += 0.05) { m.step(0.05); rw.update(0.05); }
+      }
+      for (const c of b.components) c.state.fluxResidue = undefined;
+      return { b, ins: inspect(b, referenceBoard(sc)!, rw.episodes, rw.log) };
+    };
+    const l6 = lessonFor('hr-skipping-pattern')!;
+    const inRow = play([0, 1, 2, 3]), skipped = play([1, 3, 0, 2]);
+    assert(evaluateObjectives(skipped.b, buildConnectivity(skipped.b), sc.objectives, 'spice').allPassed, 'lesson 6: the DIP network lights all four LEDs once its joints are made');
+    assert(!lessonAccepted(l6, inRow.ins) && inRow.ins.findings.some((f) => f.kind === 'skip-pattern'), 'lesson 6: pins 1, 2, 3, 4 in a row fail');
+    assert(lessonAccepted(l6, skipped.ins), `lesson 6: pins 2, 4, 1, 3 pass (${JSON.stringify(skipped.ins.findings)})`);
+  }
+
   // ---- lesson data ----
   assert(LESSONS.length === SOLDERING_TRACK_IDS.length && LESSONS.every((l, i) => l.scenario === SOLDERING_TRACK_IDS[i]), 'one lesson per board, in order');
   for (const l of LESSONS) {

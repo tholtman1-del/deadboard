@@ -35,7 +35,9 @@ export interface DiodeSpec {
   cj?: number;
   pins: { A: string; K: string };
 }
-export type UnitSpec = MosSpec | BjtSpec | DiodeSpec;
+/** One resistor of a network or array package (isolated or bussed): `ohms` between pins 1 and 2. */
+export interface ResSpec { kind: 'res'; ohms: number; pins: { '1': string; '2': string } }
+export type UnitSpec = MosSpec | BjtSpec | DiodeSpec | ResSpec;
 
 export interface DeviceDef {
   mpn: string;
@@ -134,6 +136,9 @@ const DEVICES: DeviceDef[] = [
     source: 'Diodes Inc. DS31835 Rev. 7, Aug 2023', thetaJA: 310,
     note: 'hFE typical ≈ 200 at 1–10 mA read from Fig. 4 (table: 100–300 at 10 mA). VBE stays an estimate (Fig. 7 temperature labels are inconsistent; VBE(sat) 0.65–0.85 V at 10 mA), Early voltage not specified: unverified',
     units: [{ kind: 'npn', hfe: 200, vbe: [0.65, 10e-3], vaf: 100, pins: { B: '1', E: '2', C: '3' } }] },
+  { mpn: '4116R-2-331', description: 'resistor network, 8 × 330 Ω isolated (through-hole DIP)', pkg: 'DIP-16', verified: false,
+    note: 'Bourns 4100R-series thick-film network, isolated circuit (-2): resistor n between pins n and 17 − n; 331 = 330 Ω. Unverified: values decoded from the part number, the datasheet was not read for this entry (tolerance, power and temperature coefficient are not modelled). Used by the soldering-track board «Skipping Pattern»',
+    units: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ kind: 'res' as const, ohms: 330, pins: { '1': String(n), '2': String(17 - n) } })) },
   { mpn: '2N3904', description: 'NPN 40 V general purpose (through-hole)', pkg: 'TO-92', verified: false,
     note: 'the through-hole 2N3904; same transistor type as MMBT3904, so hFE ≈ 200 and VBE 0.65 V at 10 mA are taken from the MMBT3904LP entry above (Diodes DS31835). The 2N3904 datasheet itself was not read for this entry: its usual limits are hFE 100–300 at 10 mA and VBE(sat) 0.65–0.85 V. Pins 1 E, 2 B, 3 C (flat face to the front, leads down), the common TO-92 order for this part. Early voltage not specified (100 V default, estimate). Used by the hand-made bike light',
     units: [{ kind: 'npn', hfe: 200, vbe: [0.65, 10e-3], vaf: 100, pins: { E: '1', B: '2', C: '3' } }] },
@@ -342,6 +347,8 @@ function unitCards(u: UnitSpec, k: number, port: (pad: string) => string, models
       const [ciss, crss, coss] = u.caps;
       L.push(`CGS${k} ${g} ${s} ${num(Math.max(1e-15, ciss - crss))}`, `CGD${k} ${g} ${d} ${num(crss)}`, `CDS${k} ${d} ${s} ${num(Math.max(1e-15, coss - crss))}`);
     }
+  } else if (u.kind === 'res') {
+    L.push(`R${k} ${port(u.pins['1'])} ${port(u.pins['2'])} ${num(u.ohms)}`);
   } else if (u.kind === 'npn' || u.kind === 'pnp') {
     const is = u.vbe[1] / Math.exp(u.vbe[0] / VT_300K);
     models.push(`.model Q${k}_m ${u.kind.toUpperCase()}(IS=${num(is)} BF=${num(u.hfe)} BR=1 VAF=${num(u.vaf ?? 100)})`);
