@@ -43,6 +43,8 @@ function normalizeComponent(c: Component): Component {
       ...(c.state?.residue && typeof c.state.residue.amount === 'number' && c.state.residue.amount > 0 && {
         residue: { amount: Math.min(1, c.state.residue.amount), ...(c.state.residue.leaky && { leaky: true }), ...(Array.isArray(c.state.residue.pads) && { pads: c.state.residue.pads.filter((x) => Number.isInteger(x)) }) },
       }),
+      ...(c.state?.holes && typeof c.state.holes === 'object' && { holes: Object.fromEntries(Object.entries(c.state.holes).filter(([k, v]) => Number.isInteger(Number(k)) && (v === 'clear' || v === 'sweat'))) }),
+      ...(Array.isArray(c.state?.shunts) && { shunts: c.state.shunts.filter((x) => Number.isInteger(x)) }),
       ...(Array.isArray(c.state?.fluxResidue) && { fluxResidue: c.state.fluxResidue.filter((x) => Number.isInteger(x)) }),
       ...(Array.isArray(c.state?.intermittent) && { intermittent: c.state.intermittent.filter((f) => f && typeof f.threshold === 'number' && ['thermal-open', 'thermal-leak', 'flex-open', 'flex-close'].includes(f.kind)) }),
     },

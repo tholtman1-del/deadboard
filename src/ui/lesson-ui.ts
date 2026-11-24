@@ -32,9 +32,9 @@ export function lessonBriefHtml(l: Lesson, esc: Esc, base: string, phone: boolea
 
 /** After the repair: the inspector's verdict, the measured joints, and the module's own review questions. */
 export function debriefHtml(l: Lesson | undefined, ins: Inspection, esc: Esc): string {
-  const graded = (k: keyof typeof RULES) => !l || l.grades.includes(k);
-  const rejects = ins.findings.filter((f) => RULES[f.kind].severity === 'reject' && graded(f.kind));
-  const notes = ins.findings.filter((f) => !rejects.includes(f));
+  const rejects = ins.findings.filter((f) => fails(l, f.kind));
+  // procedure rules only where the lesson teaches them
+  const notes = ins.findings.filter((f) => !rejects.includes(f) && (!RULES[f.kind].procedural || (l?.grades.includes(f.kind) ?? false)));
   const accepted = rejects.length === 0;
   // one entry per rule, with every place it applies
   const grouped = (list: Inspection['findings'], bad: boolean) => [...new Set(list.map((f) => f.kind))].map((kind) => {
@@ -48,12 +48,13 @@ export function debriefHtml(l: Lesson | undefined, ins: Inspection, esc: Esc): s
   }).join('');
   const joints = ins.joints.length ? `
     <table class="ins-joints">
-      <thead><tr><th>${t('Joint')}</th><th>${t('Molten')}</th><th>${t('Peak')}</th><th>${t('Flux')}</th></tr></thead>
+      <thead><tr><th>${t('Joint')}</th><th>${t('Molten')}</th><th>${t('Peak')}</th><th>${t('Part body')}</th><th>${t('Flux')}</th></tr></thead>
       <tbody>${ins.joints.map((j) => `
         <tr>
           <td class="mono">${esc(j.where)}${j.times > 1 ? ` <span class="muted">×${j.times}</span>` : ''}</td>
           <td class="mono ${j.molten > DWELL_LIMIT_S ? 'warn' : ''}">${j.molten.toFixed(1)} s</td>
           <td class="mono">${Math.round(j.peak)} °C</td>
+          <td class="mono">${Math.round(j.bodyPeak)} °C${j.shunt ? ` <span class="muted">${t('shunt')}</span>` : ''}</td>
           <td>${j.flux ? t('yes') : t('no')}</td>
         </tr>`).join('')}</tbody>
     </table>
@@ -82,5 +83,12 @@ export function debriefHtml(l: Lesson | undefined, ins: Inspection, esc: Esc): s
 
 /** Whether the inspection accepts the work under this lesson's graded rules. */
 export function lessonAccepted(l: Lesson | undefined, ins: Inspection): boolean {
-  return !ins.findings.some((f) => RULES[f.kind].severity === 'reject' && (!l || l.grades.includes(f.kind)));
+  return !ins.findings.some((f) => fails(l, f.kind));
+}
+
+/** A finding fails the inspection: a reject rule this lesson grades, or a procedure the lesson teaches. */
+function fails(l: Lesson | undefined, kind: keyof typeof RULES): boolean {
+  const r = RULES[kind];
+  if (!l) return r.severity === 'reject';
+  return l.grades.includes(kind) && (r.severity === 'reject' || !!r.procedural);
 }

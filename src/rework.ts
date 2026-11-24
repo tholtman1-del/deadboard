@@ -28,7 +28,7 @@ export interface ProcessLimits {
   reflowSeconds: number;
   /** Flux activity: seconds above liquidus before it is exhausted. */
   fluxSeconds: number;
-  /** Pad adhesion: cumulative seconds above `padLiftTemp` before the pad delaminates. */
+  /** Pad adhesion: seconds above `padLiftTemp` in one heating before the pad delaminates. */
   padLiftTemp: number;
   padLiftSeconds: number;
   /** Part body: cumulative seconds above `partMaxTemp` before it is damaged. */
@@ -57,7 +57,8 @@ export const DEFAULT_LIMITS: ProcessLimits = {
   partMaxTemp: 300, partMaxSeconds: 10, mlccShockRate: 150, blowAwayH: 1400, smallPartArea: 0.6,
 };
 
-export type ReworkEventKind = 'molten' | 'reflowed' | 'wetted' | 'dull-joint' | 'pad-lifted' | 'part-overheated' | 'mlcc-cracked' | 'part-displaced';
+export type ReworkEventKind = 'molten' | 'reflowed' | 'wetted' | 'dull-joint' | 'pad-lifted' | 'part-overheated' | 'mlcc-cracked' | 'part-displaced'
+  | 'filled' | 'no-solder' | 'extracted' | 'sweat' | 'wick-surface' | 'not-molten';
 export interface ReworkEvent { kind: ReworkEventKind; ref: string; pad?: number; detail: string }
 
 /**
@@ -76,9 +77,37 @@ export interface JointEpisode {
   t: number;
   /** Still molten (the episode is not over). */
   open: boolean;
+  /** A thermal shunt was clipped on this lead. */
+  shunt: boolean;
+  /** Peak temperature of the part's body during the heating (°C). */
+  bodyPeak: number;
 }
 
-interface JointState { above: number; melted: boolean; hot: number; ep?: JointEpisode }
+/** A through-hole part with a body: soldered through plated holes (the desoldering rules apply). */
+export function isThroughHole(c: Component): boolean {
+  return c.body.shape !== 'none' && c.pads.length > 0 && c.pads.every((p) => (p.drill ?? 0) > 0);
+}
+/** A pad in a supported (plated-through) hole: copper on both sides and a plated barrel. */
+export const isPlated = (c: Component, pi: number) => c.pads[pi]?.layers === 'FB' && (c.pads[pi].drill ?? 0) > 0;
+/**
+ * Heat-sensitive parts: the textbook clips a thermal shunt on their leads (NEETS 14 p. 3-23:
+ * "diodes, transistors, and ICs"; LEDs are diodes).
+ */
+export function isHeatSensitive(c: Component): boolean {
+  return c.kind === 'led' || c.kind === 'diode' || c.kind === 'ic' || c.body.shape === 'to92' || (c.kind === 'generic' && /^(Q|U|IC)\d/i.test(c.ref));
+}
+/** Pads of a through-hole part still holding it (solder in the hole, or a sweat joint). */
+export function heldPads(c: Component): number[] {
+  return c.pads.map((_, i) => i).filter((i) => c.state.holes?.[i] !== 'clear');
+}
+/** A manual plunger's jolt lifts a pad now and then (NEETS 14 p. 3-16 says it may; the rate is an estimate). */
+export const PLUNGER_LIFT_CHANCE = 0.15;
+/** Molten time a continuous-vacuum tip needs to empty a plated hole while the lead is stirred (s, estimate). */
+export const VACUUM_SECONDS = 0.6;
+
+export type ExtractMode = 'wick' | 'plunger' | 'vacuum';
+
+interface JointState { above: number; melted: boolean; hot: number; ep?: JointEpisode; fed: boolean }
 
 /** What was done on a board, kept by the caller across monitors. */
 export interface ReworkHistory { episodes: JointEpisode[]; log: (ReworkEvent & { t: number })[] }
@@ -121,6 +150,56 @@ export class ReworkMonitor {
   }
 
   isMolten(c: Component): boolean { return this.parts.get(c.id)?.molten ?? false; }
+  /** Fresh (flux-cored) solder is being fed to this joint while it is heated. */
+  feedSolder(c: Component, pi: number) {
+    const key = `${c.id}#${pi}`;
+    const js = this.joints.get(key);
+    if (js) { js.fed = true; if (js.melted && c.state.holes?.[pi] === 'clear') js.melted = false; } // a molten empty hole fills on the next step
+    else this.joints.set(key, { above: 0, melted: false, hot: 0, fed: true });
+  }
+
+  /** Seconds the joint has been molten in its current heating (0 when solid). */
+  moltenFor(c: Component, pi: number): number {
+    return this.joints.get(`${c.id}#${pi}`)?.ep?.molten ?? 0;
+  }
+
+  /**
+   * Takes solder out of a molten through-hole joint (NEETS 14 pp. 3-15 – 3-18):
+   * - wick: capillary pull beats only surface solder; a plated hole stays full (an unsupported hole empties);
+   * - plunger: one pulse of vacuum; a plated hole keeps a sweat joint (the lead against the barrel),
+   *   and the jolt can lift the pad;
+   * - vacuum (continuous, lead stirred): the hole empties and no sweat joint forms.
+   * Returns what happened (also as an event in the log).
+   */
+  extract(c: Component, pi: number, mode: ExtractMode): ReworkEvent {
+    const p = c.pads[pi], where = { ref: c.ref, pad: p.name };
+    const molten = this.thermal.jointTemp(c, pi) >= this.limits.alloy.liquidus;
+    const plated = isPlated(c, pi);
+    let e: ReworkEvent;
+    const clear = () => {
+      c.state.holes = { ...(c.state.holes ?? {}), [pi]: 'clear' };
+      if (!c.state.cold.includes(pi)) c.state.cold = [...c.state.cold, pi].sort((a, b) => a - b);
+    };
+    if (!molten) e = { kind: 'not-molten', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: the solder is not molten — nothing came out', where) };
+    else if (mode === 'vacuum' || !plated) {
+      clear();
+      e = { kind: 'extracted', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: hole clear, the lead is free', where) };
+    } else if (mode === 'wick') {
+      e = { kind: 'wick-surface', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: the wick took the surface solder, but the plated hole stays full (wick cannot beat the hole\'s capillary pull)', where) };
+    } else {
+      c.state.holes = { ...(c.state.holes ?? {}), [pi]: 'sweat' };
+      e = { kind: 'sweat', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: most solder gone, but a sweat joint still holds the lead to the barrel', where) };
+      if (!c.state.lifted?.includes(pi) && rng(seedOf(`plunger|${c.ref}|${pi}|${Math.round(this.thermal.time * 10)}`))() < PLUNGER_LIFT_CHANCE) {
+        c.state.lifted = [...(c.state.lifted ?? []), pi];
+        if (!c.state.cold.includes(pi)) c.state.cold = [...c.state.cold, pi].sort((a, b) => a - b);
+        const lift: ReworkEvent = { kind: 'pad-lifted', ref: c.ref, pad: pi, detail: t('{ref} pad {pad} lifted by the plunger\'s jolt — needs a jumper wire', where) };
+        this.log.push({ ...lift, t: this.thermal.time });
+      }
+    }
+    this.log.push({ ...e, t: this.thermal.time });
+    return e;
+  }
+
   /** Active flux on the part's joints (rosin applied, not yet used up). */
   hasFlux(c: Component): boolean { return (this.parts.get(c.id)?.flux ?? 0) > 0; }
 
@@ -146,22 +225,37 @@ export class ReworkMonitor {
       c.pads.forEach((p, pi) => {
         const key = `${c.id}#${pi}`;
         let js = this.joints.get(key);
-        if (!js) this.joints.set(key, (js = { above: 0, melted: false, hot: 0 }));
+        if (!js) this.joints.set(key, (js = { above: 0, melted: false, hot: 0, fed: false }));
         const tj = this.thermal.jointTemp(c, pi);
         if (tj >= L.alloy.liquidus) {
-          if (!js.ep) { js.ep = { ref: c.ref, pad: pi, molten: 0, peak: tj, flux: ps.flux > 0, t: this.thermal.time, open: true }; this.episodes.push(js.ep); }
+          if (!js.ep) { js.ep = { ref: c.ref, pad: pi, molten: 0, peak: tj, flux: ps.flux > 0, t: this.thermal.time, open: true, shunt: !!c.state.shunts?.includes(pi), bodyPeak: T }; this.episodes.push(js.ep); }
           js.ep.molten += dt;
           js.ep.peak = Math.max(js.ep.peak, tj);
+          js.ep.bodyPeak = Math.max(js.ep.bodyPeak, T);
+          if (c.state.shunts?.includes(pi)) js.ep.shunt = true;
           js.above += dt;
           if (ps.flux > 0) ps.flux = Math.max(0, ps.flux - dt / c.pads.length);
         } else {
           allMolten = false;
           // frozen again below the solidus (the pasty range of a non-eutectic alloy still counts as soft)
-          if (js.ep && tj < L.alloy.solidus) { js.ep.open = false; js.ep = undefined; }
-          if (tj < L.alloy.solidus - 15) { js.above = 0; js.melted = false; }
+          if (js.ep && tj < L.alloy.solidus) { js.ep.open = false; js.ep = undefined; js.fed = false; }
+          // cooled off: the next heating starts afresh (overheating lifts a pad within one long heating,
+          // not across a desolder-and-resolder; an estimate, like the limits themselves)
+          if (tj < L.alloy.solidus - 15) { js.above = 0; js.melted = false; js.hot = 0; }
         }
         if (!js.melted && js.above >= L.reflowSeconds) {
           js.melted = true;
+          const hole = c.state.holes?.[pi];
+          if (hole === 'clear') {
+            // an empty hole: it takes fresh solder (fed to the joint, not the iron) to make a joint again
+            if (js.fed && !c.state.lifted?.includes(pi)) {
+              const { [pi]: _done, ...rest } = c.state.holes!; void _done;
+              c.state.holes = Object.keys(rest).length ? rest : undefined;
+              c.state.cold = c.state.cold.filter((x) => x !== pi);
+              if (ps.flux > 0 && !c.state.fluxResidue?.includes(pi)) c.state.fluxResidue = [...(c.state.fluxResidue ?? []), pi].sort((a, b) => a - b);
+              ev.push({ kind: 'filled', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: soldered, the hole filled', { ref: c.ref, pad: p.name }) });
+            } else if (!js.fed) ev.push({ kind: 'no-solder', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: the hole is empty — feed fresh solder (Bench → Rework "+ flux": flux-cored solder)', { ref: c.ref, pad: p.name }) });
+          } else {
           // rosin flux breaks down at soldering temperature and stays behind as residue (NEETS p. 3-25: remove it with alcohol)
           if (ps.flux > 0 && !lifted0(c, pi) && !c.state.fluxResidue?.includes(pi)) c.state.fluxResidue = [...(c.state.fluxResidue ?? []), pi].sort((a, b) => a - b);
           if (!c.state.cold.includes(pi) && !c.state.intermittent?.some((f) => f.pad === pi)) ev.push({ kind: 'wetted', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: solder flowed', { ref: c.ref, pad: p.name }) });
@@ -178,6 +272,7 @@ export class ReworkMonitor {
             c.state.intermittent = c.state.intermittent.filter((f) => f.pad !== pi);
             if (!c.state.intermittent.length) c.state.intermittent = undefined;
             ev.push({ kind: 'reflowed', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: cracked joint reflowed', { ref: c.ref, pad: p.name }) });
+          }
           }
         }
         // pad delamination from prolonged overheating

@@ -4,7 +4,7 @@
 // is advice. Universal: nothing here knows any particular board.
 import { tk } from './i18n';
 import type { Board } from './types';
-import type { JointEpisode, ReworkEvent } from './rework';
+import { isHeatSensitive, type JointEpisode, type ReworkEvent } from './rework';
 
 /** Where a rule comes from (public-domain source, page as printed). */
 export interface RuleSource { doc: string; page: string }
@@ -13,9 +13,13 @@ const src = (page: string): RuleSource => ({ doc: NEETS14, page });
 
 export type FindingKind =
   | 'pad-lifted' | 'part-overheated' | 'mlcc-cracked' | 'part-displaced' | 'dull-joint'
-  | 'flux-residue' | 'loose-solder' | 'long-dwell' | 'wire-repair';
+  | 'flux-residue' | 'loose-solder' | 'long-dwell' | 'wire-repair' | 'no-shunt' | 'skip-pattern';
 
-export interface Rule { kind: FindingKind; severity: 'reject' | 'note'; title: string; rule: string; source: RuleSource }
+/**
+ * `procedural`: about how the work was done, which the finished board does not show; listed only
+ * where a lesson teaches it.
+ */
+export interface Rule { kind: FindingKind; severity: 'reject' | 'note'; title: string; rule: string; source: RuleSource; procedural?: boolean }
 
 /** The rules, as the source states them (English keys, translated where shown). */
 export const RULES: Record<FindingKind, Rule> = {
@@ -27,6 +31,8 @@ export const RULES: Record<FindingKind, Rule> = {
   'flux-residue': { kind: 'flux-residue', severity: 'reject', title: tk('Flux residue left'), rule: tk('When a solder joint is completed, solvent must be used to remove all flux residue: 99.5 % ethyl or isopropyl alcohol.'), source: src('3-25') },
   'loose-solder': { kind: 'loose-solder', severity: 'reject', title: tk('Loose or splattered solder'), rule: tk('The solder joints should not be covered by loose or splattered solder, which may cause shorts. A solder bridge across a cracked conductor is not a high-reliability repair.'), source: src('3-19, 3-32') },
   'long-dwell': { kind: 'long-dwell', severity: 'note', title: tk('Long heating'), rule: tk('Bring the joint to about 550 °F (288 °C) rapidly and hold it there briefly: in most cases the soldering action is complete within 2 or 3 seconds.'), source: src('3-23') },
+  'no-shunt': { kind: 'no-shunt', severity: 'note', procedural: true, title: tk('No thermal shunt'), rule: tk('Before heat is applied to solder the joint, a thermal shunt is attached to sensitive component leads (diodes, transistors, and ICs) to conduct heat away from the component.'), source: src('3-23') },
+  'skip-pattern': { kind: 'skip-pattern', severity: 'note', procedural: true, title: tk('Neighbouring pins heated in a row'), rule: tk('When multilead components such as ICs are soldered or desoldered, a skipping pattern is used: never heat two pads next to each other, to prevent heat build-up in one area.'), source: src('3-26, 3-30') },
   'wire-repair': { kind: 'wire-repair', severity: 'note', title: tk('Wire repair'), rule: tk('A wire lap-soldered across a break is stronger than a solder bridge but not highly reliable; the clinched staple is the preferred repair of a broken conductor.'), source: src('3-32') },
 };
 
@@ -42,7 +48,7 @@ export interface Inspection {
   accepted: boolean;
   findings: Finding[];
   /** Joints that were heated, with their measured numbers (each joint's last and longest episode). */
-  joints: { where: string; molten: number; peak: number; flux: boolean; times: number }[];
+  joints: { where: string; molten: number; peak: number; flux: boolean; times: number; bodyPeak: number; shunt: boolean }[];
 }
 
 /**
@@ -81,14 +87,28 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
   if (board.jumpers.length > refJumpers) add({ kind: 'wire-repair', where: String(board.jumpers.length - refJumpers) });
 
   // how the joints were heated
-  const byJoint = new Map<string, { where: string; molten: number; peak: number; flux: boolean; times: number }>();
+  const byJoint = new Map<string, Inspection['joints'][number]>();
   for (const ep of episodes) {
     const where = padName(ep.ref, ep.pad);
     const j = byJoint.get(where);
-    if (!j) byJoint.set(where, { where, molten: ep.molten, peak: ep.peak, flux: ep.flux, times: 1 });
-    else { j.molten = Math.max(j.molten, ep.molten); j.peak = Math.max(j.peak, ep.peak); j.flux = ep.flux; j.times++; }
+    if (!j) byJoint.set(where, { where, molten: ep.molten, peak: ep.peak, flux: ep.flux, times: 1, bodyPeak: ep.bodyPeak, shunt: ep.shunt });
+    else { j.molten = Math.max(j.molten, ep.molten); j.peak = Math.max(j.peak, ep.peak); j.flux = ep.flux; j.times++; j.bodyPeak = Math.max(j.bodyPeak, ep.bodyPeak); j.shunt = ep.shunt; }
   }
   for (const j of byJoint.values()) if (j.molten > DWELL_LIMIT_S) add({ kind: 'long-dwell', where: j.where, detail: `${j.molten.toFixed(1)} s` });
+
+  // procedure: shunts on sensitive leads, and the skipping pattern on multilead parts
+  for (const ep of episodes) {
+    const c = board.components.find((x) => x.ref === ep.ref);
+    if (c && isHeatSensitive(c) && !ep.shunt) add({ kind: 'no-shunt', where: padName(ep.ref, ep.pad) });
+  }
+  const ordered = [...episodes].sort((a, b) => a.t - b.t);
+  for (let i = 1; i < ordered.length; i++) {
+    const a = ordered[i - 1], b = ordered[i];
+    const c = board.components.find((x) => x.ref === b.ref);
+    if (!c || a.ref !== b.ref || c.pads.length < 4 || b.t - a.t > 15) continue;
+    const pa = c.pads[a.pad], pb = c.pads[b.pad];
+    if (pa && pb && Math.hypot(pa.at[0] - pb.at[0], pa.at[1] - pb.at[1]) < 2.6) add({ kind: 'skip-pattern', where: `${padName(a.ref, a.pad)} → ${pb.name}` });
+  }
 
   const order = (f: Finding) => (RULES[f.kind].severity === 'reject' ? 0 : 1);
   findings.sort((a, b) => order(a) - order(b));

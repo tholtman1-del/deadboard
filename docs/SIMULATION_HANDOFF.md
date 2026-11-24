@@ -7,8 +7,8 @@ No reference hardware is available, so realism is validated against *design inte
 
 ## Status (start here)
 
-- **High-reliability soldering track, Phase 1 (built 2026-11-24 evening, NOT committed, waiting for
-  the user's review).** A separate learning path after NEETS Module 14 (NAVEDTRA 14186, Navy 2M
+- **High-reliability soldering track: Phase 1 pushed (`8fb70ba`, live), Phase 2 committed locally
+  (2026-11-24 night, NOT pushed: waiting for the user's review).** A separate learning path after NEETS Module 14 (NAVEDTRA 14186, Navy 2M
   soldering; Distribution A, public domain). Research and the 3-phase plan: `ideas/navy-2m-soldering.md`
   (local only). User's choices: lesson card + original text before, workmanship debrief + the module's
   review questions after, realism applies to every board in realistic rework (track forces it), phases.
@@ -41,9 +41,24 @@ No reference hardware is available, so realism is validated against *design inte
     pickAt timing still flaky). App chunk +14.5 KB gz (lesson text).
   - **Known limits / estimates:** THT joints reach liquidus almost at once (small joint mass); a pour
     shows as a lower peak, not a slower melt. Not calibrated to measurements.
-  - **Next (Phase 2):** desoldering methods + plated-through holes (wick vs vacuum, sweat joint),
-    skipping pattern, thermal shunt tool (fig 3-16 ready), per-part max temperatures; read the 2M
-    certification manual + T.O. 00-25-259 (the user downloads them; .mil sites refuse fetches).
+  - **Phase 2 (desoldering + thermal shunt):** `state.holes` per THT pad ('clear' = empty hole, lead
+    loose → also cold; 'sweat' = sweat joint, conducts, still holds); `ReworkMonitor.extract(c, pad,
+    'wick' | 'plunger' | 'vacuum')` per NEETS 3-15..3-18 (wick: plated hole stays full; plunger: sweat
+    joint + 15 % pad lift, estimate; continuous vacuum: clear after 0.6 s molten, estimate);
+    `feedSolder` (station "+ flux" = flux-cored solder) fills an empty hole; a THT part comes out only
+    with every hole clear (heat-and-pull refused), a new one goes in with leads unsoldered — also via
+    the Inspector buttons in realistic rework (`benchAllows`, `leadsUnsoldered`). Pad overheat timer
+    now resets per heating (was cumulative: a desolder + resolder lifted pads). Thermal shunt
+    (`state.shunts`, `SHUNT` clip mass at lead midpoint): Q1 body 112 → 45 °C for a 3 s joint.
+    Tools: Solder extractor (X; Bench → Extractor: continuous vacuum / manual plunger, vacuum is a
+    hold), Thermal shunt (S). Rules `no-shunt`, `skip-pattern` (procedural: shown/graded only where a
+    lesson teaches them); inspection shows the part-body peak. Boards `hr-desoldering` (burnt R2),
+    `hr-thermal-shunt` (Q1 cold base + collector, transistor switch with TP1/TP2). «Where to look?» is
+    hidden on lesson boards and they are left out of its recall tests (resistive joints at J1 / Q1
+    ranked 4th there; an engine limit, not fixed). Played end to end in Chrome (both Accepted).
+  - **Next:** skipping-pattern board (needs a multi-lead part the solver models: e.g. a 7-segment
+    display from LED units, or a DIP part); conformal coating, eyelets/clinched staple trace repair,
+    ESD (Phase 3); read the 2M certification manual + T.O. 00-25-259 (the user downloads them).
 
 - **NEXT SESSION — START HERE (written end of 2026-11-24).** All code up to `c789ba5` is pushed and
   live; the local `.claude/` folder (skills, settings) is untracked on purpose, never commit it.

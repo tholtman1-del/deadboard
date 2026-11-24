@@ -940,7 +940,17 @@ export class Renderer {
         }
 
         // Solder fillet + clipped lead tip on populated THT pins
-        if (!both && c.state.populated && p.drill) {
+        const hole = c.state.holes?.[pi];
+        if (!both && c.state.populated && p.drill && hole) {
+          // desoldered: an empty hole shows the bare lead in it; a sweat joint, a thin dull film
+          const d = Math.min(p.size[0], p.size[1]) * 0.82;
+          if (hole === 'sweat') {
+            if (hasB) op.dome.pushTRS(padPos[0], padPos[1], -ht - 0.03, d * 0.75, d * 0.75, -0.12, 0, 0.62, 0.63, 0.65, 1, 0, 0.6, 0.5);
+            if (hasF) op.dome.pushTRS(padPos[0], padPos[1], ht + 0.03, d * 0.7, d * 0.7, 0.1, 0, 0.62, 0.63, 0.65, 1, 0, 0.6, 0.5);
+          }
+          const leadZ = c.side === 'F' ? -ht - 0.42 : ht + 0.42;
+          op.cyl.pushTRS(padPos[0], padPos[1], leadZ, Math.min(0.55, p.drill * 0.65), Math.min(0.55, p.drill * 0.65), 0.72, 0, 0.82, 0.84, 0.88, 1, 0, 0.95, 0.2);
+        } else if (!both && c.state.populated && p.drill) {
           const d = Math.min(p.size[0], p.size[1]) * 0.82;
           if (isCold) {
             // Cold joint: dull matte grainy grey ball
@@ -953,6 +963,11 @@ export class Renderer {
           // Clipped component lead protruding slightly on opposite side of board
           const leadZ = c.side === 'F' ? -ht - 0.42 : ht + 0.42;
           op.cyl.pushTRS(padPos[0], padPos[1], leadZ, Math.min(0.55, p.drill * 0.65), Math.min(0.55, p.drill * 0.65), 0.72, 0, 0.82, 0.84, 0.88, 1, 0, 0.95, 0.2);
+        }
+        // Thermal shunt: a copper spring clip on the lead, above the board on the part's side
+        if (!both && !thermal && c.state.populated && c.state.shunts?.includes(pi)) {
+          const z = c.side === 'F' ? ht + 1.6 : -ht - 1.6;
+          op.box.pushTRS(padPos[0], padPos[1] + 1.6, z, 1.2, 4.2, 1.0, padRot, 0.78, 0.48, 0.3, 1, 0, 0.9, 0.3);
         }
         // Rework flux residue: a glossy amber rosin film around the joint, on the side it was soldered
         // from (a through-hole joint's solder side, else the pad's side), until scrubbed with alcohol

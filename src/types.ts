@@ -70,6 +70,14 @@ export interface ComponentState {
    * not change the circuit, but high-reliability work removes it with alcohol (NEETS 14 p. 3-25).
    */
   fluxResidue?: number[];
+  /**
+   * Through-hole pads whose solder was taken out in rework: 'clear' = an empty hole, the lead sits
+   * loose (no contact, so the pad is also in `cold`); 'sweat' = a paper-thin film still bonds the
+   * lead to the plated barrel (NEETS 14 p. 3-17: a sweat joint), which conducts and holds the part.
+   */
+  holes?: Record<number, 'clear' | 'sweat'>;
+  /** Through-hole leads (pad indices) with a thermal shunt clipped on (a bench accessory). */
+  shunts?: number[];
   /** Intermittent faults driven by temperature / board flex (see src/intermittent.ts). */
   intermittent?: import('./intermittent').IntermittentSpec[];
 }

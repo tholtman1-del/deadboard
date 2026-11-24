@@ -138,6 +138,68 @@ export const LESSONS: Lesson[] = [
       { ref: 'Q28', q: tk('What are the two final steps of any repair?'), a: tk('Inspect and test.'), page: '3-31' },
     ],
   },
+  {
+    scenario: 'hr-desoldering',
+    title: tk('Desoldering'),
+    source: { ...NEETS14_SOURCE, pages: '3-15 – 3-19' },
+    points: [
+      tk('Most board damage happens during desoldering. First find out what kind of joint holds the part.'),
+      tk('Solder wick (braid soaked in flux) is for surface joints only: it cannot beat the capillary pull of a plated-through hole.'),
+      tk('A manual vacuum plunger never removes all the solder: in a plated hole the lead stays stuck to the wall by a paper-thin sweat joint, and the jolt can lift the pad.'),
+      tk('Continuous (motorized) vacuum is the most reliable: heat the joint, apply vacuum when the solder melts and stir the lead so no sweat joint forms.'),
+      tk('Heat-and-shake and heat-and-pull are never used: they splatter solder, damage plated holes and lift pads.'),
+    ],
+    numbers: [
+      { label: tk('Solder wick'), value: tk('surface joints, unsupported holes') },
+      { label: tk('Manual plunger'), value: tk('leaves a sweat joint in plated holes') },
+      { label: tk('Continuous vacuum'), value: tk('plated holes: the hole comes out clean') },
+    ],
+    figure: { src: 'lessons/neets14/fig-3-10.png', caption: tk('Figure 3-10. Solder wicking.') },
+    original: [
+      'Most of the damage in printed circuit board repair occurs during disassembly or component removal. More specifically, much of this damage occurs during the desoldering process. To remove components for repair or replacement, the technician must first determine the type of joint that is used to connect the component to the board. The technician may then determine the most effective method for desoldering these connections.',
+      'Three generally accepted methods of solder connection removal involve the use of SOLDER WICK, a MANUALLY CONTROLLED VACUUM PLUNGER, or a motorized solder extractor using CONTINUOUS VACUUM AND/OR PRESSURE. Of all the extraction methods currently in use, continuous vacuum is the most versatile and reliable. Desoldering becomes a routine operation and the quantity and quality of desoldering work increases with the use of this technique.',
+      'SOLDER WICKING.—In this technique, finely stranded copper wire or braiding (wick) is saturated with liquid flux. Most commercial wick is impregnated with flux; the liquid flux adds to the effectiveness of the heat transfer and should be used whenever possible. The wick is then applied to a solder joint between the solder and a heated soldering iron tip, as shown in figure 3-10. The combination of heat, molten solder, and air spaced in the wick creates a capillary action and causes the solder to be drawn into the wick.',
+      'This method should be used to remove surface joints only, such as those found on single-sided and double-sided boards without plated-through holes or eyelets. It can also remove excessive solder from flat surfaces and terminals. The reason is that the capillary action of the wicking is not strong enough to overcome the surface tension of the molten solder or the capillary action of the hole.',
+      'MANUALLY CONTROLLED VACUUM PLUNGER.—The second method of removing solder involves a manually controlled and operated, one-shot vacuum source. This vacuum source uses a plunger mechanism with a heat resistant orifice. The vacuum is applied through this orifice. Figure 3-11 shows the latest approved, manual-type desoldering tool. This technique involves melting the solder joint and inserting the solder-extractor tip into the molten solder over the soldering iron tip. The plunger is then released, creating a short pulse of vacuum to remove the molten solder. Although this method offers a positive vacuum, rather than the capillary force of the wicking method, it still has limited application. This method will not remove 100 percent of the solder and may cause circuit pad lifting because of the extremely high vacuum generated and the jarring caused by the plunger action.',
+      'Because 100 percent of the solder cannot be removed, the extraction method is not usually successful with the plated-through solder joint. The component lead in a plated-through hole joint usually rests against the side wall of the hole. Even though most of the molten solder is removed by a vacuum, the small amount of solder left between the lead and side walls causes a SWEAT JOINT to form. A sweat joint is a paper-thin solder joint formed by a minute amount of solder remaining on the conductor lead surfaces.',
+      'Motorized Vacuum Method.—In the motorized vacuum method, the heated tip is applied to the solder joint. When melted solder is observed, the vacuum is activated by the technician causing the solder to be withdrawn from the joint and deposited into the chamber. If the lead is preclipped, it may also be drawn into a holding chamber. To prevent SWEATING (reforming a solder joint) to the side walls of the plated-through hole joint, the lead is "stirred" with the tip while applying the vacuum. This permits cool air to flow into and around the lead and side walls causing them to cool.',
+      'The techniques that have been described represent the successful methods of desoldering components. As mentioned at the beginning of this section, the 2M technician must decide which method is best suited for the type of solder joint. Two commonly used but unacceptable methods of solder removal are heat-and-shake and heat-and-pull methods.',
+      'In the heat-and-shake method, the solder joint is melted and then the molten solder is shaken from the connection. In some cases, the shaking action may include striking the assembly against a surface to shake the molten solder out of the joint. This method should NEVER be used because all the solder may not be removed and the solder may splatter over other areas of the board. In addition, striking the board against a surface can lead to broken boards, damaged components, and lifted pads or conductors.',
+      'The heat-and-pull method uses a soldering iron or gang-heater blocks to melt individual or multiple solder joints. The component leads are pulled when the solder is melted. This method has many shortcomings because of potential damage and should NOT be attempted. Heating blocks are patterned to suit specific configurations; but when used on multiple-lead connections, the joints may not be uniformly heated. Uneven heating results in plated-through hole damage, pad delamination, or blistering. Damage can also result when lead terminations are pulled through the board.',
+    ],
+    task: tk('R2 burned open. Clear both of its plated holes (Solder extractor, X; Bench → Extractor), take it out, fit a new 330 Ω resistor from the Parts bin (8), solder both leads with "+ flux" (flux-cored solder), clean with Isopropyl (0).'),
+    station: 'r350f',
+    grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'loose-solder'],
+    questions: [
+      { ref: 'Q11', q: tk('What procedure involves the use of finely braided copper wire to remove solder?'), a: tk('Wicking.'), page: '3-19' },
+      { ref: 'Q12', q: tk('What is the most effective method of solder removal?'), a: tk('Continuous vacuum.'), page: '3-19' },
+      { ref: 'Q13', q: tk('When, if at all, should the heat-and-shake or the heat-and-pull methods of solder removal be used?'), a: tk('These methods should not be used.'), page: '3-19' },
+    ],
+  },
+  {
+    scenario: 'hr-thermal-shunt',
+    title: tk('Thermal shunt'),
+    source: { ...NEETS14_SOURCE, pages: '3-23' },
+    points: [
+      tk('Diodes, transistors and ICs are heat-sensitive: their leads carry the iron\'s heat into the body.'),
+      tk('Before heat is applied, clip a thermal shunt on the lead, between the joint and the body. It conducts heat away from the part.'),
+      tk('Copper is the usual shunt metal (large heat content, high conductivity); aluminium where the clip\'s weight could damage the part.'),
+      tk('The most common shunt is a spring clip, like an alligator clip, that fastens onto the lead.'),
+    ],
+    numbers: [
+      { label: tk('2N3904 storage temperature (onsemi datasheet)'), value: '−55 … +150 °C' },
+    ],
+    figure: { src: 'lessons/neets14/fig-3-16.png', caption: tk('Figure 3-16. Thermal shunt.') },
+    original: [
+      'Before heat is applied to solder the joint, a thermal shunt is attached to sensitive component leads (diodes, transistors, and ICs). A thermal shunt is used to conduct heat away from the component. Because of its large heat content and high thermal conductivity, copper is usually used to make thermal shunts. Aluminum also has good conductivity but a smaller heat content; it is also used to conduct heat, especially if damage from the physical weight of the clamp is possible. Many types, shapes, and sizes of thermal shunts are available. The most commonly used is the clamp design; this is a spring clip (similar to an alligator clip) that easily fastens onto the part lead, as shown in figure 3-16.',
+    ],
+    task: tk('Q1\'s base and collector joints are dull. Clip a Thermal shunt (S) on each of those leads before you heat them, then hold the iron on each joint. The inspector checks that every transistor lead you heated had its shunt.'),
+    station: 'r350f',
+    grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'no-shunt'],
+    questions: [
+      { ref: 'Q22', q: tk('What term describes a device used to conduct heat away from a component?'), a: tk('A thermal shunt.'), page: '3-25' },
+    ],
+  },
 ];
 
 export function lessonFor(scenarioId: string): Lesson | undefined {

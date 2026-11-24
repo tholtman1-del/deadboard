@@ -42,6 +42,8 @@ const FIXES: Record<string, (b: Board) => void> = {
   'hr-solder-flux': (b) => { toggleCold(part(b, 'R1'), 1); toggleCold(part(b, 'D2'), 0); toggleCold(part(b, 'R3'), 0); },
   'hr-heat-time': (b) => { toggleCold(part(b, 'D1'), 0); toggleCold(part(b, 'R2'), 1); },
   'hr-clean-inspect': (b) => { unblob(b); toggleCold(part(b, 'R1'), 0); },
+  'hr-desoldering': (b) => installPart(part(b, 'R2'), { value: 330 }),
+  'hr-thermal-shunt': (b) => { toggleCold(part(b, 'Q1'), 1); toggleCold(part(b, 'Q1'), 2); },
 };
 
 async function fixed(sc: Scenario, solver: Solver): Promise<Board> {

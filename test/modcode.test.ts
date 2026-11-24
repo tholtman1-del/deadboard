@@ -172,12 +172,13 @@ async function run() {
     // the bench check of a code solver
     const r = await checkMods([ex], await shippedBoards(), undefined, h2);
     const f = r.findings.find((x) => x.item === addr);
-    // it agrees on every board except the transistor switch (the example models no transistors, its
-    // description says so) and the soldering-track boards (its LED is a fixed 1.89 V red drop; their red
-    // LED runs at 9 mA, where SPICE reads 2.00 V): the bench check rightly warns the author about those
+    // it agrees on every board except the transistor boards (the example models no transistors, its
+    // description says so: Transistor Switch, Thermal Shunt) and the other soldering-track boards (its LED
+    // is a fixed 1.89 V red drop; their red LED runs at 9 mA, where SPICE reads 2.00 V): the bench check
+    // rightly warns the author about those
     const differs = (f?.text.split('Differs on: ')[1] ?? '').split('; ').map((x) => x.split(' (')[0]);
     assert(f?.level === 'warn' && /agrees with the official solvers on 11\b/.test(f.text)
-      && differs.join('|') === 'Transistor Switch|Solder and Flux|Heat and Time|Clean and Inspect'
+      && differs.join('|') === 'Transistor Switch|Solder and Flux|Heat and Time|Clean and Inspect|Desoldering|Thermal Shunt'
       && !r.findings.some((x) => x.level === 'fail'), `bench check: agrees everywhere but the transistor switch and the LED drop on the soldering track:\n${formatReport(r)}`);
     h2.stopAll();
     const noCode = await checkMods([ex], await shippedBoards());

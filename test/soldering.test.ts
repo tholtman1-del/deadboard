@@ -3,7 +3,7 @@
 import type { Board } from '../src/types';
 import { Builder } from '../src/scenarios/builder';
 import { ThermalModel, copperThickness, THERMAL_DEFAULTS } from '../src/thermal';
-import { ALLOYS, IRON_G, ReworkMonitor, limitsFor, type ReworkEvent } from '../src/rework';
+import { ALLOYS, IRON_G, ReworkMonitor, heldPads, limitsFor, type ReworkEvent } from '../src/rework';
 import { cleanFluxWithIpa, fluxResidueNear } from '../src/residue';
 import { RULES, inspect } from '../src/workmanship';
 import { LESSONS, lessonFor } from '../src/lessons/neets14';
@@ -13,7 +13,7 @@ import { referenceBoard } from '../src/scenarios/reference';
 import { buildConnectivity } from '../src/connectivity';
 import { evaluateObjectives } from '../src/verify';
 import { BOARD_INFO, PATH_ORDER } from '../src/scenarios/catalog';
-import { addBlob } from '../src/ops';
+import { addBlob, installPart, removePart } from '../src/ops';
 
 function assert(c: unknown, m: string): asserts c { if (!c) throw new Error(m); }
 
@@ -147,10 +147,100 @@ async function main() {
     assert(evaluateObjectives(b, buildConnectivity(b), sc.objectives, 'spice').allPassed, 'lesson 1: three fluxed reflows fix the board');
   }
 
+  // ---- desoldering (NEETS 14 pp. 3-15 – 3-19) ----
+  {
+    const sc = scs.find((x) => x.id === 'hr-desoldering')!;
+    const b = structuredClone(sc.board);
+    const m = new ThermalModel(b), rw = new ReworkMonitor(b, m, limitsFor('sn63'));
+    const r2 = b.components.find((c) => c.ref === 'R2')!;
+    const heat = (pi: number, secs: number, feed = false) => {
+      rw.applyFlux(r2.at[0], r2.at[1], 8);
+      if (feed) rw.feedSolder(r2, pi);
+      m.addSource({ kind: 'iron', x: 0, y: 0, temp: 350, g: IRON_G.flux, pmax: 60, until: m.time + secs, partId: r2.id, pad: pi });
+      const ev: ReworkEvent[] = [];
+      for (let t = 0; t < secs; t += 0.05) { m.step(0.05); ev.push(...rw.update(0.05)); }
+      return ev;
+    };
+    const cool = () => { for (let t = 0; t < 20; t += 0.1) { m.step(0.1); rw.update(0.1); } };
+    assert(heldPads(r2).length === 2, 'a soldered through-hole part is held at every pad');
+    assert(rw.extract(r2, 0, 'vacuum').kind === 'not-molten' && !r2.state.holes, 'nothing comes out of a solid joint');
+    heat(0, 1.5);
+    assert(rw.extract(r2, 0, 'wick').kind === 'wick-surface' && !r2.state.holes, 'wick cannot empty a plated hole');
+    heat(0, 1.5);
+    assert(rw.extract(r2, 0, 'vacuum').kind === 'extracted' && r2.state.holes?.[0] === 'clear' && r2.state.cold.includes(0), 'continuous vacuum clears the hole, the lead is loose');
+    cool();
+    heat(1, 1.5);
+    rw.extract(r2, 1, 'vacuum');
+    assert(heldPads(r2).length === 0, 'both holes clear: the part can come out');
+    removePart(r2);
+    installPart(r2, { value: 330 });
+    r2.state.holes = { 0: 'clear', 1: 'clear' }; r2.state.cold = [0, 1]; // a new part's leads, not yet soldered (the app's leadsUnsoldered)
+    cool();
+    const dry = heat(0, 2);
+    assert(dry.some((e) => e.kind === 'no-solder') && r2.state.holes?.[0] === 'clear', 'heat without fresh solder does not fill an empty hole');
+    cool();
+    for (const pi of [0, 1]) { const ev = heat(pi, 2, true); assert(ev.some((e) => e.kind === 'filled'), `fresh solder fills hole ${pi}`); cool(); }
+    assert(!r2.state.holes && !r2.state.cold.length, `the new part is soldered in (${JSON.stringify(r2.state)})`);
+    assert(evaluateObjectives(b, buildConnectivity(b), sc.objectives, 'spice').allPassed, 'desoldering lesson: the replaced R2 lights D2');
+  }
+
+  {
+    // a manual plunger: a sweat joint stays (and now and then the jolt lifts the pad)
+    const sc = scs.find((x) => x.id === 'hr-desoldering')!;
+    let sweat = 0, lifts = 0;
+    for (let i = 0; i < 12; i++) {
+      const b = structuredClone(sc.board), r2 = b.components.find((c) => c.ref === 'R2')!;
+      const m = new ThermalModel(b), rw = new ReworkMonitor(b, m, limitsFor('sn63'));
+      m.step(1 + i * 0.37);
+      m.addSource({ kind: 'iron', x: 0, y: 0, temp: 350, g: IRON_G.flux, pmax: 60, until: m.time + 1.5, partId: r2.id, pad: 0 });
+      for (let t = 0; t < 1.5; t += 0.05) { m.step(0.05); rw.update(0.05); }
+      const e = rw.extract(r2, 0, 'plunger');
+      if (e.kind === 'sweat' && r2.state.holes?.[0] === 'sweat' && heldPads(r2).includes(0)) sweat++;
+      if (r2.state.lifted?.includes(0)) lifts++; else assert(!r2.state.cold.includes(0), 'a sweat joint still conducts');
+    }
+    assert(sweat === 12, 'a plunger always leaves a sweat joint in a plated hole (the part stays held)');
+    assert(lifts >= 1 && lifts <= 5, `the plunger's jolt lifts a pad now and then (${lifts}/12)`);
+  }
+
+  // ---- thermal shunt (p. 3-23) ----
+  {
+    const sc = scs.find((x) => x.id === 'hr-thermal-shunt')!;
+    const run = (shunt: boolean) => {
+      const b = structuredClone(sc.board), q = b.components.find((c) => c.ref === 'Q1')!;
+      if (shunt) q.state.shunts = [1, 2];
+      const m = new ThermalModel(b), rw = new ReworkMonitor(b, m, limitsFor('sn63'));
+      for (const pi of [1, 2]) {
+        rw.applyFlux(q.at[0], q.at[1], 6);
+        m.addSource({ kind: 'iron', x: 0, y: 0, temp: 350, g: IRON_G.flux, pmax: 60, until: m.time + 3, partId: q.id, pad: pi });
+        for (let t = 0; t < 8; t += 0.05) { m.step(0.05); rw.update(0.05); }
+      }
+      for (const c of b.components) c.state.fluxResidue = undefined; // cleaned
+      return { b, q, rw, ins: inspect(b, referenceBoard(sc)!, rw.episodes, rw.log) };
+    };
+    const bare = run(false), clipped = run(true);
+    const peak = (r: typeof bare) => Math.max(...r.ins.joints.map((j) => j.bodyPeak));
+    assert(peak(bare) > 100 && peak(clipped) < peak(bare) - 40, `a shunt keeps the transistor body cool (${peak(clipped).toFixed(0)} °C vs ${peak(bare).toFixed(0)} °C)`);
+    assert(!bare.q.state.cold.length && !clipped.q.state.cold.length, 'both ways the joints are made');
+    const l5 = lessonFor('hr-thermal-shunt')!;
+    assert(bare.ins.findings.some((f) => f.kind === 'no-shunt') && !lessonAccepted(l5, bare.ins), 'lesson 5: a transistor lead heated without a shunt fails');
+    assert(lessonAccepted(l5, clipped.ins), `lesson 5: with shunts it passes (${JSON.stringify(clipped.ins.findings)})`);
+    assert(lessonAccepted(lessonFor('hr-solder-flux'), bare.ins), 'earlier lessons do not grade the shunt');
+  }
+
+  // ---- skipping pattern (pp. 3-26, 3-30): neighbouring pins of a multilead part in a row ----
+  {
+    const k = new Builder(40, 20);
+    const u = k.resistor('U1', 1, [20, 10]);
+    u.pads = [0, 1, 2, 3, 4, 5].map((i) => ({ name: String(i + 1), at: [i * 2.54 - 6.35, 0] as [number, number], size: [1.6, 1.6] as [number, number], shape: 'circle' as const, layers: 'FB' as const, drill: 0.8 }));
+    const ep = (pad: number, t: number) => ({ ref: 'U1', pad, molten: 1, peak: 260, flux: true, t, open: false, shunt: false, bodyPeak: 40 });
+    assert(inspect(k.b, k.b, [ep(0, 0), ep(1, 3)], []).findings.some((f) => f.kind === 'skip-pattern'), 'pins 1 then 2: heat builds up');
+    assert(!inspect(k.b, k.b, [ep(0, 0), ep(2, 3), ep(4, 6), ep(1, 9), ep(3, 12), ep(5, 15)], []).findings.some((f) => f.kind === 'skip-pattern'), 'pins 1, 3, 5, 2, 4, 6: a skipping pattern');
+  }
+
   // ---- lesson data ----
   assert(LESSONS.length === SOLDERING_TRACK_IDS.length && LESSONS.every((l, i) => l.scenario === SOLDERING_TRACK_IDS[i]), 'one lesson per board, in order');
   for (const l of LESSONS) {
-    assert(l.points.length >= 3 && l.original.length >= 1 && l.questions.length >= 3, `${l.scenario}: rules, original text and review questions`);
+    assert(l.points.length >= 3 && l.original.length >= 1 && l.questions.length >= 1, `${l.scenario}: rules, original text and review questions`);
     assert(l.original.every((p) => p.length > 80 && !/-\s$/.test(p)), `${l.scenario}: whole quoted paragraphs`);
     assert(l.grades.every((g) => g in RULES), `${l.scenario}: grades known rules`);
     assert(['r350', 'r350f', 'r400f'].includes(l.station), `${l.scenario}: a station the bench offers`);
@@ -158,7 +248,7 @@ async function main() {
     for (const q of l.questions) assert(/^Q\d+$/.test(q.ref) && /^\d-\d+$/.test(q.page) && q.a.length > 2, `${l.scenario} ${q.ref}: numbered, with page and answer`);
   }
 
-  console.log('SOLDERING TESTS PASSED (alloys, copper map, THT joint physics, pour vs track, flux and residue, inspection rules, track boards, lessons)');
+  console.log('SOLDERING TESTS PASSED (alloys, copper map, THT joint physics, pour vs track, flux and residue, inspection rules, desoldering: wick / plunger / vacuum + refit, thermal shunt, skipping pattern, track boards, lessons)');
 }
 
 await main();

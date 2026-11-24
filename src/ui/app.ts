@@ -52,7 +52,7 @@ import { cleanFluxWithIpa, cleanWithIpa, fluxResidueNear, residueNear } from '..
 import { discoverPowerTree, railVoltage, type PowerTree } from '../spice/powertree';
 import { fmtHz, sampleSignal, signalOn, type ScopeSignal } from '../scope';
 import type { PowerStateName } from '../spice/sequencer';
-import { HOTAIR_H, IRON_G, PREHEAT_H, ReworkMonitor, limitsFor, type ReworkEvent, type ReworkHistory } from '../rework';
+import { HOTAIR_H, IRON_G, PREHEAT_H, ReworkMonitor, VACUUM_SECONDS, heldPads, isThroughHole, limitsFor, type ExtractMode, type ReworkEvent, type ReworkHistory } from '../rework';
 import { inspect, type Inspection } from '../workmanship';
 import { lessonFor } from '../lessons/neets14';
 import { SOLDERING_TRACK_IDS } from '../scenarios/soldering';
@@ -75,7 +75,7 @@ import { beginnerPrimerHtml, CHALLENGE_TRACK_IDS, lessonDock, TUTORIAL_SCENARIO_
 import { TOOL_SHORT, TOOL_TIP_PHONE, TouchGestures, splitLead, touchCopy, wantsMobileLayout } from './touch';
 import { cursorStops, describeAt, stepToward } from './boardcursor';
 
-type ToolId = 'inspect' | 'dmm' | 'iron' | 'wick' | 'flip180' | 'jumper' | 'knife' | 'replace' | 'freeze' | 'ipa' | 'press' | 'hotair' | 'scope' | 'rosin';
+type ToolId = 'inspect' | 'dmm' | 'iron' | 'wick' | 'flip180' | 'jumper' | 'knife' | 'replace' | 'freeze' | 'ipa' | 'press' | 'hotair' | 'scope' | 'rosin' | 'extract' | 'shunt';
 type PanelTab = 'mission' | 'inspect' | 'studio' | 'mods';
 type DmmMode = 'V' | 'OHM' | 'DIODE' | 'CAP' | 'AMP';
 
@@ -101,6 +101,8 @@ const TOOLS: { id: ToolId; key: string; ico: string; lbl: string; tip: string }[
   { id: 'rosin', key: 'r', ico: 'rosin', lbl: tk('Rosin'), tip: tk('Rosin method: coat an area white with rosin; on a powered board it melts clear first on the hottest part') },
   { id: 'scope', key: 'o', ico: 'scope', lbl: tk('Oscilloscope'), tip: tk('Clip the scope probe (CH1) on a net: rail ramps and boot loops (Roll), switching nodes, ripple and clocks (Auto)') },
   { id: 'press', key: 'b', ico: 'hand', lbl: tk('Press / flex'), tip: tk('Press on the board for 2.5 s: reveals cracked joints that open or close under flex') },
+  { id: 'extract', key: 'x', ico: 'extract', lbl: tk('Solder extractor'), tip: tk('Desoldering a through-hole joint: hold the heated tip on it until the solder is sucked out (Bench: continuous vacuum or a manual plunger)') },
+  { id: 'shunt', key: 's', ico: 'clip', lbl: tk('Thermal shunt'), tip: tk('Clip a heat sink on a through-hole lead (click its pad) so the part stays cool while you solder; click again to take it off') },
 ];
 
 /** Board kinds in the picker's Type filter. */
@@ -217,12 +219,16 @@ export class PcbApp {
   private rework: ReworkMonitor | null = null;
   /** Rework: 'instant' (puzzle mode) or a physical process with iron temperature and flux. */
   private reworkMode: { realistic: boolean; ironTemp: number; flux: boolean } = { realistic: false, ironTemp: 350, flux: true };
+  /** Solder extractor: a motorized continuous vacuum, or a one-shot manual plunger. */
+  private extractMode: 'vacuum' | 'plunger' = 'vacuum';
+  /** A timed desoldering action (plunger shot or wick) that fires when its heating is done (thermal time). */
+  private pendingExtract: { comp: Component; pad: number; mode: ExtractMode; at: number } | null = null;
   /** The player's own rework setting while a lesson board sets the station (restored after). */
   private savedRework: { realistic: boolean; ironTemp: number; flux: boolean } | null = null;
   /** Everything rework did on this board (kept across undo, which swaps the board object). */
   private workHistory: ReworkHistory = { episodes: [], log: [] };
   /** The iron held on a joint (realistic rework): released on pointer / key up. */
-  private ironHold: { src: { until: number }; start: number; where: string; el: HTMLElement | null; comp: Component; pad: number } | null = null;
+  private ironHold: { src: { until: number }; start: number; where: string; el: HTMLElement | null; comp: Component; pad: number; vacuum: boolean; done: boolean } | null = null;
   /** Soldering-track lesson dialog: before the repair, or the inspection after it. */
   private showLesson: 'brief' | 'debrief' | null = null;
   private lastInspection: Inspection | null = null;
@@ -839,6 +845,10 @@ export class PcbApp {
               <option value="r350">${t('Iron 350 °C, dry')}</option>
               <option value="r400f">${t('Iron 400 °C + flux')}</option>
             </select></label>
+            <label class="bench-row"><span>${t('Extractor')}</span><select id="extract-mode" title="${t('Solder extractor: continuous vacuum (motorized) or a one-shot manual plunger')}">
+              <option value="vacuum">${t('Continuous vacuum')}</option>
+              <option value="plunger">${t('Manual plunger')}</option>
+            </select></label>
             <label class="bench-row"><span>${t('Preheater')}</span><select id="preheat" title="${t('Bottom preheater')}">
               <option value="0">${t('No preheat')}</option>
               <option value="120">${t('Preheat {deg}°', { deg: 120 })}</option>
@@ -1090,7 +1100,7 @@ export class PcbApp {
         e.stopPropagation();
         if (!this.kbActive) { this.kbEnter(); return; }
         // realistic iron: Enter held = tip held on the joint
-        if (this.activeTool === 'iron' && this.reworkMode.realistic && this.kbCursor) {
+        if (this.holdsTool() && this.kbCursor) {
           if (e.repeat || this.ironHold) return;
           if (this.beginIronHold(this.kbCursor.pt, this.kbCursor.side)) return;
         }
@@ -1863,7 +1873,8 @@ export class PcbApp {
   private lookHereHtml(sc: Scenario): string {
     const v = this.lastVerify;
     const ref = referenceBoard(sc);
-    if (!v || v.allPassed || !ref) return '';
+    // a soldering lesson says which joints are bad and how to fix them: its help is the lesson
+    if (!v || v.allPassed || !ref || lessonFor(sc.id)) return '';
     const mine = this.lookHere?.forVerify === v ? this.lookHere : null;
     const got = mine?.candidates ?? null;
     const busy = !!mine && !got;
@@ -2445,7 +2456,7 @@ export class PcbApp {
       if (e.kind === 'molten') continue;
       changed = true;
       const bad = e.kind === 'pad-lifted' || e.kind === 'part-overheated' || e.kind === 'mlcc-cracked' || e.kind === 'part-displaced' || e.kind === 'dull-joint';
-      this.toast(e.detail, bad ? 'danger' : 'success');
+      this.toast(e.detail, bad ? 'danger' : e.kind === 'no-solder' ? 'warn' : 'success');
       if (e.kind === 'reflowed') sfxSolder();
     }
     if (changed) { this.recompute(true); this.renderUI(); }
@@ -3075,6 +3086,9 @@ export class PcbApp {
       this.setRework(sel.value);
       if (this.reworkMode.realistic) this.toast(t('Realistic rework: joints melt, pads lift and parts crack from the actual heat you apply. Watch the Thermal view.'), 'info');
     });
+    q('#extract-mode').addEventListener('change', (e) => {
+      this.extractMode = (e.target as HTMLSelectElement).value === 'plunger' ? 'plunger' : 'vacuum';
+    });
     q('#preheat').addEventListener('change', (e) => {
       this.preheatTemp = Number((e.target as HTMLSelectElement).value) || 0;
       if (!this.preheatTemp && this.thermal) this.thermal.sources = this.thermal.sources.filter((x) => x.kind !== 'preheat');
@@ -3462,7 +3476,7 @@ export class PcbApp {
       e.preventDefault();
       this.hovered = null;
       // realistic iron: a finger on a joint holds the tip there until it lifts
-      if (!this.gestures.active && this.touchIron === null && this.activeTool === 'iron' && this.reworkMode.realistic) {
+      if (!this.gestures.active && this.touchIron === null && this.holdsTool()) {
         const at = this.clientToBoard(e.clientX, e.clientY);
         if (at && this.beginIronHold(at.pt, at.side)) { this.touchIron = e.pointerId; return; }
       }
@@ -3504,7 +3518,7 @@ export class PcbApp {
 
     if (e.target !== this.canvas) return;
     const { sx, sy, w, h } = this.canvasPt(e);
-    if (e.button === 0 && !this.spaceHeld && this.activeTool === 'iron' && this.reworkMode.realistic) {
+    if (e.button === 0 && !this.spaceHeld && this.holdsTool()) {
       const at = this.resolveBoardPt(this.camera.screenToBoard(sx, sy, w, h, this.board.thickness));
       if (at && this.beginIronHold(at.pt, at.side)) { this.dragMode = 'iron'; return; }
     }
@@ -3607,15 +3621,20 @@ export class PcbApp {
    * model; the rework monitor decides what the solder does. False when the point is not a joint.
    */
   private beginIronHold(pt: V2, side: Side): boolean {
-    if (this.activeTool !== 'iron' || !this.reworkMode.realistic) return false;
+    // the iron, or the extractor's heated vacuum tip (a plunger is a click: heat, then one shot)
+    const vacuum = this.activeTool === 'extract' && this.extractMode === 'vacuum';
+    if ((this.activeTool !== 'iron' && !vacuum) || !this.reworkMode.realistic) return false;
     const hit = pickAt(this.board, pt, side, this.vizMode === 'xray');
     if (hit?.kind !== 'pad' || !hit.comp.state.populated) return false;
+    if (vacuum && !isThroughHole(hit.comp)) return false;
     this.endIronHold();
     this.noteOnce('tool');
-    this.attempts?.tool('iron');
+    this.attempts?.tool(this.activeTool);
     if (!this.thermal) this.updateThermalPower();
     this.pushUndo();
     if (this.reworkMode.flux) this.rework!.applyFlux(hit.pos[0], hit.pos[1], 2);
+    // flux-cored solder fed to the joint (the station's "+ flux"): fills an empty hole; the vacuum tip feeds none
+    if (this.reworkMode.flux && !vacuum) this.rework!.feedSolder(hit.comp, hit.padIndex);
     // fluxed (fresh flux-cored solder, or rosin put on the joint): the tip wets and transfers heat; dry it barely does
     const wet = this.reworkMode.flux || !!this.rework?.hasFlux(hit.comp);
     const src = { kind: 'iron' as const, x: hit.pos[0], y: hit.pos[1], temp: this.reworkMode.ironTemp, g: wet ? IRON_G.flux : IRON_G.dry, pmax: 60, until: this.thermal!.time + 30, partId: hit.comp.id, pad: hit.padIndex };
@@ -3624,9 +3643,14 @@ export class PcbApp {
     const vp = this.mount.querySelector<HTMLElement>('#viewport');
     const el = vp ? document.createElement('div') : null;
     if (el && vp) { el.className = 'iron-hud mono'; el.setAttribute('aria-hidden', 'true'); vp.appendChild(el); }
-    this.ironHold = { src, start: performance.now(), where: `${hit.comp.ref}.${hit.comp.pads[hit.padIndex].name}`, el, comp: hit.comp, pad: hit.padIndex };
+    this.ironHold = { src, start: performance.now(), where: `${hit.comp.ref}.${hit.comp.pads[hit.padIndex].name}`, el, comp: hit.comp, pad: hit.padIndex, vacuum, done: false };
     this.updateIronHud();
     return true;
+  }
+
+  /** The active tool is held on a joint (realistic rework): the iron, or the extractor's vacuum tip. */
+  private holdsTool(): boolean {
+    return this.reworkMode.realistic && (this.activeTool === 'iron' || (this.activeTool === 'extract' && this.extractMode === 'vacuum'));
   }
 
   /** Lifts the iron. A tap that never held it says how it is used. */
@@ -3647,8 +3671,61 @@ export class PcbApp {
     if (!h?.el) return;
     const sec = (performance.now() - h.start) / 1000;
     const molten = !!this.thermal && !!this.rework && this.thermal.jointTemp(h.comp, h.pad) >= this.rework.limits.alloy.liquidus;
-    h.el.textContent = `${h.where} · ${sec.toFixed(1)} s${molten ? ` · ${t('molten')}` : ''}`;
+    // continuous vacuum: once the joint has been molten long enough (lead stirred), the hole empties
+    if (h.vacuum && !h.done && this.rework && this.rework.moltenFor(h.comp, h.pad) >= VACUUM_SECONDS) {
+      h.done = true;
+      this.showExtract(h.comp, h.pad, this.rework.extract(h.comp, h.pad, 'vacuum'));
+    }
+    h.el.textContent = `${h.where} · ${sec.toFixed(1)} s${molten ? ` · ${t('molten')}` : ''}${h.vacuum ? ` · ${h.done ? t('hole clear') : t('vacuum')}` : ''}`;
     h.el.classList.toggle('molten', molten);
+  }
+
+  /** What a desoldering action did: a toast, and the board re-solved (a cleared hole opens the joint). */
+  private showExtract(c: Component, pad: number, e: ReworkEvent) {
+    const liftedNow = e.kind === 'sweat' && !!c.state.lifted?.includes(pad);
+    this.toast(e.detail, e.kind === 'extracted' ? 'success' : e.kind === 'not-molten' ? 'warn' : 'info');
+    if (liftedNow) this.toast(t('{ref} pad {pad} lifted by the plunger\'s jolt — needs a jumper wire', { ref: c.ref, pad: c.pads[pad].name }), 'danger');
+    if (e.kind === 'extracted' || e.kind === 'sweat') sfxSolder();
+    this.recompute(true);
+    this.renderUI();
+  }
+
+  /** A plunger shot or a wick pass: heat the joint for 2 s through the tool, then take the solder. */
+  private startTimedExtract(c: Component, pad: number, pos: V2, side: Side, mode: ExtractMode) {
+    if (!this.thermal) this.updateThermalPower();
+    this.pushUndo();
+    if (this.reworkMode.flux || mode === 'wick') this.rework!.applyFlux(pos[0], pos[1], 2); // wick comes impregnated with flux
+    this.thermal!.addSource({ kind: 'iron', x: pos[0], y: pos[1], temp: this.reworkMode.ironTemp, g: IRON_G.flux, pmax: 60, until: this.thermal!.time + 2, partId: c.id, pad });
+    this.pendingExtract = { comp: c, pad, mode, at: this.thermal!.time + 2 };
+    this.renderer.spawnSmoke(pos[0], pos[1], side, this.board.thickness, 'flux');
+    this.toast(mode === 'wick'
+      ? t('Wick and iron on {ref} pad {pad}…', { ref: c.ref, pad: c.pads[pad].name })
+      : t('Heating {ref} pad {pad}: the plunger fires in 2 s…', { ref: c.ref, pad: c.pads[pad].name }), 'info');
+  }
+
+  /**
+   * Realistic rework on a through-hole part: it comes out only when every lead is free (NEETS 14
+   * p. 3-19: heat-and-pull is never used), and a new one goes in with its leads still to solder.
+   * Returns false (and says why) when the bench does not allow the action.
+   */
+  private benchAllows(c: Component, action: 'remove' | 'replace' | 'reflow'): boolean {
+    if (!this.reworkMode.realistic || !isThroughHole(c)) return true;
+    if (action === 'reflow') { this.toast(t('Realistic rework: hold the Soldering iron (3) on each joint.'), 'info'); return false; }
+    if (!c.state.populated) return true;
+    const held = heldPads(c);
+    if (!held.length) return true;
+    const names = held.map((i) => c.pads[i].name).join(', ');
+    this.toast(action === 'replace'
+      ? t('Take the old {ref} out first: its leads are still soldered (pads {pads}).', { ref: c.ref, pads: names })
+      : t('{ref} is still held at pads {pads}: clear those holes first (Solder extractor, X). Pulling it now would tear the pads.', { ref: c.ref, pads: names }), 'warn');
+    return false;
+  }
+
+  /** A new through-hole part in realistic rework: leads through empty holes, every joint still to make. */
+  private leadsUnsoldered(c: Component) {
+    if (!this.reworkMode.realistic || !isThroughHole(c)) return;
+    c.state.holes = Object.fromEntries(c.pads.map((_, i) => [i, 'clear' as const]));
+    c.state.cold = c.pads.map((_, i) => i);
   }
 
   /** A touch tap on the board: the active tool at that point (the meter places the active probe). */
@@ -3923,6 +4000,32 @@ export class PcbApp {
       return;
     }
 
+    if (this.activeTool === 'extract') {
+      if (!this.reworkMode.realistic) { this.toast(t('The solder extractor works in realistic rework (Bench → Rework).'), 'info'); return; }
+      if (hit?.kind !== 'pad' || !hit.comp.state.populated || !isThroughHole(hit.comp)) { this.toast(t('Put the extractor on a through-hole joint (a pad).'), 'info'); return; }
+      if (this.extractMode === 'plunger') this.startTimedExtract(hit.comp, hit.padIndex, hit.pos, side, 'plunger');
+      else this.toast(t('Hold the vacuum tip on the joint until the solder is out.'), 'info');
+      return;
+    }
+    if (this.activeTool === 'shunt') {
+      if (hit?.kind !== 'pad' && hit?.kind !== 'comp') { this.toast(t('Click a through-hole pad to clip the shunt on its lead.'), 'info'); return; }
+      const c = hit.comp;
+      if (!c.state.populated || !isThroughHole(c)) { this.toast(t('A thermal shunt clips on a through-hole lead.'), 'info'); return; }
+      const pi = hit.kind === 'pad' ? hit.padIndex : 0;
+      this.pushUndo();
+      const on = !c.state.shunts?.includes(pi);
+      const rest = (c.state.shunts ?? []).filter((x) => x !== pi);
+      c.state.shunts = on ? [...rest, pi].sort((a, b) => a - b) : rest.length ? rest : undefined;
+      sfxClick();
+      this.toast(on ? t('Thermal shunt clipped on {ref} pad {pad}\'s lead.', { ref: c.ref, pad: c.pads[pi].name }) : t('Thermal shunt taken off {ref} pad {pad}.', { ref: c.ref, pad: c.pads[pi].name }), 'info');
+      this.renderUI();
+      return;
+    }
+    if (this.activeTool === 'iron' && this.reworkMode.realistic && hit?.kind === 'comp') {
+      // the iron goes on joints; an empty footprint is filled from the parts bin
+      this.toast(hit.comp.state.populated ? t('Hold the iron on a joint (a pad), not the part.') : t('Fit a part from the Parts bin (8), then solder its leads.'), 'info');
+      return;
+    }
     if (this.activeTool === 'iron' && this.reworkMode.realistic && hit?.kind === 'pad' && hit.comp.state.populated) {
       // physical process: 1.5 s of tip contact; the monitor decides what the joint does
       if (!this.thermal) this.updateThermalPower();
@@ -4017,9 +4120,14 @@ export class PcbApp {
         this.renderUI();
         return;
       }
+      if (hit?.kind === 'pad' && this.reworkMode.realistic && hit.comp.state.populated && isThroughHole(hit.comp)) {
+        this.startTimedExtract(hit.comp, hit.padIndex, hit.pos, side, 'wick');
+        return;
+      }
       if (hit?.kind === 'comp' || hit?.kind === 'pad') {
         const c = hit.comp;
-        if (c.state.populated && this.reworkMode.realistic && !this.rework?.isMolten(c)) {
+        if (c.state.populated && !this.benchAllows(c, 'remove')) return;
+        if (c.state.populated && this.reworkMode.realistic && !isThroughHole(c) && !this.rework?.isMolten(c)) {
           this.toast(t('{ref}: joints are not molten — heat the part with hot air first (preheat helps on plane-heavy boards).', { ref: c.ref }), 'info');
           return;
         }
@@ -5168,6 +5276,7 @@ export class PcbApp {
       this.renderInspectTab();
     });
     this.sideBodyEl.querySelector('#act-reflow')?.addEventListener('click', () => {
+      if (!this.benchAllows(c, 'reflow')) return;
       this.pushUndo();
       c.state.cold = [];
       sfxSolder();
@@ -5176,14 +5285,17 @@ export class PcbApp {
     });
     this.sideBodyEl.querySelector('#act-fit')?.addEventListener('click', () => {
       // a fresh part of the same type and value (value fields below change it)
+      if (!this.benchAllows(c, 'replace')) return;
       this.pushUndo();
       installPart(c, { ...(c.value > 0 && { value: c.value }) });
+      this.leadsUnsoldered(c);
       sfxSolder();
       this.recompute(false);
       this.toast(t('Fitted a new {ref}', { ref: c.ref }), 'success');
       this.renderInspectTab();
     });
     this.sideBodyEl.querySelector('#act-desolder')?.addEventListener('click', () => {
+      if (!this.benchAllows(c, 'remove')) return;
       this.pushUndo();
       removePart(c);
       sfxSolder();
@@ -5193,8 +5305,10 @@ export class PcbApp {
     this.sideBodyEl.querySelector('#sel-e12')?.addEventListener('change', (e) => {
       const v = Number((e.target as HTMLSelectElement).value);
       if (v > 0) {
+        if (!this.benchAllows(c, 'replace')) return;
         this.pushUndo();
         installPart(c, { value: v, reversed: c.state.reversed });
+        this.leadsUnsoldered(c);
         sfxSolder();
         this.recompute(false);
         this.renderInspectTab();
@@ -5204,16 +5318,20 @@ export class PcbApp {
       const raw = (this.sideBodyEl.querySelector('#inp-res-val') as HTMLInputElement).value;
       const v = parseValue(raw);
       if (!Number.isFinite(v) || v <= 0) { this.toast(t('Invalid resistor value'), 'danger'); return; }
+      if (!this.benchAllows(c, 'replace')) return;
       this.pushUndo();
       installPart(c, { value: v, reversed: c.state.reversed });
+      this.leadsUnsoldered(c);
       sfxSolder();
       this.recompute(false);
       this.renderInspectTab();
     });
     this.sideBodyEl.querySelector('#act-install-led')?.addEventListener('click', () => {
       const col = (this.sideBodyEl.querySelector('#sel-led-col') as HTMLSelectElement).value as LedColor;
+      if (!this.benchAllows(c, 'replace')) return;
       this.pushUndo();
       installPart(c, { color: col, reversed: c.state.reversed });
+      this.leadsUnsoldered(c);
       sfxSolder();
       this.recompute(false);
       this.renderInspectTab();
@@ -5221,8 +5339,10 @@ export class PcbApp {
     this.sideBodyEl.querySelector('#act-install-fuse')?.addEventListener('click', () => {
       const v = Number((this.sideBodyEl.querySelector('#inp-fuse-val') as HTMLInputElement).value);
       if (!Number.isFinite(v) || v <= 0) { this.toast(t('Invalid fuse rating'), 'danger'); return; }
+      if (!this.benchAllows(c, 'replace')) return;
       this.pushUndo();
       installPart(c, { value: v });
+      this.leadsUnsoldered(c);
       sfxSolder();
       this.recompute(false);
       this.renderInspectTab();
@@ -5231,8 +5351,10 @@ export class PcbApp {
       const raw = (this.sideBodyEl.querySelector('#inp-cap-val') as HTMLInputElement).value;
       const v = parseValue(raw);
       if (!Number.isFinite(v) || v <= 0) { this.toast(t('Invalid capacitance'), 'danger'); return; }
+      if (!this.benchAllows(c, 'replace')) return;
       this.pushUndo();
       installPart(c, { value: v });
+      this.leadsUnsoldered(c);
       sfxSolder();
       this.recompute(false);
       this.renderInspectTab();
@@ -6857,6 +6979,11 @@ export class PcbApp {
     // canvas shape) and then only while the view is the untouched automatic fit
     if (this.mobile || !this.fitAspect || this.autoFramed) this.refitOnShapeChange();
     if (this.ironHold) this.updateIronHud();
+    if (this.pendingExtract && this.thermal && this.rework && this.thermal.time >= this.pendingExtract.at) {
+      const p = this.pendingExtract;
+      this.pendingExtract = null;
+      if (p.comp.state.populated) this.showExtract(p.comp, p.pad, this.rework.extract(p.comp, p.pad, p.mode));
+    }
     if (this.rework && this.reworkMode.realistic) {
       const evs = this.rework.update(dt);
       if (evs.length) this.onReworkEvents(evs);

@@ -2,7 +2,7 @@
   "format": "deadboard-mod/2",
   "id": "board-notes",
   "name": "Board notes (knowledge packs for the shipped boards)",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "author": "Biga73 (idea) · DEADBOARD",
   "description": "An example data mod: a knowledge pack for every board that ships with DEADBOARD. Rails, where each one comes from, what to expect at which pin, and what a low reading usually means, each marked documented, derived or estimated. The packs describe the working board and point at likely causes, the way the board's hints do; they don't name the planted faults. Based on the device knowledge pack RFC by Biga73.",
   "license": "CC0-1.0",
@@ -866,6 +866,88 @@
       "notes": [
         "Through-hole parts are soldered on the bottom side: a dull, grainy joint there can look fine from the top and still be open.",
         "Soldered with 63/37 tin-lead (melts at 183 °C, 361 °F), as in NEETS Module 14 (public-domain US Navy textbook)."
+      ]
+    },
+    {
+      "id": "hr-desoldering",
+      "board": "official-boards/boards/hr-desoldering",
+      "title": "Desoldering",
+      "provenance": { "kind": "board design + simulator", "where": "part values from the board; readings from DEADBOARD's simulator on the working board", "confidence": "derived" },
+      "rails": [
+        {
+          "net": "+5V",
+          "nominal": 5.0,
+          "domain": "always on",
+          "source": { "ref": "J1", "kind": "5 V DC input header" },
+          "checks": [
+            { "at": "J1", "pin": "1", "expect": "≈5.00 V with both LEDs lit (≈17 mA in all)", "readsLowIf": "the bench supply is off or current-limited, or something downstream draws far more" }
+          ]
+        },
+        {
+          "net": "LED1_A",
+          "nominal": 2.0,
+          "domain": "always on",
+          "source": { "ref": "R1", "kind": "330 Ω series resistor" },
+          "checks": [
+            { "at": "D1", "pin": "2", "expect": "≈2.00 V (red LED, ≈9.1 mA)", "readsLowIf": "0 V: nothing reaches D1 through R1" }
+          ]
+        },
+        {
+          "net": "LED2_A",
+          "nominal": 2.29,
+          "domain": "always on",
+          "source": { "ref": "R2", "kind": "330 Ω series resistor" },
+          "checks": [
+            { "at": "D2", "pin": "2", "expect": "≈2.29 V (green LED, ≈8.2 mA)", "readsLowIf": "0 V with +5V present at R2 pin 1: R2 is open (burned, or a lead not soldered); measure across R2 with the power off" }
+          ],
+          "notes": "I = (5.00 − 2.29) V / 330 Ω ≈ 8.2 mA."
+        }
+      ],
+      "powerUp": [ "+5V" ],
+      "notes": [
+        "Through-hole parts are soldered on the bottom side: a dull, grainy joint there can look fine from the top and still be open.",
+        "Soldered with 63/37 tin-lead (melts at 183 °C, 361 °F), as in NEETS Module 14 (public-domain US Navy textbook).",
+        "Every hole on this board is plated through (supported): a part's leads come free only when the solder is out of the barrel."
+      ]
+    },
+    {
+      "id": "hr-thermal-shunt",
+      "board": "official-boards/boards/hr-thermal-shunt",
+      "title": "Thermal Shunt",
+      "provenance": { "kind": "board design + simulator", "where": "part values from the board; readings from DEADBOARD's simulator (SPICE, 2N3904 model) on the working board", "confidence": "derived" },
+      "rails": [
+        {
+          "net": "+3V",
+          "nominal": 3.0,
+          "domain": "always on",
+          "source": { "ref": "J1", "kind": "3 V battery connector (2×AA)" },
+          "checks": [
+            { "at": "R2", "pin": "1", "expect": "≈2.8–3.0 V (the cells sag a little under the ≈23 mA load with SW1 pressed)", "readsLowIf": "the battery is flat or not connected" }
+          ]
+        },
+        {
+          "net": "BASE",
+          "domain": "while SW1 is pressed",
+          "source": { "ref": "R1", "kind": "1 kΩ base resistor" },
+          "checks": [
+            { "at": "R1", "pin": "2", "expect": "≈0.67 V pressed (one base–emitter diode drop)", "readsLowIf": "≈0 V: SW1 or R1 is open. Close to +3V instead: the base–emitter path is open (Q1's base or emitter lead not soldered)" }
+          ]
+        },
+        {
+          "net": "COLLECTOR",
+          "domain": "both LED cathodes, switched to GND by Q1",
+          "source": { "ref": "Q1", "kind": "2N3904 NPN transistor (TO-92)" },
+          "checks": [
+            { "at": "Q1", "pin": "3", "expect": "≈0.07 V pressed (Q1 fully on)", "readsLowIf": "it reads high instead: Q1 never switches on (no base current, or its collector lead is not soldered)" }
+          ],
+          "notes": "Pressed, each LED takes ≈10.6 mA through its 68 Ω resistor. Q1's pins: 1 emitter, 2 base, 3 collector."
+        }
+      ],
+      "powerUp": [ "+3V" ],
+      "notes": [
+        "Through-hole parts are soldered on the bottom side: a dull, grainy joint there can look fine from the top and still be open.",
+        "Soldered with 63/37 tin-lead (melts at 183 °C, 361 °F), as in NEETS Module 14 (public-domain US Navy textbook).",
+        "Q1 is heat-sensitive: its short TO-92 leads carry the iron's heat straight into the body."
       ]
     }
   ]

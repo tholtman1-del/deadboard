@@ -49,7 +49,14 @@ const IPA_LATENT = 6.7e5 * 786;  // J per m³ of liquid IPA
 interface PartNode { c: Component; cells: number[]; C: number; Gb: number; Ga: number; T: number; P: number; area: number; frost: number; ipa: number; rosin: number; rosinMelt: number; joints: JointNode[] }
 
 /** A through-hole solder joint: pad copper both sides, plated barrel, solder, the lead stub in it. */
-interface JointNode { part: PartNode; pad: number; cell: number; C: number; Gc: number; Gl: number; Afillet: number; T: number }
+interface JointNode { part: PartNode; pad: number; cell: number; C: number; Gc: number; Gl: number; Afillet: number; T: number; clipT: number }
+
+/**
+ * Thermal shunt (NEETS 14 p. 3-23, fig. 3-16): a copper spring clip on the lead between the joint
+ * and the body. Modelled at the lead's midpoint: each half of the lead conducts 2·G_lead, the clip
+ * is a lumped copper mass. Estimates: a 3 g copper clip (C ≈ 1.2 J/K), ≈ 2 cm² in still air.
+ */
+export const SHUNT = { C: 1.2, gAir: 0.003 } as const;
 
 /**
  * Through-hole joint constants (typical handbook values, estimates):
@@ -297,6 +304,7 @@ export class ThermalModel {
           Gl: (THT.kLead * Math.PI * d * d) / 4 / L,
           Afillet: 2 * (Math.PI / 4) * (D * 1e-3) ** 2,
           T: this.k.ambient,
+          clipT: this.k.ambient,
         });
       });
       this.joints.push(...node.joints);
@@ -378,7 +386,9 @@ export class ThermalModel {
       // lead), the iron tip (power-limited) and hot air; their heat then flows into the board cell
       for (const j of this.joints) {
         const live = j.part.c.state.populated;
-        const gl = live ? j.Gl : 0, tb = T[j.cell], tBody = j.part.T;
+        const clipped = live && !!j.part.c.state.shunts?.includes(j.pad);
+        // the lead's far end: the body, or with a shunt the clip halfway along (twice the conductance)
+        const gl = live ? (clipped ? 2 * j.Gl : j.Gl) : 0, tb = T[j.cell], tBody = clipped ? j.clipT : j.part.T;
         const d = drive.get(j);
         const g = d?.g ?? 0, air = d?.air ?? 0;
         const den = j.C / h + j.Gc + gl + g + air;
@@ -390,6 +400,10 @@ export class ThermalModel {
         } else if (d && g > 0) srcP += (g * (d.temp - Tj)) / nsub;
         j.T = Tj;
         q[j.cell] += j.Gc * (Tj - tb);
+        if (clipped) {
+          const g2 = 2 * j.Gl;
+          j.clipT = (SHUNT.C / h * j.clipT + g2 * Tj + g2 * j.part.T + SHUNT.gAir * amb) / (SHUNT.C / h + 2 * g2 + SHUNT.gAir);
+        } else j.clipT += (amb - j.clipT) * Math.min(1, h / 60); // a clip taken off cools on the bench
       }
       // parts: implicit local update, then their heat flows into the footprint cells
       for (const n of this.parts) {
@@ -397,7 +411,11 @@ export class ThermalModel {
         for (const i of n.cells) tb += T[i];
         tb /= n.cells.length;
         let gl = 0, glT = 0;
-        if (n.c.state.populated) for (const j of n.joints) { gl += j.Gl; glT += j.Gl * j.T; }
+        if (n.c.state.populated) for (const j of n.joints) {
+          const clipped = !!n.c.state.shunts?.includes(j.pad);
+          const g = clipped ? 2 * j.Gl : j.Gl;
+          gl += g; glT += g * (clipped ? j.clipT : j.T);
+        }
         let Tn = (n.C / h * n.T + n.P + n.Gb * tb + n.Ga * amb + glT) / (n.C / h + n.Gb + n.Ga + gl);
         // frost on the body pins it at 0 °C until the latent heat is paid by the part's own heat
         if (n.frost > 0 && Tn > 0) {

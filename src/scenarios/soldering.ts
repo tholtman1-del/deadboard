@@ -116,9 +116,67 @@ function cleanAndInspect() {
   });
 }
 
+function desoldering() {
+  const k = ledRows(64, 34, [{ color: 'red', y: 11 }, { color: 'green', y: 23 }], 'HI-REL 4  DESOLDERING');
+  return finalize('hr-desoldering', {
+    title: 'Desoldering',
+    author: 'DEADBOARD',
+    difficulty: 2,
+    description: 'D2 is dark: R2 burned open and has to be replaced. Its leads sit in plated-through holes. Take it out without damaging the board, fit a new 330 Ω resistor, solder it, clean and inspect.',
+    hints: [
+      'Measure across R2 (Ω, power off): it reads open. The part has to come out.',
+      'A plated hole holds its solder: wick only takes the surface, a manual plunger leaves a sweat joint. Hold the Solder extractor (X) on continuous vacuum on each R2 joint until the hole is clear.',
+      'With both holes clear, take R2 out (Desolder wick on the part, or Inspector), fit a new one (Parts bin, 8), hold the iron on each lead with "+ flux" (flux-cored solder), then clean with Isopropyl.',
+    ],
+    par: 6,
+  }, k.b, [lit('D1'), lit('D2')], 'PCB{pl4t3d_h0l3s_n33d_v4cuum}',
+  (b) => { b.components.find((c) => c.ref === 'R2')!.state.burnt = true; });
+}
+
+/** The transistor switch, through-hole and tin-lead: Q1's base and collector joints never bonded. */
+async function thermalShunt(): Promise<Scenario> {
+  const k = new Builder(82, 46);
+  const j1 = k.header('J1', 3, [6, 24], 0, '2×AA');
+  k.tactile('SW1', [20, 14]);
+  const r1 = k.resistor('R1', 1000, [34, 16.25]);
+  const q1 = k.to92('Q1', '2N3904', [50, 30], 180);
+  const r2 = k.resistor('R2', 68, [60, 9]);
+  const d1 = k.led('D1', 'red', [70, 9], 180);
+  const r3 = k.resistor('R3', 68, [60, 18]);
+  const d2 = k.led('D2', 'red', [70, 18], 180);
+  k.testpoint('TP1', [44, 16.25], 'B');
+  k.testpoint('TP2', [62, 38], 'C');
+  k.track('F', [k.pad(j1, '1'), [6, 3], [54.92, 3], k.pad(r2, '1'), k.pad(r3, '1')], 0.8, '+3V');
+  k.track('F', [[16.75, 3], [16.75, 11.75]], 0.8, '+3V');
+  k.track('F', [[23.25, 16.25], k.pad(r1, '1')], 0.8, 'SW_OUT');
+  k.track('F', [k.pad(r1, '2'), [50, 16.25], k.pad(q1, '2')], 0.8, 'BASE');
+  k.track('F', [k.pad(r2, '2'), k.pad(d1, '2')], 0.8, 'LED1_A');
+  k.track('F', [k.pad(r3, '2'), k.pad(d2, '2')], 0.8, 'LED2_A');
+  k.track('F', [k.pad(d1, '1'), [76, 9], [76, 38], [44, 38], [44, 30], k.pad(q1, '3')], 0.8, 'COLLECTOR');
+  k.track('F', [k.pad(d2, '1'), [76, 18]], 0.8, 'COLLECTOR');
+  k.track('B', [k.pad(j1, '2'), [6, 43], [58, 43], [58, 30], k.pad(q1, '1')], 0.8, 'GND');
+  k.text([16, 41], 'HI-REL 5  THERMAL SHUNT', 1.4);
+  const sw = (on: boolean) => ({ SW1: on });
+  const sc = await finalize('hr-thermal-shunt', {
+    title: 'Thermal Shunt',
+    author: 'DEADBOARD',
+    difficulty: 2,
+    description: 'A transistor switch: pressing SW1 should light both LEDs. Nothing lights. Two of Q1\'s joints never bonded. A transistor is heat-sensitive: protect it the way the textbook says while you make its joints.',
+    hints: [
+      'Flip to the bottom (F): Q1\'s base (pad 2) and collector (pad 3) joints are dull.',
+      'Before heating a transistor lead, clip a Thermal shunt (S) on that lead: it carries heat away from the body.',
+      'With the shunts on, hold the iron on each dull joint until it flows. Compare the body temperature in the Thermal view with and without a shunt.',
+    ],
+    par: 4,
+  }, k.b, [{ type: 'led', ref: 'D1', on: true, switches: sw(true) }, { type: 'led', ref: 'D2', on: true, switches: sw(true) }, { type: 'led', ref: 'D1', on: false, switches: sw(false) }, { type: 'led', ref: 'D2', on: false, switches: sw(false) }], 'PCB{sh0nt_th3_h34t_4w4y}',
+  (b) => { b.components.find((c) => c.ref === 'Q1')!.state.cold = [pad(b, 'Q1', '2'), pad(b, 'Q1', '3')]; });
+  sc.solver = 'spice';
+  return sc;
+}
+
 export async function solderingScenarios(): Promise<Scenario[]> {
-  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect()]);
+  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt()]);
 }
 
 /** The track's boards, in order. */
-export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect'] as const;
+export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt'] as const;
