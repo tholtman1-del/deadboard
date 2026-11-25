@@ -98,6 +98,8 @@ export interface ComponentState {
   /** Handled (fitted) by an ungrounded technician, and whether the discharge damaged it (src/esd.ts). */
   esdHandled?: true;
   esdDamaged?: true;
+  /** Coating was taken off this part before the coating type had been identified (T.O. 06-5.2). */
+  coatRemovedBlind?: true;
   /** Table 3-1 preferred-order rank of the removal method used, and the best one possible here. */
   coatMethodRank?: number;
   coatBestRank?: number;
@@ -161,7 +163,9 @@ export interface Board {
    * Conformal coating over the assembly (NEETS 14 pp. 3-2 – 3-7): its type, whether it is thick
    * (0.025 in or more), and whether it is one of the compositions a solvent takes off.
    */
-  coating?: { type: import('./coating').CoatingType; thick: boolean; solventSoluble?: boolean };
+  coating?: { type: import('./coating').CoatingType; thick: boolean; solventSoluble?: boolean; /** polyurethane: the soft kind (T.O. 06-4.2.4) */ soft?: boolean };
+  /** The coating type the technician identified (before removing any): graded against `coating.type`. */
+  coatingId?: import('./coating').CoatingType;
   zones: Zone[];
   silk: SilkLine[];
   texts: SilkText[];

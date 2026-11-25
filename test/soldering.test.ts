@@ -6,7 +6,7 @@ import { ThermalModel, copperThickness, THERMAL_DEFAULTS } from '../src/thermal'
 import { ALLOYS, IRON_G, ReworkMonitor, heldPads, limitsFor, type ReworkEvent } from '../src/rework';
 import { cleanFluxWithIpa, fluxResidueNear } from '../src/residue';
 import { RULES, inspect } from '../src/workmanship';
-import { TABLE_3_1, applyCoating, removeCoating, workable } from '../src/coating';
+import { ID_TYPES, TABLE_3_1, applyCoating, observe, removeCoating, workable } from '../src/coating';
 import { TABLE_3_2, benchCharge, handle as handleEsd } from '../src/esd';
 import { CONTENT, LESSONS, lessonFor } from '../src/lessons/neets14';
 import { LESSON_META } from '../src/lessons/track';
@@ -354,6 +354,37 @@ async function main() {
     const rough = repair('brush', 'polyurethane');
     assert(rough.ins.findings.some((f) => f.kind === 'coating-method') && !lessonAccepted(l8, rough.ins), 'a rotary brush (3rd choice) when hot air (1st) works: fails lesson 8');
     { const { b, r2 } = fresh(); r2.state.coatCharred = true; assert(inspect(b, referenceBoard(sc)!, [], []).findings.some((f) => f.kind === 'coating-charred'), 'an iron on the coating chars it: rejected'); }
+  }
+
+  // ---- coating identification (T.O. 00-25-259 06-4.1, 06-5.2, Figure 06-1) ----
+  {
+    // the flowchart, run on what each test shows
+    const identify = (coat: NonNullable<Board['coating']>) => {
+      const soft = /soft|rubbery/i.test(observe(coat, 'press')) && !/^Hard/.test(observe(coat, 'press'));
+      const heat = observe(coat, 'heat'), alcohol = observe(coat, 'alcohol');
+      if (soft) return /^No /.test(heat) ? 'rtv' : 'polyurethane';
+      if (/dissolves/.test(alcohol)) return 'acrylic';
+      if (/^No /.test(heat)) return 'parylene';
+      return /powder/.test(heat) ? 'epoxy' : 'polyurethane';
+    };
+    for (const c of ID_TYPES) assert(identify({ type: c.id, thick: false }) === c.id, `Figure 06-1 identifies ${c.code} from its tests`);
+    assert(identify({ type: 'polyurethane', thick: false, soft: true }) === 'polyurethane', 'soft polyurethane too');
+    const sc = scs.find((x) => x.id === 'hr-coating-id')!;
+    const l12 = lessonFor('hr-coating-id')!;
+    const play = (id: 'epoxy' | 'acrylic' | null, idFirst: boolean) => {
+      const b = structuredClone(sc.board), r1 = b.components.find((c) => c.ref === 'R1')!;
+      if (idFirst && id) b.coatingId = id;
+      removeCoating(b, r1, 'hotair');
+      if (!idFirst && id) b.coatingId = id;
+      r1.state.cold = [];
+      applyCoating(b, r1, 'epoxy');
+      return inspect(b, referenceBoard(sc)!, [], []);
+    };
+    assert(lessonAccepted(l12, play('epoxy', true)), 'identified as epoxy first, then repaired: accepted');
+    assert(!lessonAccepted(l12, play('acrylic', true)), 'identified wrongly: rejected');
+    assert(!lessonAccepted(l12, play(null, true)), 'not identified: rejected');
+    const late = play('epoxy', false);
+    assert(late.findings.some((f) => f.kind === 'coating-id-order') && !lessonAccepted(l12, late), 'coating removed before identifying: fails the lesson');
   }
 
   // ---- ESD (pp. 3-38 – 3-42, Table 3-2) ----

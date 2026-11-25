@@ -29,10 +29,18 @@ export interface LessonContent {
   task: string;
   /** A table from the module rebuilt from data: 3-1 coating removal, 3-2 static charges. */
   table2?: 'table-3-2';
+  /** The 2M manual's coating identification flowchart (Figure 06-1), rebuilt from data. */
+  flow?: 'figure-06-1';
   questions: LessonQuestion[];
 }
 
 export type Lesson = LessonMeta & LessonContent;
+
+/** The 2M workmanship manual (Distribution A). */
+export const TO_SOURCE = {
+  doc: 'NAVAIR 01-1A-23 / T.O. 00-25-259, 2M Electronic Assembly Repair (Rev 4, 2013)',
+  url: 'https://www.robins.af.mil/Portals/59/12%20April_TO%2000-25-259.pdf',
+};
 
 export const NEETS14_SOURCE = {
   doc: 'NEETS Module 14, Introduction to Microelectronics (NAVEDTRA 14186)',
@@ -353,6 +361,33 @@ export const CONTENT: LessonContent[] = [
     questions: [
       { ref: 'Q14', q: tk('To what standards should a technician restore electronic assemblies?'), a: tk('Manufacturer\'s standards.'), page: '3-22' },
       { ref: 'Q36', q: tk('What is the cause of most accidents?'), a: tk('Deviation from prescribed safe operating procedures.'), page: '3-46' },
+    ],
+  },
+  {
+    scenario: 'hr-coating-id',
+    source: { ...TO_SOURCE, pages: '06-4.1 – 06-5.2' },
+    points: [
+      tk('The coating type must be identified before removal, so the right removal technique can be used. Documentation (manual, drawing) comes first; without it, test the coating.'),
+      tk('Hardness: press it with an orangewood stick. Solubility: a small drop of isopropyl alcohol only, in the repair area. Thermal: controlled heat at or below solder melt (361 °F).'),
+      tk('Acrylic dissolves in alcohol. Epoxy overcures into a white powder under heat. Silicone is rubbery and ignores alcohol and heat. Polyurethane softens to a putty under heat. Parylene reacts to neither.'),
+      tk('Record the type, then remove only the coating the repair needs, and replace it with the same type afterwards.'),
+    ],
+    numbers: [
+      { label: tk('Thin coating'), value: tk('0.025 in (≈1/32 in) or less') },
+      { label: tk('Thermal test'), value: '≤ 361 °F (183 °C)' },
+    ],
+    flow: 'figure-06-1',
+    original: [
+      'The conformal coating type must be identified before removal so the appropriate removal technique can be used. The Conformal Coating Identification Flowchart (Figure 06-1) aids in identification decision-making and Table 06-1 lists conformal coating characteristics.',
+      'Conformal coating hardness may be determined by applying pressure to the coating with an orangewood stick or spudger. Coatings may range from soft to hard.',
+      'Most coatings are soluble. The solvent required to dissolve a specific coating may damage the CCA and/or components. Test coating by applying a small quantity of isopropyl alcohol in the repair area and observe reaction. (CAUTION: Unless directed by other maintenance actions, the solubility test and solvent use shall be limited to isopropyl alcohol.)',
+      'Conformal coating thermal properties relate to their reaction to heat. Coatings react differently to the application of controlled heat and abrasion. The coating may have no reaction, overcure and turn to a white powder, or soften and turn gummy. Test the coating surface in the repair area at or below solder melt temperature (361°F) and observe reaction.',
+      'Epoxy is a hard thick or thin coating that forms a very strong surface adhesive bond. Because of this adhesion, epoxy will not chip, peel, or crack under physical stress. The texture is smooth, glossy, and nonporous. Application of controlled heat, at or below solder melt temperature (361°F), and abrasion overcures epoxy resulting in a powdery substance.',
+      'Most acrylic resins may be dissolved by isopropyl alcohol and easily blotted away. Silicone coatings are rubbery and pliable; isopropyl alcohol has no effect on these coatings, and application of heat at or below solder melt temperature has no effect on most silicone coatings. Isopropyl alcohol has no effect on polyurethanes; controlled heat and abrasion tend to soften them, making them pliable with a putty-like consistency. Paraxylylene does not react to isopropyl alcohol.',
+    ],
+    task: tk('The coating type is unknown. Test it (Coating test, Q; the test is set in Bench), follow the flowchart, and record your answer in Bench → Identified as before you remove anything. Then: coating off R1 with Table 3-1\'s first choice, reflow R1 pad 1 with flux, clean, and put the same coating back (J).'),
+    questions: [
+      { ref: 'Q3', q: tk('What chemicals are used to remove protective material?'), a: tk('Solvents or xylene and trichloroethane.'), page: '3-7' },
     ],
   },
 ];

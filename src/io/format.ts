@@ -8,7 +8,8 @@ export function normalizeBoard(b: Partial<Board>): Board {
     zones: arr(b.zones), silk: arr(b.silk), texts: arr(b.texts), nextId: num(b.nextId, 1),
     ...(Array.isArray(b.hiddenCopperNets) && { hiddenCopperNets: b.hiddenCopperNets.filter((n) => typeof n === 'string') }),
     ...(b.estimatedPads === true && { estimatedPads: true }),
-    ...(b.coating && ['parylene', 'epoxy', 'acrylic', 'polyurethane', 'varnish', 'rtv'].includes(b.coating.type) && { coating: { type: b.coating.type, thick: !!b.coating.thick, ...(b.coating.solventSoluble && { solventSoluble: true }) } }),
+    ...(b.coating && ['parylene', 'epoxy', 'acrylic', 'polyurethane', 'varnish', 'rtv'].includes(b.coating.type) && { coating: { type: b.coating.type, thick: !!b.coating.thick, ...(b.coating.solventSoluble && { solventSoluble: true }), ...(b.coating.soft && { soft: true }) } }),
+    ...(typeof b.coatingId === 'string' && ['parylene', 'epoxy', 'acrylic', 'polyurethane', 'varnish', 'rtv'].includes(b.coatingId) && { coatingId: b.coatingId }),
     ...(Array.isArray(b.nicks) && { nicks: b.nicks.filter((n) => n && typeof n.id === 'string' && isPt(n.at) && (n.layer === 'F' || n.layer === 'B') && [n.len, n.depth, n.rot, n.width].every((x) => typeof x === 'number' && isFinite(x))) }),
     ...(b.inner && typeof b.inner === 'object' && {
       inner: {
@@ -48,6 +49,7 @@ function normalizeComponent(c: Component): Component {
       ...(c.state?.holes && typeof c.state.holes === 'object' && { holes: Object.fromEntries(Object.entries(c.state.holes).filter(([k, v]) => Number.isInteger(Number(k)) && (v === 'clear' || v === 'sweat'))) }),
       ...(typeof c.state?.coating === 'string' && ['removed', 'parylene', 'epoxy', 'acrylic', 'polyurethane', 'varnish', 'rtv'].includes(c.state.coating) && { coating: c.state.coating }),
       ...(c.state?.coatCharred === true && { coatCharred: true }),
+      ...(c.state?.coatRemovedBlind === true && { coatRemovedBlind: true }),
       ...(c.state?.esdHandled === true && { esdHandled: true }),
       ...(Array.isArray(c.state?.oxidized) && { oxidized: c.state.oxidized.filter((x) => Number.isInteger(x)) }),
       ...(Array.isArray(c.state?.padRepaired) && { padRepaired: c.state.padRepaired.filter((x) => Number.isInteger(x)) }),

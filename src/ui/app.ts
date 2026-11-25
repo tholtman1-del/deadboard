@@ -56,7 +56,7 @@ import { HOTAIR_H, IRON_G, MELT_WITHIN_S, PREHEAT_H, ReworkMonitor, VACUUM_SECON
 import { inspect, type Inspection } from '../workmanship';
 import { lessonMeta } from '../lessons/track';
 import { handle as handleEsd, type Humidity } from '../esd';
-import { COATINGS, METHODS, applyCoating, coatingName, methodName, removeCoating, workable, type CoatMethod, type CoatingType } from '../coating';
+import { COATINGS, COAT_TESTS, ID_TYPES, METHODS, applyCoating, coatingName, methodName, observe, removeCoating, workable, type CoatMethod, type CoatTest, type CoatingType } from '../coating';
 import { SOLDERING_TRACK_IDS } from '../scenarios/soldering';
 import { debriefHtml, lessonAccepted, lessonBriefHtml } from './lesson-ui';
 import { Renderer, type RendererKind, type VizMode } from '../render/renderer';
@@ -77,7 +77,7 @@ import { beginnerPrimerHtml, CHALLENGE_TRACK_IDS, lessonDock, TUTORIAL_SCENARIO_
 import { TOOL_SHORT, TOOL_TIP_PHONE, TouchGestures, splitLead, touchCopy, wantsMobileLayout } from './touch';
 import { cursorStops, describeAt, stepToward } from './boardcursor';
 
-type ToolId = 'inspect' | 'dmm' | 'iron' | 'wick' | 'flip180' | 'jumper' | 'knife' | 'replace' | 'freeze' | 'ipa' | 'press' | 'hotair' | 'scope' | 'rosin' | 'extract' | 'shunt' | 'staple' | 'decoat' | 'coat' | 'padfix';
+type ToolId = 'inspect' | 'dmm' | 'iron' | 'wick' | 'flip180' | 'jumper' | 'knife' | 'replace' | 'freeze' | 'ipa' | 'press' | 'hotair' | 'scope' | 'rosin' | 'extract' | 'shunt' | 'staple' | 'decoat' | 'coat' | 'padfix' | 'coatest';
 type PanelTab = 'mission' | 'inspect' | 'studio' | 'mods';
 type DmmMode = 'V' | 'OHM' | 'DIODE' | 'CAP' | 'AMP';
 
@@ -106,6 +106,7 @@ const TOOLS: { id: ToolId; key: string; ico: string; lbl: string; tip: string }[
   { id: 'extract', key: 'x', ico: 'extract', lbl: tk('Solder extractor'), tip: tk('Desoldering a through-hole joint: hold the heated tip on it until the solder is sucked out (Bench: continuous vacuum or a manual plunger)') },
   { id: 'staple', key: 'k', ico: 'staple', lbl: tk('Clinched staple'), tip: tk('Repair a broken or nicked conductor the high-reliability way: click the copper on one side of the damage, then the other (same side of the board)') },
   { id: 'padfix', key: 'e', ico: 'eyelet', lbl: tk('Pad repair'), tip: tk('Replace a lifted or missing pad: a new pad epoxied on, an eyelet set through it, lap-soldered to its run (click the pad)') },
+  { id: 'coatest', key: 'q', ico: 'probe', lbl: tk('Coating test'), tip: tk('Test the conformal coating on a part (press, alcohol or heat, set in Bench) to identify its type, as in the 2M manual\'s flowchart') },
   { id: 'decoat', key: 'u', ico: 'scrape', lbl: tk('Coating removal'), tip: tk('Take the conformal coating off a part\'s leads and pads (click the part); the method is set in Bench, as in NEETS Table 3-1') },
   { id: 'coat', key: 'j', ico: 'coat', lbl: tk('Conformal coating'), tip: tk('Put conformal coating back on a part after the repair (the type is set in Bench)') },
   { id: 'shunt', key: 's', ico: 'clip', lbl: tk('Thermal shunt'), tip: tk('Clip a heat sink on a through-hole lead (click its pad) so the part stays cool while you solder; click again to take it off') },
@@ -233,6 +234,7 @@ export class PcbApp {
   private savedEsd: { grounded: boolean; humidity: Humidity } | null = null;
   /** Coating removal method and the coating type put back (Bench). */
   private coatMethod: CoatMethod = 'solvent';
+  private coatTest: CoatTest = 'press';
   private coatType: CoatingType = 'acrylic';
   /** First end of a clinched staple being placed. */
   private stapleStart: { a: V2; side: Side } | null = null;
@@ -874,6 +876,13 @@ export class PcbApp {
             <label class="bench-row"><span>${t('Humidity')}</span><select id="humidity" title="${t('Relative humidity of the room: dry air lets far more static build up (NEETS Table 3-2)')}">
               <option value="high">${t('High (65–90 %)')}</option>
               <option value="low">${t('Low (10–20 %)')}</option>
+            </select></label>
+            <label class="bench-row"><span>${t('Coating test')}</span><select id="coat-test" title="${t('Which test the Coating test tool makes (T.O. 00-25-259 06-4.1)')}">
+              ${COAT_TESTS.map((x) => `<option value="${x.id}">${t(x.name)}</option>`).join('')}
+            </select></label>
+            <label class="bench-row"><span>${t('Identified as')}</span><select id="coat-id" title="${t('The conformal coating type you identified: record it before removing any coating')}">
+              <option value="">${t('Not identified')}</option>
+              ${ID_TYPES.map((x) => `<option value="${x.id}">${x.code} · ${t(coatingName(x.id))}</option>`).join('')}
             </select></label>
             <label class="bench-row"><span>${t('Coating removal')}</span><select id="coat-method" title="${t('Method for taking conformal coating off (NEETS Table 3-1)')}">
               ${METHODS.map((m) => `<option value="${m.id}">${t(m.name)}</option>`).join('')}
@@ -2294,6 +2303,7 @@ export class PcbApp {
     this.tutorialStep = 0;
     this.workHistory = { episodes: [], log: [] };
     this.endIronHold();
+    { const idSel = this.mount.querySelector<HTMLSelectElement>('#coat-id'); if (idSel) idSel.value = sc.board.coatingId ?? ''; }
     this.thermalBoard = null; // a fresh thermal model and rework monitor for the new board (its alloy, its history)
     this.applyLesson(sc);
     if (isTutorialScenario(sc.id)) {
@@ -3123,6 +3133,14 @@ export class PcbApp {
     });
     q('#esd-mode').addEventListener('change', (e) => { this.grounded = (e.target as HTMLSelectElement).value === 'on'; });
     q('#humidity').addEventListener('change', (e) => { this.humidity = (e.target as HTMLSelectElement).value === 'low' ? 'low' : 'high'; });
+    q('#coat-test').addEventListener('change', (e) => { this.coatTest = (e.target as HTMLSelectElement).value as CoatTest; });
+    q('#coat-id').addEventListener('change', (e) => {
+      const v = (e.target as HTMLSelectElement).value as CoatingType | '';
+      if (!this.board.coating) { (e.target as HTMLSelectElement).value = ''; this.toast(t('This board has no conformal coating.'), 'info'); return; }
+      this.pushUndo();
+      this.board.coatingId = v || undefined;
+      if (v) this.toast(t('Recorded: the coating is {coat}.', { coat: t(coatingName(v)) }), 'info');
+    });
     q('#coat-method').addEventListener('change', (e) => { this.coatMethod = (e.target as HTMLSelectElement).value as CoatMethod; });
     q('#coat-type').addEventListener('change', (e) => { this.coatType = (e.target as HTMLSelectElement).value as CoatingType; });
     q('#extract-mode').addEventListener('change', (e) => {
@@ -4276,6 +4294,14 @@ export class PcbApp {
       this.recompute(false);
       this.toast(t('New pad on {ref} pad {pad}: epoxied, eyelet set, epoxy cured, lap-soldered to the run. Now solder the lead in the eyelet.', { ref: c.ref, pad: c.pads[pi].name }), 'success');
       this.renderUI();
+      return;
+    }
+    if (this.activeTool === 'coatest') {
+      const c = hit?.kind === 'pad' || hit?.kind === 'comp' ? hit.comp : null;
+      if (!this.board.coating) { this.toast(t('This board has no conformal coating.'), 'info'); return; }
+      if (!c || !c.state.populated || c.state.coating === 'removed') { this.toast(t('Test the coating on a coated part.'), 'info'); return; }
+      sfxClick();
+      this.toast(`${t(COAT_TESTS.find((x) => x.id === this.coatTest)!.name)}: ${t(observe(this.board.coating, this.coatTest))}`, 'info');
       return;
     }
     if (this.activeTool === 'decoat' || this.activeTool === 'coat') {

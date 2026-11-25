@@ -241,6 +241,25 @@ function conductorRepair() {
   });
 }
 
+/** A coated board whose coating type is not given: identify it by test before taking it off. */
+async function coatingId(): Promise<Scenario> {
+  const k = ledRows(64, 34, [{ color: 'green', y: 11 }, { color: 'red', y: 23 }], 'HI-REL  COATING ID');
+  k.b.coating = { type: 'epoxy', thick: false };
+  return finalize('hr-coating-id', {
+    title: 'Coating Identification',
+    author: 'DEADBOARD',
+    difficulty: 3,
+    description: 'D1 is dark: R1 pad 1 never bonded. The board is conformally coated, but its drawing is missing: nobody knows which coating it is. Identify it by test, record it, then take it off, repair, and put the same type back.',
+    hints: [
+      'Coating test (Q) on any part, three tests set in Bench → Coating test: press, a drop of alcohol, controlled heat. Follow the flowchart in the lesson.',
+      'Not soft, no reaction to alcohol, and heat turns it into a white powder: that is epoxy. Record it in Bench → Identified as.',
+      'Table 3-1\'s first choice for thin epoxy is the hot air jet. Then reflow R1 pad 1 with flux, clean, and coat R1 with epoxy again.',
+    ],
+    par: 6,
+  }, k.b, [lit('D1'), lit('D2')], 'PCB{1d3nt1fy_b3f0r3_y0u_str1p}',
+  (b) => { b.components.find((c) => c.ref === 'R1')!.state.cold = [pad(b, 'R1', '1')]; });
+}
+
 async function conformalCoating(): Promise<Scenario> {
   const k = ledRows(64, 34, [{ color: 'red', y: 11 }, { color: 'yellow', y: 23 }], 'HI-REL 8  CONFORMAL COATING');
   // the whole assembly is coated; the coating is known from the board's drawing
@@ -347,8 +366,8 @@ async function finalPractical(): Promise<Scenario> {
 }
 
 export async function solderingScenarios(): Promise<Scenario[]> {
-  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern(), conductorRepair(), conformalCoating(), esdBoard(), padRepair(), finalPractical()]);
+  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern(), conductorRepair(), conformalCoating(), coatingId(), esdBoard(), padRepair(), finalPractical()]);
 }
 
 /** The track's boards, in order. */
-export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern', 'hr-conductor-repair', 'hr-conformal-coating', 'hr-esd', 'hr-pad-repair', 'hr-final-practical'] as const;
+export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern', 'hr-conductor-repair', 'hr-conformal-coating', 'hr-coating-id', 'hr-esd', 'hr-pad-repair', 'hr-final-practical'] as const;

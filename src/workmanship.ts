@@ -18,7 +18,7 @@ export type FindingKind =
   | 'pad-lifted' | 'part-overheated' | 'mlcc-cracked' | 'part-displaced' | 'dull-joint'
   | 'flux-residue' | 'loose-solder' | 'long-dwell' | 'wire-repair' | 'no-shunt' | 'skip-pattern' | 'nick'
   | 'coating-charred' | 'coating-missing' | 'coating-mismatch' | 'coating-method' | 'esd-damage' | 'esd-handling'
-  | 'overheated-joint' | 'slow-melt';
+  | 'overheated-joint' | 'slow-melt' | 'coating-id' | 'coating-id-order';
 
 /**
  * `procedural`: about how the work was done, which the finished board does not show; listed only
@@ -46,6 +46,8 @@ export const RULES: Record<FindingKind, Rule> = {
   'esd-handling': { kind: 'esd-handling', severity: 'note', procedural: true, title: tk('Handled without a ground strap'), rule: tk('Before servicing equipment the technician is grounded to discharge any static charge built up on the body; ESD-sensitive devices are handled by their body, never by their leads.'), source: src('3-40 – 3-41') },
   'overheated-joint': { kind: 'overheated-joint', severity: 'reject', title: tk('Overheated, oxidized joint'), rule: tk('Excessively long dwell times or repeated reflow oxidize the solder: a dull, grainy or crusty joint. This is a defect: the solder must be removed and the joint resoldered.'), source: to('05-4.2.5, 05-4.2.6') },
   'slow-melt': { kind: 'slow-melt', severity: 'note', procedural: true, title: tk('Kept heating a joint that would not melt'), rule: tk('If solder melt does not occur in two to three seconds, remove the tip: make sure the tip and the joint are clean before increasing the tip temperature.'), source: to('03-5.4, 05-5.3.4') },
+  'coating-id': { kind: 'coating-id', severity: 'reject', procedural: true, title: tk('Coating not identified correctly'), rule: tk('The conformal coating type must be identified before removal, so the appropriate removal technique can be used (by its hardness, transparency, thickness, solubility in isopropyl alcohol and reaction to heat).'), source: to('06-5.2, 06-4.1') },
+  'coating-id-order': { kind: 'coating-id-order', severity: 'note', procedural: true, title: tk('Coating removed before it was identified'), rule: tk('Identify the coating first: the removal method depends on its type.'), source: to('06-5.2') },
   'nick': { kind: 'nick', severity: 'reject', title: tk('Nicked conductor'), rule: tk('Damage that reduces a conductor\'s cross-sectional area must be repaired, as its current-carrying capability is reduced: over one tenth in NEETS (1998), over 20 % in the current 2M manual, which is the limit used here.'), source: src('3-31'), also: [to('12-6.1')] },
   'wire-repair': { kind: 'wire-repair', severity: 'note', title: tk('Wire repair'), rule: tk('A wire lap-soldered across a break is stronger than a solder bridge but not highly reliable; the clinched staple is the preferred repair of a broken conductor.'), source: src('3-32') },
 };
@@ -128,7 +130,9 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
     if (c.state.esdHandled && c.state.populated) add({ kind: 'esd-handling', where: c.ref });
   }
 
-  // conformal coating: taken off where needed, never charred, put back with the same type
+  // conformal coating: identified first, taken off where needed, never charred, put back with the same type
+  if (board.coating && board.coatingId !== board.coating.type) add({ kind: 'coating-id', where: board.coatingId ? board.coatingId : '—', detail: board.coatingId ? undefined : 'not identified' });
+  if (board.coating) for (const c of board.components) if (c.state.coatRemovedBlind) add({ kind: 'coating-id-order', where: c.ref });
   if (board.coating) for (const c of board.components) {
     const st = c.state.coating;
     if (c.state.coatCharred) add({ kind: 'coating-charred', where: c.ref });

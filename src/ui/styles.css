@@ -1818,3 +1818,5 @@ body.is-mobile .loadout-bar select { flex: 1 1 auto; width: auto; max-width: non
 .lesson-table td { color: var(--text); }
 .lesson-table td small { color: var(--muted); }
 .lesson-table p { margin: 0; font-size: 11.5px; }
+.modal .lesson-flow { padding-left: 18px; gap: 4px; }
+.lesson-table td.lt-text { text-align: left; color: var(--text-2); min-width: 140px; }

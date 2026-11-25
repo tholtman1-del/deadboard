@@ -328,6 +328,7 @@ how often the planted part is in the top 3, with and without your rules.
 | `official-boards/boards/hr-skipping-pattern` | Skipping Pattern |
 | `official-boards/boards/hr-conductor-repair` | Conductor Repair |
 | `official-boards/boards/hr-conformal-coating` | Conformal Coating |
+| `official-boards/boards/hr-coating-id` | Coating Identification |
 | `official-boards/boards/hr-esd` | ESD |
 | `official-boards/boards/hr-pad-repair` | Pad Repair |
 | `official-boards/boards/hr-final-practical` | Final Practical |

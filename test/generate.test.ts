@@ -47,6 +47,7 @@ const FIXES: Record<string, (b: Board) => void> = {
   'hr-skipping-pattern': (b) => { for (const pi of [0, 1, 2, 3]) toggleCold(part(b, 'RN1'), pi); },
   'hr-conductor-repair': (b) => { addBlob(b, [37, 11], 'F', 0.75); },
   'hr-conformal-coating': (b) => toggleCold(part(b, 'R2'), 1),
+  'hr-coating-id': (b) => toggleCold(part(b, 'R1'), 0),
   'hr-esd': (b) => installPart(part(b, 'Q1')),
   'hr-pad-repair': (b) => { const r2 = part(b, 'R2'); r2.state.lifted = undefined; r2.state.cold = []; },
   'hr-final-practical': (b) => installPart(part(b, 'Q1')),

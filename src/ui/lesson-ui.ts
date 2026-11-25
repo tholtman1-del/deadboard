@@ -8,7 +8,24 @@ import { BEST_JOINT_C, DWELL_LIMIT_S, NEETS14, RULES, type Inspection, type Rule
 
 /** "NEETS 14, p. 3-19" or "T.O. 00-25-259, 05-6.1" */
 const cite = (s: RuleSource, esc: Esc) => (s.doc === NEETS14 ? t('NEETS 14, p. {page}', { page: esc(s.page) }) : t('T.O. 00-25-259, {para}', { para: esc(s.page) }));
-import { COATINGS, METHODS, TABLE_3_1 } from '../coating';
+import { COATINGS, COAT_TESTS, ID_TYPES, METHODS, TABLE_3_1, coatingName, observe } from '../coating';
+
+/** T.O. 00-25-259 Figure 06-1, as the three tests and what each coating shows (06-4.2). */
+function flow061Html(esc: Esc): string {
+  return `
+    <div class="lesson-table">
+      <div class="sub">${t('Figure 06-1. Conformal coating identification')}</div>
+      <ol class="lesson-flow">
+        <li>${t('Soft, rubbery or spongy? Then heat decides: it softens → polyurethane; no effect → silicone.')}</li>
+        <li>${t('Not soft: does alcohol dissolve it? Yes → acrylic.')}</li>
+        <li>${t('No reaction to alcohol: does heat change it? No → parylene. A white powder → epoxy. Softens → polyurethane.')}</li>
+      </ol>
+      <div class="lt-scroll"><table>
+        <thead><tr><th></th>${COAT_TESTS.map((x) => `<th>${esc(t(x.name))}</th>`).join('')}</tr></thead>
+        <tbody>${ID_TYPES.map((c) => `<tr><th>${c.code} · ${esc(t(coatingName(c.id)))}</th>${COAT_TESTS.map((x) => `<td class="lt-text">${esc(t(observe({ type: c.id, thick: false }, x.id)))}</td>`).join('')}</tr>`).join('')}</tbody>
+      </table></div>
+    </div>`;
+}
 import { TABLE_3_2 } from '../esd';
 
 /** NEETS 14 Table 3-2: typical measured static charges, at low and high relative humidity. */
@@ -53,6 +70,7 @@ export function lessonBriefHtml(l: Lesson, esc: Esc, base: string, phone: boolea
       ${l.numbers.length ? `<dl class="lesson-nums">${l.numbers.map((n) => `<div><dt>${esc(t(n.label))}</dt><dd class="mono">${esc(t(n.value))}</dd></div>`).join('')}</dl>` : ''}
       ${l.table === 'table-3-1' ? table31Html(esc) : ''}
       ${l.table2 === 'table-3-2' ? table32Html(esc) : ''}
+      ${l.flow === 'figure-06-1' ? flow061Html(esc) : ''}
       ${l.figure ? `<figure class="lesson-fig"><img src="${esc(base + l.figure.src)}" alt="${esc(t(l.figure.caption))}" loading="lazy" /><figcaption>${esc(t(l.figure.caption))}</figcaption></figure>` : ''}`;
   const task = `<div class="lesson-task"><b>${t('On this board')}</b><span>${esc(t(l.task))}</span></div>`;
   // phones: the task first, the rules folded (the text keeps its size; it is folded, not shrunk)
