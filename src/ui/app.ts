@@ -4639,10 +4639,13 @@ export class PcbApp {
    *   tool): Select and the tools of this lesson and the ones before it, its new ones marked.
    * - Every other board: the bench tools, plus the high-reliability tools a soldering-course lesson
    *   teaches (the ones new to the course marked). The rest are in the tool palette.
+   * - A soldering lesson with a LESSON_META `dock`: that list instead of the bench tools, folding
+   *   from its end when short (its taught tools never fold).
    * The tool in use and any tool picked from the palette on this board are always pinned.
-   * `keep` are never dropped when the dock is short on height.
+   * `keep` are never dropped when the dock is short on height; `rank` (most needed first) sets the
+   * order the others fold in (default: from the bottom of the dock).
    */
-  private dockPlan(): { tools: Set<string>; fresh: Set<string>; keep: Set<string>; beginner: boolean } {
+  private dockPlan(): { tools: Set<string>; fresh: Set<string>; keep: Set<string>; rank?: string[]; beginner: boolean } {
     const id = this.activeScenario.id;
     const lessonsDone = TUTORIAL_SCENARIO_IDS.every((x) => this.solvedIds.has(x));
     const tut = this.allTools || lessonsDone ? null : lessonDock(id);
@@ -4653,8 +4656,9 @@ export class PcbApp {
     const course = SOLDERING_TRACK_IDS as readonly string[];
     const at = course.indexOf(id);
     const before = new Set(at > 0 ? course.slice(0, at).flatMap(hirel) : []);
-    const tools = new Set<string>([...TOOL_GROUPS[0].ids, ...lesson, ...extra]);
-    return { tools, fresh: new Set(at >= 0 ? lesson.filter((x) => !before.has(x)) : []), keep: new Set(['inspect', ...lesson, ...extra]), beginner: false };
+    const rank = lessonMeta(id)?.dock?.filter((x) => TOOLS.some((tl) => tl.id === x));
+    const tools = new Set<string>([...(rank ?? TOOL_GROUPS[0].ids), ...lesson, ...extra]);
+    return { tools, fresh: new Set(at >= 0 ? lesson.filter((x) => !before.has(x)) : []), keep: new Set(['inspect', ...lesson, ...extra]), rank, beginner: false };
   }
 
   /**
@@ -4688,7 +4692,8 @@ export class PcbApp {
       const shown = () => btns.filter((b) => !b.hidden);
       const sepH = () => (sep && hirelShown() ? 13 + gap : 0);
       while (shown().length * slot + sepH() > room) {
-        const drop = shown().reverse().find((b) => !plan.keep.has(b.dataset.tool!));
+        const order = plan.rank ? shown().sort((a, b) => plan.rank!.indexOf(a.dataset.tool!) - plan.rank!.indexOf(b.dataset.tool!)) : shown();
+        const drop = order.reverse().find((b) => !plan.keep.has(b.dataset.tool!));
         if (!drop) break;
         drop.hidden = true;
         if (sep) sep.hidden = !hirelShown();
@@ -7406,7 +7411,7 @@ export class PcbApp {
   private renderWirePrep() {
     const d = this.wireDialog!;
     const p = this.wirePrep;
-    this.modalRootEl.innerHTML = this.txt(wirePrepHtml(d.comp.ref, d.type, p, !!this.wireStart, (x) => this.esc(x)));
+    this.modalRootEl.innerHTML = this.txt(wirePrepHtml(d.comp.ref, d.type, p, !!this.wireStart, (x) => this.esc(x), endsAt(this.board, d.comp, 0).length));
     const q = <T extends HTMLElement>(id: string) => this.modalRootEl.querySelector<T>('#' + id);
     const redraw = () => {
       q('wp-svg')!.innerHTML = wirePreviewSvg(d.type, p);
@@ -7427,6 +7432,8 @@ export class PcbApp {
     on('wp-flush', (el) => { p.flush = el.checked; });
     on('wp-hook', (el) => { p.hook = el.value as WirePrep['hook']; });
     on('wp-eye', (el) => { p.eye = el.checked; });
+    on('wp-dir', (el) => { p.dir = el.value as WirePrep['dir']; });
+    on('wp-seat', (el) => { p.seat = el.value as WirePrep['seat']; });
     const close = () => { this.wireDialog = null; this.renderModal(); };
     q('wp-cancel')?.addEventListener('click', close);
     q('wp-cancel2')?.addEventListener('click', close);

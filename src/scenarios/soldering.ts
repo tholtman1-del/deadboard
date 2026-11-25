@@ -8,7 +8,7 @@ import { addBlob, cutTrace, removePart } from '../ops';
 import { Builder } from './builder';
 import { clinchFitted } from '../clinch';
 import { applyLeak } from '../laminate';
-import { addWire, targetEnd, terminalType, type TerminalType } from '../terminals';
+import { addWire, endsAt, targetEnd, terminalType, type TerminalType } from '../terminals';
 import { setReference } from './reference';
 
 async function finalize(id: string, meta: ScenarioMeta, b: Board, objectives: Objective[], flag: string, sabotage: (b: Board) => void): Promise<Scenario> {
@@ -213,7 +213,7 @@ function dipNetworkBoard(label: string, wired = false) {
     k.track('F', [k.pad(e2, '1'), [14, 12], [25.65, 12]], 0.9, 'VBUS1');
     k.track('F', [k.pad(e3, '1'), [40, 12], [28.19, 12]], 0.9, 'VBUS2');
     for (const [a, z] of [[e1, e2], [e1, e3]]) {
-      const j = addWire(k.b, a, targetEnd(a, terminalType(a)!), z, targetEnd(z, terminalType(z)!));
+      const j = addWire(k.b, a, targetEnd(a, terminalType(a)!, endsAt(k.b, a, 0).length), z, targetEnd(z, terminalType(z)!, endsAt(k.b, z, 0).length));
       for (const e of j.ends!) e.soldered = 'ok';
     }
     // a power indicator: R5 mounted horizontally with full-clinched leads along its bottom runs
@@ -284,7 +284,7 @@ function conductorRepair() {
 
 /** A coated board whose coating type is not given: identify it by test before taking it off. */
 async function coatingId(): Promise<Scenario> {
-  const k = ledRows(64, 34, [{ color: 'green', y: 11 }, { color: 'red', y: 23 }], 'HI-REL  COATING ID');
+  const k = ledRows(64, 34, [{ color: 'green', y: 11 }, { color: 'red', y: 23 }], 'HI-REL 9  COATING ID');
   k.b.coating = { type: 'epoxy', thick: false };
   return finalize('hr-coating-id', {
     title: 'Coating Identification',
@@ -339,7 +339,7 @@ async function esdBoard(): Promise<Scenario> {
   k.track('F', [k.pad(d1, '1'), [52, 26], k.pad(q1, '3')], 0.8, 'DRAIN');
   k.track('B', [k.pad(q1, '1'), [41.46, 38], [6, 38], k.pad(j1, '2')], 0.9, 'GND');
   k.track('B', [k.pad(r2, '2'), [36, 38]], 0.9, 'GND');
-  k.text([10, 41], 'HI-REL 9  ESD', 1.4);
+  k.text([10, 41], 'HI-REL 10  ESD', 1.4);
   const sw = (on: boolean) => ({ SW1: on });
   const sc = await finalize('hr-esd', {
     title: 'ESD',
@@ -359,7 +359,7 @@ async function esdBoard(): Promise<Scenario> {
 }
 
 function padRepair() {
-  const k = ledRows(64, 34, [{ color: 'red', y: 11 }, { color: 'green', y: 23 }], 'HI-REL 10  PAD REPAIR');
+  const k = ledRows(64, 34, [{ color: 'red', y: 11 }, { color: 'green', y: 23 }], 'HI-REL 11  PAD REPAIR');
   return finalize('hr-pad-repair', {
     title: 'Pad Repair',
     author: 'DEADBOARD',
@@ -529,7 +529,7 @@ function wiredRows(label: string, src: TerminalType, rows: { type: TerminalType;
   k.text([w / 2 - 4, 3], label, 1.4);
   for (const [a, b] of wires) {
     const ca = terms[a], cb = terms[b];
-    const j = addWire(k.b, ca, targetEnd(ca, terminalType(ca)!), cb, targetEnd(cb, terminalType(cb)!));
+    const j = addWire(k.b, ca, targetEnd(ca, terminalType(ca)!, endsAt(k.b, ca, 0).length), cb, targetEnd(cb, terminalType(cb)!, endsAt(k.b, cb, 0).length));
     for (const e of j.ends!) e.soldered = 'ok'; // the good board's wires are soldered
   }
   return k;
@@ -594,7 +594,7 @@ function solderCups() {
  * (staple), and the same coating goes back on.
  */
 async function finalPractical(): Promise<Scenario> {
-  const { k, leds } = dipNetworkBoard('HI-REL  FINAL PRACTICAL', true);
+  const { k, leds } = dipNetworkBoard('HI-REL 19  FINAL PRACTICAL', true);
   k.b.coating = { type: 'polyurethane', thick: false };
   const sc = await finalize('hr-final-practical', {
     title: 'Final Practical',

@@ -420,6 +420,7 @@ CONTENT.push(
       tk('Tin the stripped end before forming: tinning holds the strands so they do not birdcage, and helps the solder flow.'),
       tk('Insulation clearance: one wire diameter, insulation included, between the insulation and the terminal. Up to two is acceptable; touching the terminal, or more than two, is a defect.'),
       tk('Bend the wire 180° round the post, never overlapping itself, and cut the end flush so it touches the post (at most one bare-wire diameter beyond it).'),
+      tk('Two wires on one turret: wrap the second parallel to the first, against it and as close to the base as its insulation allows. A gap between them is acceptable; crossing over or overlapping the first wire is a defect.'),
       tk('Solder at 600 °F (316 °C): melt within two seconds, solder to the cut end, and form the fillet where the wire meets the post. With two wires on one terminal, solder both before the tip leaves it. Then clean off the flux.'),
     ],
     numbers: [
@@ -436,10 +437,12 @@ CONTENT.push(
       'There is an insulation clearance of one wire diameter (including insulation) between the end of the insulation and the outside edge of the terminal. (Defect: the insulation clearance is greater than two wire diameters; the insulation contacts the terminal.)',
       'The wire contacts the terminal post for 180°. (Defect: the wire has less than 180° of contact between the wire and the terminal post or overlaps itself on the terminal.)',
       'The cut end of the wire contacts the post. (Defect: the wire end extends beyond the edge of the terminal more than one wire diameter, not including insulation.)',
+      'Multiple wires are wrapped parallel with the terminal base and each other. (Defect: multiple wires crossover or overlap each other on the terminal.)',
+      'On multiple wire installations, subsequent wires are mounted as close to the base as allowed by the insulation. (Acceptable: on multiple wire installations, subsequent wires are not in contact with the previously installed wire.)',
       'WHEN SOLDERING MULTIPLE WIRES, COMPLETE ALL SOLDERING BEFORE REMOVING THE SOLDERING IRON TIP FROM ITS ORIGINAL POSITION ON THE TERMINAL.',
       'Discernible solder fillet covers 100% of the wire and terminal contact area. The contour of the wire is discernible in the solder.',
     ],
-    task: tk('Wire E1 to E2, and E2 to E3, with the Hook-up wire (W): click a terminal, prepare that end, then the other. Work out the strip length: clearance plus the wrap round the post. Then solder each turret with fresh solder ("+ flux") and clean the flux off.'),
+    task: tk('Wire E1 to E2, and E2 to E3, with the Hook-up wire (W): click a terminal, prepare that end, then the other. Work out the strip length: clearance plus the wrap round the post. E2 takes both wires: lay the second against the first. Then solder each turret with fresh solder ("+ flux") and clean the flux off.'),
     questions: [
       { ref: 'Q6', q: tk('What term is used to identify the procedure of connecting one side of a circuit board with the other?'), a: tk('Interfacial connections.'), page: '3-14' },
       { ref: 'Q1', module: 4, q: tk('What are the basic requirements for any splice or terminal connection?'), a: tk('The connection must be both mechanically and electrically as strong as the conductor or device with which it is used.'), page: '2-5' },
@@ -467,7 +470,7 @@ CONTENT.push(
       'The wire contacts two parallel sides (180° bend) of the terminal. The wire passes through the eye of the terminal. (Acceptable: the wire to terminal contact is greater than or equal to 90°, provided the wire does not overlap itself.)',
       'Multiple wires are attached in alternating directions. (Defect: multiple wires overlap each other on the terminal.)',
     ],
-    task: tk('Wire hook E1 to tab E2 and hook E1 to tab E3 (W). On the hook, keep the wire in the arc; on the tabs, through the eye. Solder E1 with both wires on it, then the tabs, and clean the flux off.'),
+    task: tk('Wire hook E1 to tab E2 and hook E1 to tab E3 (W). On the hook, keep the wire in the arc and bend the second wire the other way round from the first; on the tabs, through the eye. Solder E1 with both wires on it, then the tabs, and clean the flux off.'),
     questions: [
       { ref: 'Q8', q: tk('Turret, bifurcated, and hook terminals are used for what type of termination?'), a: tk('Above-the-board termination.'), page: '3-14' },
     ],

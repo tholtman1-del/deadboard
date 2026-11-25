@@ -8,7 +8,7 @@ import { TERM_GEOM, WIRE, form, terminalName, type TerminalType, type WirePrep }
 type Esc = (s: string) => string;
 
 /** The first prep the bench offers: a starting point, not the answer. */
-export const START_PREP: WirePrep = { stripper: 'thermal', strip: 4, tinned: false, gap: 0.5, wrap: 90, flush: false, hook: 'arc', eye: true };
+export const START_PREP: WirePrep = { stripper: 'thermal', strip: 4, tinned: false, gap: 0.5, wrap: 90, flush: false, hook: 'arc', eye: true, dir: 'cw', seat: 'apart' };
 
 const S = 26; // px per mm
 
@@ -46,12 +46,14 @@ export function wirePreviewSvg(type: TerminalType, p: WirePrep): string {
     ? `<rect x="${cx - R}" y="${cy - 2.2 * S}" width="${2 * R}" height="${4.4 * S}" class="wp-metalfill"/>`
     : `<circle cx="${cx}" cy="${cy}" r="${R}" class="wp-metalfill"/>`;
   const ticks = [1, 2].map((n) => `<line x1="${edge - n * WIRE.od * S}" x2="${edge - n * WIRE.od * S}" y1="${y + od / 2 + 6}" y2="${y + od / 2 + 22}" class="wp-tick"/><text x="${edge - n * WIRE.od * S - 7}" y="${y + od / 2 + 34}" class="wp-lbl">${n}D</text>`).join('');
+  // counter-clockwise: the wire comes in along the other side of the post (the drawing mirrored)
+  const wire = `<line x1="6" x2="${insEnd}" y1="${y}" y2="${y}" stroke="${ins}" stroke-width="${od}"/>
+    <line x1="${insEnd}" x2="${cx}" y1="${y}" y2="${y}" stroke="${tinned}" stroke-width="${cond}"/>
+    ${arc}`;
   return `<svg viewBox="0 0 ${W} ${H}" class="wp-svg" role="img" aria-label="${t('Drawing of the wire end')}">
     ${body}
     <line x1="${edge}" x2="${edge}" y1="${y - od}" y2="${y + od / 2 + 22}" class="wp-ref"/>
-    <line x1="6" x2="${insEnd}" y1="${y}" y2="${y}" stroke="${ins}" stroke-width="${od}"/>
-    <line x1="${insEnd}" x2="${cx}" y1="${y}" y2="${y}" stroke="${tinned}" stroke-width="${cond}"/>
-    ${arc}
+    ${p.dir === 'ccw' && type !== 'turret' ? `<g transform="matrix(1 0 0 -1 0 ${2 * cy})">${wire}</g>` : wire}
     ${ticks}
   </svg>`;
 }
@@ -64,8 +66,11 @@ export function wireMeasureHtml(type: TerminalType, p: WirePrep): string {
   return row(t('Clearance'), `${f.gap.toFixed(1)} mm`) + row(t('Contact'), `${Math.round(f.contact)}°`) + row(t('Cut end'), `${f.tail.toFixed(1)} mm`);
 }
 
-/** The dialog body: controls on one side, the drawing and the scale on the other. */
-export function wirePrepHtml(ref: string, type: TerminalType, p: WirePrep, second: boolean, esc: Esc): string {
+/**
+ * The dialog body: controls on one side, the drawing and the scale on the other. `already`: wires
+ * the terminal carries before this one (their placement and direction then matter).
+ */
+export function wirePrepHtml(ref: string, type: TerminalType, p: WirePrep, second: boolean, esc: Esc, already = 0): string {
   const cup = type === 'cup';
   const opt = (v: string | number, cur: string | number, label: string) => `<option value="${v}"${v === cur ? ' selected' : ''}>${label}</option>`;
   return `
@@ -88,6 +93,10 @@ export function wirePrepHtml(ref: string, type: TerminalType, p: WirePrep, secon
             <label class="wp-check"><input type="checkbox" id="wp-flush"${p.flush ? ' checked' : ''}> ${t('Cut the end flush (flush-cutting pliers)')}</label>`}
             ${type === 'hook' ? `<label>${t('Where on the hook')}<select id="wp-hook">${opt('arc', p.hook ?? 'arc', t('In the arc'))}${opt('base', p.hook ?? 'arc', t('Near the base'))}${opt('tip', p.hook ?? 'arc', t('Near the tip'))}</select></label>` : ''}
             ${type === 'tab' ? `<label class="wp-check"><input type="checkbox" id="wp-eye"${p.eye !== false ? ' checked' : ''}> ${t('Through the eye')}</label>` : ''}
+            ${type === 'hook' || type === 'tab' ? `<label>${t('Bend direction')}<select id="wp-dir">${opt('cw', p.dir ?? 'cw', t('Clockwise'))}${opt('ccw', p.dir ?? 'cw', t('Counter-clockwise'))}</select></label>` : ''}
+            ${already && !cup ? `<label>${t('Next to the wire already on {ref}', { ref: esc(ref) })}<select id="wp-seat">${type === 'turret'
+              ? opt('close', p.seat ?? 'close', t('Against it, down at the base')) + opt('apart', p.seat ?? 'close', t('Higher up, with a gap')) + opt('over', p.seat ?? 'close', t('Across it'))
+              : opt('close', p.seat === 'over' ? 'over' : 'close', t('Beside it')) + opt('over', p.seat === 'over' ? 'over' : 'close', t('Across it'))}</select></label>` : ''}
           </div>
           <div class="wp-view">
             <div id="wp-svg">${wirePreviewSvg(type, p)}</div>

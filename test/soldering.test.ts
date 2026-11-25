@@ -23,9 +23,9 @@ import { excavate, fillBurn } from '../src/laminate';
 
 function assert(c: unknown, m: string): asserts c { if (!c) throw new Error(m); }
 
-interface Fs { existsSync(p: string): boolean }
+interface Fs { existsSync(p: string): boolean; readFileSync(p: string, enc: "utf8"): string }
 const fsName = 'node:fs';
-const { existsSync } = (await import(/* @vite-ignore */ fsName)) as Fs;
+const { existsSync, readFileSync } = (await import(/* @vite-ignore */ fsName)) as Fs;
 const root = new URL('..', import.meta.url).pathname;
 
 /** Holds the iron on one pad for `hold` s (tip `temp`), then lets the board cool for `after` s. */
@@ -559,6 +559,16 @@ async function main() {
   // ---- lesson data ----
   assert(LESSON_META.length === CONTENT.length && LESSON_META.every((m) => CONTENT.some((c) => c.scenario === m.scenario)), 'every lesson has its bench data (track.ts) and its text (neets14.ts)');
   assert(LESSONS.length === SOLDERING_TRACK_IDS.length && LESSONS.every((l, i) => l.scenario === SOLDERING_TRACK_IDS[i]), 'one lesson per board, in order');
+  const toolIds = [...readFileSync(`${root}src/ui/app.ts`, 'utf8').matchAll(/\{ id: '(\w+)', key: '/g)].map((x) => x[1]);
+  const hirelTools = ['extract', 'staple', 'padfix', 'coatest', 'decoat', 'coat', 'hookup', 'pliers', 'laminate', 'shunt'];
+  assert(toolIds.length > 20 && hirelTools.every((x) => toolIds.includes(x)), 'tool ids read from the dock');
+  for (const m of LESSON_META.filter((x) => x.dock)) {
+    const at = (SOLDERING_TRACK_IDS as readonly string[]).indexOf(m.scenario);
+    const taught = new Set(SOLDERING_TRACK_IDS.slice(0, at).flatMap((id) => BOARD_INFO[id]?.teaches ?? []));
+    assert(m.dock!.every((x) => toolIds.includes(x)) && new Set(m.dock).size === m.dock!.length, `${m.scenario}: the dock lists tools, once each`);
+    assert(m.dock!.filter((x) => hirelTools.includes(x)).every((x) => taught.has(`tool:${x}`)), `${m.scenario}: the dock's 2M tools were taught by earlier lessons`);
+  }
+  assert(LESSON_META.find((m) => m.scenario === 'hr-final-practical')!.dock!.filter((x) => hirelTools.includes(x)).length === hirelTools.length, 'the final practical pins every 2M tool');
   for (const l of LESSONS) {
     assert(l.points.length >= 3 && l.original.length >= 1 && l.questions.length >= 1, `${l.scenario}: rules, original text and review questions`);
     assert(l.original.every((p) => p.length > 30 && !/-\s$/.test(p)), `${l.scenario}: whole quoted paragraphs or list entries`);

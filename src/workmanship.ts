@@ -8,7 +8,7 @@ import { FILL_LIMITS, isHeatSensitive, isPlated, type JointEpisode, type ReworkE
 import { judgeClinch, terminationName, terminationOf } from './clinch';
 import { judgeBurn, type LamArea } from './laminate';
 import { judgeLeadForm } from './flatpack';
-import { isWire, judge, type Check, type CheckArea, type TerminalType } from './terminals';
+import { isWire, judge, type Check, type CheckArea, type TerminalType, type WireEnd } from './terminals';
 
 /** Where a rule comes from (public-domain source, page as printed). */
 export interface RuleSource { doc: string; page: string }
@@ -212,15 +212,15 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
   // hook-up wires on terminals, end by end, to the T.O.'s workmanship standards
   const wireEnds: Inspection['wires'] = [];
   const areaRule: Record<CheckArea, FindingKind> = { strip: 'wire-strip', tinning: 'wire-tinning', clearance: 'wire-clearance', forming: 'wire-forming', solder: 'wire-solder' };
-  const onTerm = new Map<string, number>();
+  const onTerm = new Map<string, WireEnd[]>(); // the ends on each terminal so far, in the order installed
   for (const j of board.jumpers) {
     if (!isWire(j)) continue;
     for (const e of j.ends) {
       const c = board.components.find((x) => x.id === e.comp);
-      const ref = c?.ref ?? '?', n = (onTerm.get(ref) ?? 0) + 1;
-      onTerm.set(ref, n);
-      const where = n > 1 ? `${ref} (${n})` : ref;
-      const checks = judge(e);
+      const ref = c?.ref ?? '?', key = `${e.comp}.${e.pad}`, before = onTerm.get(key) ?? [];
+      onTerm.set(key, [...before, e]);
+      const where = before.length ? `${ref} (${before.length + 1})` : ref;
+      const checks = judge(e, before);
       wireEnds.push({ where, type: e.type, checks });
       const bad = new Map<FindingKind, string[]>();
       for (const ck of checks) if (ck.verdict === 'defect') bad.set(areaRule[ck.area], [...(bad.get(areaRule[ck.area]) ?? []), `${ck.what} (${ck.value})`]);

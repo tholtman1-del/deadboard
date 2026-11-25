@@ -49,11 +49,24 @@ async function main() {
   assert(verdicts(end('cup', { strip: 7 })).includes('clearance'), '09-6.1: over two diameters above the rim');
   assert(verdicts(end('turret', {}, 'starved')).includes('solder') && verdicts(end('cup', {}, 'starved')).includes('solder'), '08-6.12 / 09-6.1: no solder added is a starved fillet, an unfilled cup');
   assert(verdicts({ ...end('turret'), soldered: undefined }).includes('solder'), 'an end that was never soldered');
+  // more than one wire on a terminal (08-6.5 – 08-6.7): judged against the wires installed before it
+  const multi = (type: TerminalType, p: Partial<WirePrep>, first: Partial<WirePrep> = {}) => judge(end(type, p), [end(type, first)]);
+  const worst = (cs: ReturnType<typeof judge>) => (cs.some((c) => c.verdict === 'defect') ? 'defect' : cs.some((c) => c.verdict === 'acceptable') ? 'acceptable' : 'target');
+  assert(worst(multi('turret', { seat: 'close' })) === 'target', '08-6.5: the next wire against the first, down at the base, is the target');
+  assert(worst(multi('turret', { seat: 'apart' })) === 'acceptable', '08-6.5: not touching the wire installed before it is acceptable');
+  assert(multi('turret', { seat: 'over' }).some((c) => c.verdict === 'defect' && c.area === 'forming'), '08-6.5: wires crossing over or overlapping are a defect');
+  for (const type of ['hook', 'tab'] as const) {
+    assert(worst(multi(type, { dir: 'ccw' }, { dir: 'cw' })) === 'target', `${type}: wires in alternating directions are the target`);
+    assert(worst(multi(type, { dir: 'cw' }, { dir: 'cw' })) === 'acceptable', `${type}: the same direction is only acceptable`);
+    assert(multi(type, { dir: 'ccw', seat: 'over' }, { dir: 'cw' }).some((c) => c.verdict === 'defect' && c.area === 'forming'), `${type}: overlapping wires are a defect`);
+  }
+  assert(judge(end('turret', { seat: 'over' })).every((c) => c.verdict === 'target'), 'the first wire on a terminal has nothing to cross');
+  assert(judge(end('cup'), [end('cup')]).every((c) => c.verdict === 'target'), 'no multiple-wire forming rules in a solder cup');
 
   const scs = await solderingScenarios();
 
   // ---- a wire conducts only once soldered; the iron with fresh solder makes the fillet ----
-  const play = (id: string, prep: (type: TerminalType) => WirePrep, feed: boolean) => {
+  const play = (id: string, prep: (type: TerminalType, nth: number) => WirePrep, feed: boolean) => {
     const sc = scs.find((x) => x.id === id)!;
     const b: Board = structuredClone(sc.board);
     const terms = b.components.filter((c) => terminalType(c));
@@ -63,7 +76,7 @@ async function main() {
     // the wires the good board has, between the same terminals
     for (const j of ref.jumpers) {
       const [a, z] = j.ends!.map((e) => b.components.find((c) => c.id === e.comp)!) as [Component, Component];
-      addWire(b, a, prep(terminalType(a)!), z, prep(terminalType(z)!));
+      addWire(b, a, prep(terminalType(a)!, endsAt(b, a, 0).length), z, prep(terminalType(z)!, endsAt(b, z, 0).length));
     }
     assert(!ok(), `${id}: wires formed but not soldered do not conduct`);
     const m = new ThermalModel(b), rw = new ReworkMonitor(b, m, limitsFor('sn63'));
@@ -81,7 +94,7 @@ async function main() {
   };
   for (const id of ['hr-turret', 'hr-hook-tab', 'hr-solder-cup']) {
     const lesson = lessonFor(id)!;
-    const good = play(id, (type) => ({ ...targetEnd({ id: 'x' } as Component, type) }), true);
+    const good = play(id, (type, nth) => ({ ...targetEnd({ id: 'x' } as Component, type, nth) }), true);
     assert(lessonAccepted(lesson, good.ins), `${id}: textbook wires pass (${JSON.stringify(good.ins.findings)})`);
     assert(good.ins.wires.length === good.b.jumpers.length * 2, `${id}: every end is in the inspection record`);
     assert(good.ins.findings.every((f) => !f.kind.startsWith('wire-')), `${id}: no wire findings`);
@@ -90,6 +103,8 @@ async function main() {
     assert(!lessonAccepted(lesson, starved.ins) && starved.ins.findings.some((f) => f.kind === 'wire-solder'), `${id}: no solder added fails`);
     const sloppy = play(id, () => ({ ...START, strip: 4 }), true);
     assert(!lessonAccepted(lesson, sloppy.ins), `${id}: an untinned, short, unformed wire fails`);
+    const crossed = play(id, (type, nth) => ({ ...targetEnd({ id: 'x' } as Component, type, nth), seat: nth ? 'over' : 'close' }), true);
+    assert(!lessonAccepted(lesson, crossed.ins) && crossed.ins.findings.some((f) => f.kind === 'wire-forming' && /\(2\)/.test(f.where)), `${id}: a second wire across the first fails (${JSON.stringify(crossed.ins.findings)})`);
   }
   // the lesson boards: terminals on both ends of every wire of the good board
   for (const id of ['hr-turret', 'hr-hook-tab', 'hr-solder-cup']) {
@@ -99,9 +114,9 @@ async function main() {
     assert(sc.board.jumpers.length === 0, `${id}: the lesson takes them away`);
   }
 
-  console.log('TERMINAL TESTS PASSED (wire spec, T.O. 08-6 / 09-6 checks, soldering a wire, three lesson boards)');
+  console.log('TERMINAL TESTS PASSED (wire spec, T.O. 08-6 / 09-6 checks, multiple wires, soldering a wire, three lesson boards)');
 }
 
-const START: WirePrep = { stripper: 'thermal', strip: 4, tinned: false, gap: 0.5, wrap: 90, flush: false, hook: 'arc', eye: true };
+const START: WirePrep = { stripper: 'thermal', strip: 4, tinned: false, gap: 0.5, wrap: 90, flush: false, hook: 'arc', eye: true, dir: 'cw', seat: 'apart' };
 
 await main();

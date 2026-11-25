@@ -14,6 +14,13 @@ export interface LessonMeta {
   bench?: { grounded: boolean; humidity: 'low' | 'high' };
   /** Inspection rules graded on this board (the others are shown as notes). */
   grades: FindingKind[];
+  /**
+   * The tools this lesson's dock pins (tool ids), most needed first, in place of the bench set: for a
+   * lesson that uses many tools taught earlier, so they fit a laptop's screen. The tools its
+   * BOARD_INFO `teaches` are always pinned; when the window is short the list folds from its end.
+   * Kept apart from `teaches` so the skill chips stay what the lesson is about.
+   */
+  dock?: string[];
 }
 
 export const LESSON_META: LessonMeta[] = [
@@ -35,7 +42,7 @@ export const LESSON_META: LessonMeta[] = [
   { scenario: 'hr-laminate', title: tk('Burned laminate'), station: 'r316f', grades: ['solder-insufficient', 'solder-excess', 'solder-projection', 'laminate-burn', 'laminate-excavation', 'epoxy-fill', 'buttercoat', 'termination-style', 'pad-lifted', 'dull-joint', 'flux-residue', 'loose-solder', 'part-overheated', 'overheated-joint', 'slow-melt'] },
   { scenario: 'hr-to-package', title: tk('TO packages'), station: 'r316f', grades: ['solder-insufficient', 'solder-excess', 'solder-projection', 'mounting-style', 'no-shunt', 'pad-lifted', 'dull-joint', 'flux-residue', 'loose-solder', 'part-overheated', 'overheated-joint', 'slow-melt'] },
   { scenario: 'hr-flat-pack', title: tk('Flat packs'), station: 'r316f', grades: ['solder-insufficient', 'solder-excess', 'solder-projection', 'flatpack-leads', 'skip-pattern', 'pad-lifted', 'dull-joint', 'flux-residue', 'loose-solder', 'overheated-joint', 'slow-melt'] },
-  { scenario: 'hr-final-practical', title: tk('Final practical'), station: 'r316f', bench: { grounded: false, humidity: 'low' }, grades: ['solder-insufficient', 'solder-excess', 'solder-projection', 'mounting-style', 'wire-strip', 'wire-tinning', 'wire-clearance', 'wire-forming', 'wire-solder', 'clinch', 'termination-style', 'laminate-burn', 'laminate-excavation', 'epoxy-fill', 'buttercoat', 'coating-id', 'coating-id-order', 'coating-charred', 'coating-missing', 'coating-mismatch', 'coating-method', 'skip-pattern', 'dull-joint', 'overheated-joint', 'slow-melt', 'pad-lifted', 'part-overheated', 'flux-residue', 'loose-solder', 'wire-repair', 'nick', 'esd-damage', 'esd-handling'] },
+  { scenario: 'hr-final-practical', title: tk('Final practical'), station: 'r316f', bench: { grounded: false, humidity: 'low' }, dock: ['inspect', 'iron', 'coatest', 'decoat', 'extract', 'padfix', 'replace', 'staple', 'ipa', 'hookup', 'wick', 'pliers', 'laminate', 'coat', 'shunt', 'rosin', 'dmm'], grades: ['solder-insufficient', 'solder-excess', 'solder-projection', 'mounting-style', 'wire-strip', 'wire-tinning', 'wire-clearance', 'wire-forming', 'wire-solder', 'clinch', 'termination-style', 'laminate-burn', 'laminate-excavation', 'epoxy-fill', 'buttercoat', 'coating-id', 'coating-id-order', 'coating-charred', 'coating-missing', 'coating-mismatch', 'coating-method', 'skip-pattern', 'dull-joint', 'overheated-joint', 'slow-melt', 'pad-lifted', 'part-overheated', 'flux-residue', 'loose-solder', 'wire-repair', 'nick', 'esd-damage', 'esd-handling'] },
 ];
 
 export function lessonMeta(scenarioId: string): LessonMeta | undefined {

@@ -47,6 +47,14 @@ export interface WirePrep {
   hook?: 'arc' | 'base' | 'tip';
   /** Pierced tab: through the eye (or bent over the edge). */
   eye?: boolean;
+  /** Which way the wire is bent round the terminal (default clockwise, seen from above). */
+  dir?: 'cw' | 'ccw';
+  /**
+   * Where a wire sits when the terminal already carries one (default `close`): against the wire
+   * installed before it, as close to the base as its insulation allows; higher up with a gap; or
+   * across it.
+   */
+  seat?: 'close' | 'apart' | 'over';
 }
 
 /** One end of a hook-up wire on a terminal. */
@@ -94,8 +102,11 @@ export interface Check { area: CheckArea; verdict: Verdict; what: string; value:
 
 const dia = (x: number, d: number) => t('{n} D', { n: (x / d).toFixed(1) });
 
-/** Every workmanship check of one end, in the T.O.'s terms. */
-export function judge(e: WireEnd): Check[] {
+/**
+ * Every workmanship check of one end, in the T.O.'s terms. `before`: the ends installed on the same
+ * terminal before this one (multiple-wire rules, 08-6.5 – 08-6.7).
+ */
+export function judge(e: WireEnd, before: WireEnd[] = []): Check[] {
   const f = form(e, e.type), out: Check[] = [];
   const cup = e.type === 'cup';
   out.push(e.stripper === 'mechanical'
@@ -134,6 +145,22 @@ export function judge(e: WireEnd): Check[] {
         ? { area: 'forming', verdict: 'target', what: t('Wire attached within the 180° arc of the hook'), value: t('in the arc'), para }
         : { area: 'forming', verdict: 'defect', what: h === 'base' ? t('Wire attached less than two wire diameters from the base of the hook') : t('Wire attached less than one wire diameter from the end of the hook'), value: h === 'base' ? t('at the base') : t('at the tip'), para });
     }
+    if (before.length) {
+      const seat = e.seat ?? 'close';
+      out.push(seat === 'over'
+        ? { area: 'forming', verdict: 'defect', what: t('Multiple wires cross over or overlap each other on the terminal'), value: t('across the other wire'), para }
+        : e.type !== 'turret'
+          ? { area: 'forming', verdict: 'target', what: t('Multiple wires do not overlap'), value: t('beside the other wire'), para }
+          : seat === 'close'
+            ? { area: 'forming', verdict: 'target', what: t('Next wire mounted as close to the base as the insulation allows'), value: t('against the other wire'), para }
+            : { area: 'forming', verdict: 'acceptable', what: t('Next wire not in contact with the wire installed before it'), value: t('gap to the other wire'), para });
+      if (e.type !== 'turret') {
+        const alt = (e.dir ?? 'cw') !== (before[before.length - 1].dir ?? 'cw');
+        out.push(alt
+          ? { area: 'forming', verdict: 'target', what: t('Multiple wires attached in alternating directions'), value: t('alternating'), para }
+          : { area: 'forming', verdict: 'acceptable', what: t('Multiple wires not attached in alternating directions'), value: t('same direction'), para });
+      }
+    }
     if (tab) {
       out.push(e.eye !== false
         ? { area: 'forming', verdict: 'target', what: t('Wire passes through the eye of the terminal'), value: t('through the eye'), para }
@@ -158,9 +185,12 @@ export function endsAt(board: Board, c: Component, pi: number): { j: Jumper; end
   return out;
 }
 
-/** A known-good end for authoring a reference board: the target in every respect (stripped long, then cut flush). */
-export function targetEnd(c: Component, type: TerminalType): WireEnd {
-  return { comp: c.id, pad: 0, type, stripper: 'thermal', strip: type === 'cup' ? Math.round(targetStrip(type) * 2) / 2 : Math.ceil(targetStrip(type)) + 1, tinned: true, gap: type === 'cup' ? 0 : WIRE.od, wrap: 180, flush: true, hook: 'arc', eye: true, soldered: 'ok' };
+/**
+ * A known-good end for authoring a reference board: the target in every respect (stripped long, then
+ * cut flush). `nth`: how many wires the terminal already carries (the next one alternates direction).
+ */
+export function targetEnd(c: Component, type: TerminalType, nth = 0): WireEnd {
+  return { comp: c.id, pad: 0, type, stripper: 'thermal', strip: type === 'cup' ? Math.round(targetStrip(type) * 2) / 2 : Math.ceil(targetStrip(type)) + 1, tinned: true, gap: type === 'cup' ? 0 : WIRE.od, wrap: 180, flush: true, hook: 'arc', eye: true, dir: nth % 2 ? 'ccw' : 'cw', seat: 'close', soldered: 'ok' };
 }
 
 /** Puts a hook-up wire between two terminals, each end prepared and formed as `pa` / `pb`, not yet soldered. */
@@ -170,8 +200,8 @@ export function addWire(board: Board, a: Component, pa: WirePrep, b: Component, 
     return [c.at[0] + p[0] * Math.cos(r) - p[1] * Math.sin(r), c.at[1] + p[0] * Math.sin(r) + p[1] * Math.cos(r)];
   };
   const end = (c: Component, p: WirePrep): WireEnd => {
-    const { stripper, strip, tinned, gap, wrap, flush, hook, eye } = p; // only the prep: a new end is not soldered
-    return { stripper, strip, tinned, gap, wrap, flush, hook, eye, comp: c.id, pad: 0, type: terminalType(c)! };
+    const { stripper, strip, tinned, gap, wrap, flush, hook, eye, dir, seat } = p; // only the prep: a new end is not soldered
+    return { stripper, strip, tinned, gap, wrap, flush, hook, eye, dir, seat, comp: c.id, pad: 0, type: terminalType(c)! };
   };
   const j: Jumper = { id: 'j' + (board.nextId++).toString(36), a: at(a), b: at(b), la: 'F', lb: 'F', kind: 'wire', ends: [end(a, pa), end(b, pb)] };
   board.jumpers.push(j);
