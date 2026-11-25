@@ -80,6 +80,8 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
     if (e.kind === 'mlcc-cracked' && board.components.find((c) => c.ref === e.ref)?.state.leak) add({ kind: 'mlcc-cracked', where: e.ref });
     if (e.kind === 'part-displaced' && board.components.find((c) => c.ref === e.ref)?.state.populated) add({ kind: 'part-displaced', where: e.ref });
   }
+  // a lifted pad still on the board, however it got there (an inspector sees it)
+  for (const c of board.components) if (c.state.populated) for (const pi of c.state.lifted ?? []) add({ kind: 'pad-lifted', where: padName(c.ref, pi) });
   // a dull joint that was never made good afterwards (its last episode had no flux and it is still marked)
   for (const e of events) {
     if (e.kind !== 'dull-joint') continue;
@@ -136,7 +138,7 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
   // procedure: shunts on sensitive leads, and the skipping pattern on multilead parts
   for (const ep of episodes) {
     const c = board.components.find((x) => x.ref === ep.ref);
-    if (c && isHeatSensitive(c) && !ep.shunt) add({ kind: 'no-shunt', where: padName(ep.ref, ep.pad) });
+    if (c && isHeatSensitive(c) && !ep.shunt && !ep.dead) add({ kind: 'no-shunt', where: padName(ep.ref, ep.pad) });
   }
   const ordered = [...episodes].sort((a, b) => a.t - b.t);
   for (let i = 1; i < ordered.length; i++) {

@@ -77,7 +77,7 @@ import { beginnerPrimerHtml, CHALLENGE_TRACK_IDS, lessonDock, TUTORIAL_SCENARIO_
 import { TOOL_SHORT, TOOL_TIP_PHONE, TouchGestures, splitLead, touchCopy, wantsMobileLayout } from './touch';
 import { cursorStops, describeAt, stepToward } from './boardcursor';
 
-type ToolId = 'inspect' | 'dmm' | 'iron' | 'wick' | 'flip180' | 'jumper' | 'knife' | 'replace' | 'freeze' | 'ipa' | 'press' | 'hotair' | 'scope' | 'rosin' | 'extract' | 'shunt' | 'staple' | 'decoat' | 'coat';
+type ToolId = 'inspect' | 'dmm' | 'iron' | 'wick' | 'flip180' | 'jumper' | 'knife' | 'replace' | 'freeze' | 'ipa' | 'press' | 'hotair' | 'scope' | 'rosin' | 'extract' | 'shunt' | 'staple' | 'decoat' | 'coat' | 'padfix';
 type PanelTab = 'mission' | 'inspect' | 'studio' | 'mods';
 type DmmMode = 'V' | 'OHM' | 'DIODE' | 'CAP' | 'AMP';
 
@@ -105,6 +105,7 @@ const TOOLS: { id: ToolId; key: string; ico: string; lbl: string; tip: string }[
   { id: 'press', key: 'b', ico: 'hand', lbl: tk('Press / flex'), tip: tk('Press on the board for 2.5 s: reveals cracked joints that open or close under flex') },
   { id: 'extract', key: 'x', ico: 'extract', lbl: tk('Solder extractor'), tip: tk('Desoldering a through-hole joint: hold the heated tip on it until the solder is sucked out (Bench: continuous vacuum or a manual plunger)') },
   { id: 'staple', key: 'k', ico: 'staple', lbl: tk('Clinched staple'), tip: tk('Repair a broken or nicked conductor the high-reliability way: click the copper on one side of the damage, then the other (same side of the board)') },
+  { id: 'padfix', key: 'e', ico: 'eyelet', lbl: tk('Pad repair'), tip: tk('Replace a lifted or missing pad: a new pad epoxied on, an eyelet set through it, lap-soldered to its run (click the pad)') },
   { id: 'decoat', key: 'u', ico: 'scrape', lbl: tk('Coating removal'), tip: tk('Take the conformal coating off a part\'s leads and pads (click the part); the method is set in Bench, as in NEETS Table 3-1') },
   { id: 'coat', key: 'j', ico: 'coat', lbl: tk('Conformal coating'), tip: tk('Put conformal coating back on a part after the repair (the type is set in Bench)') },
   { id: 'shunt', key: 's', ico: 'clip', lbl: tk('Thermal shunt'), tip: tk('Clip a heat sink on a through-hole lead (click its pad) so the part stays cool while you solder; click again to take it off') },
@@ -4251,6 +4252,26 @@ export class PcbApp {
       return;
     }
 
+    if (this.activeTool === 'padfix') {
+      // NEETS 14 p. 3-33, fig. 3-25: clean the area, epoxy a replacement pad from scrap board, set an
+      // eyelet before the epoxy cures, then lap-solder the new pad to the original run
+      if (hit?.kind !== 'pad') { this.toast(t('Click the lifted pad to replace.'), 'info'); return; }
+      const c = hit.comp, pi = hit.padIndex;
+      if (!c.state.lifted?.includes(pi)) { this.toast(t('{ref} pad {pad} is bonded to the board: nothing to replace.', { ref: c.ref, pad: c.pads[pi].name }), 'info'); return; }
+      if (!workable(this.board, c)) { this.coatingInTheWay(c, false); return; }
+      this.pushUndo();
+      const rest = c.state.lifted.filter((x) => x !== pi);
+      c.state.lifted = rest.length ? rest : undefined;
+      c.state.padRepaired = [...new Set([...(c.state.padRepaired ?? []), pi])].sort((a, b) => a - b);
+      if (!c.state.cold.includes(pi)) c.state.cold = [...c.state.cold, pi].sort((a, b) => a - b);
+      // the lead now sits in the new eyelet, not yet soldered
+      if (this.reworkMode.realistic && c.state.populated && isThroughHole(c)) c.state.holes = { ...(c.state.holes ?? {}), [pi]: 'clear' };
+      sfxClick();
+      this.recompute(false);
+      this.toast(t('New pad on {ref} pad {pad}: epoxied, eyelet set, epoxy cured, lap-soldered to the run. Now solder the lead in the eyelet.', { ref: c.ref, pad: c.pads[pi].name }), 'success');
+      this.renderUI();
+      return;
+    }
     if (this.activeTool === 'decoat' || this.activeTool === 'coat') {
       const c = hit?.kind === 'pad' || hit?.kind === 'comp' ? hit.comp : null;
       if (!this.board.coating) { this.toast(t('This board has no conformal coating.'), 'info'); return; }

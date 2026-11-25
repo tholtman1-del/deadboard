@@ -85,6 +85,11 @@ export interface ComponentState {
   coating?: 'removed' | import('./coating').CoatingType;
   /** An iron was put on this part's coating and charred it (NEETS 14 p. 3-4): board damage. */
   coatCharred?: true;
+  /**
+   * Pads replaced in repair (NEETS 14 p. 3-33, fig. 3-25): a pad from scrap board epoxied on, an
+   * eyelet set through it, lap-soldered to the run. Drawn with the eyelet.
+   */
+  padRepaired?: number[];
   /** Handled (fitted) by an ungrounded technician, and whether the discharge damaged it (src/esd.ts). */
   esdHandled?: true;
   esdDamaged?: true;

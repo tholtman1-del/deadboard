@@ -263,7 +263,6 @@ export const LESSONS: Lesson[] = [
     grades: ['loose-solder', 'wire-repair', 'nick', 'pad-lifted', 'part-overheated'],
     questions: [
       { ref: 'Q30', q: tk('What is the preferred method of repairing cracked runs on boards?'), a: tk('Clinched staple.'), page: '3-37' },
-      { ref: 'Q31', q: tk('Damaged or missing termination pads are replaced using what procedure?'), a: tk('Epoxy a replacement pad to the board, set an eyelet, and solder it.'), page: '3-37' },
       { ref: 'Q29', q: tk('List three causes of damage to printed circuit boards.'), a: tk('Operational failures, repairs by untrained personnel, repair using improper tools, mishandling, improper shipping, packaging, and storage.'), page: '3-37' },
     ],
   },
@@ -337,6 +336,62 @@ export const LESSONS: Lesson[] = [
     questions: [
       { ref: 'Q35', q: tk('What is the purpose of the wrist ground strap?'), a: tk('To discharge any static charge built up in the body.'), page: '3-46' },
       { ref: 'Q34', q: tk('List two causes of damage to ESD-sensitive electronic components.'), a: tk('ESD, improper stowage, and improper handling.'), page: '3-46' },
+    ],
+  },
+  {
+    scenario: 'hr-pad-repair',
+    title: tk('Pad repair'),
+    source: { ...NEETS14_SOURCE, pages: '3-33 – 3-34' },
+    points: [
+      tk('A termination pad that has lifted or is missing is replaced, not bypassed: a replacement pad comes from a scrap circuit board.'),
+      tk('Clean the underside of the new pad and the area where it goes, then fasten it with epoxy.'),
+      tk('Set an eyelet through the pad before the epoxy cures: it reinforces the pad mechanically and makes good electrical contact for the component.'),
+      tk('When the epoxy has cured, lap-solder the new pad to the original run.'),
+      tk('A missing or damaged eyelet is always replaced, whatever the damage.'),
+    ],
+    numbers: [
+      { label: tk('Order of work'), value: tk('clean → epoxy pad → eyelet → cure → lap-solder → solder the lead') },
+    ],
+    figure: { src: 'lessons/neets14/fig-3-25.png', caption: tk('Figure 3-25. Replacement of damaged termination pad.') },
+    original: [
+      'REPLACING THE TERMINATION PAD.—Many times the termination pad, as well as part of the conductor, is missing on the board. In these cases, a replacement pad is obtained from a scrap circuit board. Refer to figure 3-25 as you study each step.',
+      'The underside of the replacement pad and the area where it will be installed is cleaned. An epoxy is used to fasten the replacement pad to the board. An eyelet is installed to reinforce the pad before the epoxy sets and cures. This ensures a good mechanical bond between the board and pad and provides good electrical contact for components. After the epoxy cures, the new pad is lap-soldered to the original run.',
+      'REPLACING EYELETS.—Eyelets have been referred to in several places in this topic. Not only are they used for through-the-board terminations, but also to reinforce some types of board repairs. As with any kind of material, eyelets are subject to damage. Eyelets may break, they may be installed improperly, or they may be missing from the equipment. When an eyelet is missing or damaged, regardless of the kind of damage, it should be replaced. The guidelines for the selection and installation of new eyelets are far too complex to explain here. However, they do comprise a large part of the 2M technician\'s training.',
+    ],
+    task: tk('R2 pad 2 has lifted off the board, so D2 is dark. Replace the pad with Pad repair (E), then solder R2\'s lead in the new eyelet with "+ flux" and clean with Isopropyl (0). A jumper wire around the pad is not a high-reliability repair: the inspector rejects it here.'),
+    station: 'r350f',
+    grades: ['pad-lifted', 'wire-repair', 'loose-solder', 'dull-joint', 'flux-residue', 'part-overheated'],
+    questions: [
+      { ref: 'Q31', q: tk('Damaged or missing termination pads are replaced using what procedure?'), a: tk('Epoxy a replacement pad to the board, set an eyelet, and solder it.'), page: '3-37' },
+      { ref: 'Q32', q: tk('How is board damage caused by technicians?'), a: tk('Repairs by untrained personnel and technicians using improper tools.'), page: '3-37' },
+    ],
+  },
+  {
+    scenario: 'hr-final-practical',
+    title: tk('Final practical'),
+    source: { ...NEETS14_SOURCE, pages: '3-1, 3-20, 3-26 – 3-28' },
+    points: [
+      tk('A repaired assembly is restored at least to the original manufacturer\'s standards: parts remounted in the same position, with the same terminations.'),
+      tk('Work in order: coating off where needed, desolder cleanly, fit the new part grounded, solder with shunts on sensitive leads, clean, repair the board, coating back on.'),
+      tk('The two final steps of any repair: inspect and test.'),
+      tk('Every rule of the earlier lessons is graded here.'),
+    ],
+    numbers: [
+      { label: tk('Coating on this card'), value: tk('thin acrylic lacquer') },
+      { label: tk('Air'), value: tk('dry (10–20 % relative humidity)') },
+    ],
+    original: [
+      'As you progress in your training as a technician, you will find that the skill and knowledge levels required to maintain electronic systems become more demanding. The increased use of miniature and microminiature electronic circuits, circuit complexity, and new manufacturing techniques will make your job more challenging. To maintain and repair equipment effectively, you will have to duplicate with limited facilities what was accomplished in the factory with extensive facilities. Printed circuit boards that were manufactured completely by machine will have to be repaired by hand.',
+      'CAUTION: THIS SECTION IS NOT, IN ANY WAY, TO BE USED BY YOU AS AUTHORIZATION TO ATTEMPT THESE TYPES OF REPAIRS WITHOUT OFFICIAL 2M CERTIFICATION.',
+      'The 2M technician should restore the electronic assembly at least to the original manufacturer\'s standards. Parts should always be remounted or reassembled in the same position and with termination methods used by the original manufacturer. This approach ensures a continuation of the original reliability of the system.',
+    ],
+    task: tk('Q1 burned out on a card coated with thin acrylic, in dry air. Replace Q1 and repair whatever else you find, the way the course taught: every rule is graded. The hints list the order of work if you need it.'),
+    station: 'r350f',
+    bench: { grounded: false, humidity: 'low' },
+    grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'mlcc-cracked', 'flux-residue', 'loose-solder', 'wire-repair', 'nick', 'no-shunt', 'coating-charred', 'coating-missing', 'coating-mismatch', 'coating-method', 'esd-damage', 'esd-handling'],
+    questions: [
+      { ref: 'Q14', q: tk('To what standards should a technician restore electronic assemblies?'), a: tk('Manufacturer\'s standards.'), page: '3-22' },
+      { ref: 'Q36', q: tk('What is the cause of most accidents?'), a: tk('Deviation from prescribed safe operating procedures.'), page: '3-46' },
     ],
   },
 ];

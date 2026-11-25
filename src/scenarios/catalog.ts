@@ -39,7 +39,7 @@ export const SKILLS: Record<SkillKind, Record<string, string>> = {
     dmm: tk('Multimeter'), flip: tk('Flip'), jumper: tk('Jumper wire'), iron: tk('Soldering iron'),
     supply: tk('Bench supply'), wick: tk('Desolder wick'), diode: tk('Diode test'), rotate: tk('Rotate 180°'),
     replace: tk('Parts bin'), thermal: tk('Thermal'), ocp: tk('Current limit'), ipa: tk('Isopropyl'),
-    press: tk('Press / flex'), freeze: tk('Freeze spray'), heatmap: tk('Voltage map'), rosin: tk('Rosin'), extract: tk('Solder extractor'), shunt: tk('Thermal shunt'), staple: tk('Clinched staple'), decoat: tk('Coating removal'), coat: tk('Conformal coating'),
+    press: tk('Press / flex'), freeze: tk('Freeze spray'), heatmap: tk('Voltage map'), rosin: tk('Rosin'), extract: tk('Solder extractor'), shunt: tk('Thermal shunt'), staple: tk('Clinched staple'), decoat: tk('Coating removal'), coat: tk('Conformal coating'), padfix: tk('Pad repair'),
   },
   part: {
     cell: tk('Coin cell'), button: tk('Push button'), bjt: tk('Transistor (NPN)'), resistor: tk('Resistor'), led: tk('LED'),
@@ -93,6 +93,8 @@ export const BOARD_INFO: Record<string, BoardInfo> = {
   'hr-conductor-repair': { level: 3.3, symptom: tk('One of two LEDs stays dark'), teaches: ['tool:staple', 'fault:open'] },
   'hr-conformal-coating': { level: 3.6, symptom: tk('One of two LEDs stays dark'), teaches: ['tool:decoat', 'tool:coat', 'fault:cold'] },
   'hr-esd': { level: 3.8, symptom: tk('Pressed, the LED stays dark'), teaches: ['tool:replace', 'part:mosfet', 'fault:missing'] },
+  'hr-pad-repair': { level: 4.0, symptom: tk('One of two LEDs stays dark'), teaches: ['tool:padfix', 'tool:iron', 'fault:open'] },
+  'hr-final-practical': { level: 5.2, symptom: tk('Pressed, the LEDs stay dark'), teaches: ['tool:extract', 'tool:shunt', 'tool:decoat', 'tool:staple'] },
   'hr-thermal-shunt': { level: 2.9, symptom: tk('Pressed, the LEDs stay dark'), teaches: ['tool:shunt', 'part:bjt', 'fault:cold'] },
   'hr-clean-inspect': { level: 2.2, symptom: tk('Reworked, both LEDs dark, left a mess'), teaches: ['tool:wick', 'tool:ipa', 'fault:bridge'] },
   'demo-olimex-esp32-devkit-lipo': { level: 4.4, teaches: ['part:schottky', 'part:charger', 'part:mcu'] },

@@ -133,8 +133,8 @@ function desoldering() {
   (b) => { b.components.find((c) => c.ref === 'R2')!.state.burnt = true; });
 }
 
-/** The transistor switch, through-hole and tin-lead: Q1's base and collector joints never bonded. */
-async function thermalShunt(): Promise<Scenario> {
+/** The transistor switch (2N3904 sinking two LEDs), through-hole: shared by lessons 5 and 11. */
+function transistorSwitchBoard(label: string): Builder {
   const k = new Builder(82, 46);
   const j1 = k.header('J1', 3, [6, 24], 0, '2×AA');
   k.tactile('SW1', [20, 14]);
@@ -155,7 +155,13 @@ async function thermalShunt(): Promise<Scenario> {
   k.track('F', [k.pad(d1, '1'), [76, 9], [76, 38], [44, 38], [44, 30], k.pad(q1, '3')], 0.8, 'COLLECTOR');
   k.track('F', [k.pad(d2, '1'), [76, 18]], 0.8, 'COLLECTOR');
   k.track('B', [k.pad(j1, '2'), [6, 43], [58, 43], [58, 30], k.pad(q1, '1')], 0.8, 'GND');
-  k.text([16, 41], 'HI-REL 5  THERMAL SHUNT', 1.4);
+  k.text([16, 41], label, 1.4);
+  return k;
+}
+
+/** The transistor switch, through-hole and tin-lead: Q1's base and collector joints never bonded. */
+async function thermalShunt(): Promise<Scenario> {
+  const k = transistorSwitchBoard('HI-REL 5  THERMAL SHUNT');
   const sw = (on: boolean) => ({ SW1: on });
   const sc = await finalize('hr-thermal-shunt', {
     title: 'Thermal Shunt',
@@ -292,9 +298,57 @@ async function esdBoard(): Promise<Scenario> {
   return sc;
 }
 
+function padRepair() {
+  const k = ledRows(64, 34, [{ color: 'red', y: 11 }, { color: 'green', y: 23 }], 'HI-REL 10  PAD REPAIR');
+  return finalize('hr-pad-repair', {
+    title: 'Pad Repair',
+    author: 'DEADBOARD',
+    difficulty: 3,
+    description: 'D2 is dark: R2 pad 2 was overheated in an earlier repair and lifted off the board. Repair the board the high-reliability way: a new pad, not a wire around the old one.',
+    hints: [
+      'Flip to the bottom (F): R2 pad 2 is lifted. Its lead touches nothing.',
+      'Use Pad repair (E) on that pad: a new pad is epoxied on, an eyelet set through it, and it is lap-soldered to the track.',
+      'The lead in the new eyelet still needs its joint: hold the iron on it with "+ flux", then clean with Isopropyl.',
+    ],
+    par: 3,
+  }, k.b, [lit('D1'), lit('D2')], 'PCB{n3w_p4d_3p0xy_3y3l3t}',
+  (b) => { const r2 = b.components.find((c) => c.ref === 'R2')!; const pi = pad(b, 'R2', '2'); r2.state.lifted = [pi]; r2.state.cold = [pi]; });
+}
+
+/**
+ * The final practical: everything at once on the coated transistor switch. Q1 burned out and must be
+ * replaced (coating off, desoldered, refitted grounded in dry air, soldered with shunts), the
+ * collector track carries a deep nick, and the coating goes back on.
+ */
+async function finalPractical(): Promise<Scenario> {
+  const k = transistorSwitchBoard('HI-REL 11  FINAL PRACTICAL');
+  k.b.coating = { type: 'acrylic', thick: false };
+  const sw = (on: boolean) => ({ SW1: on });
+  const sc = await finalize('hr-final-practical', {
+    title: 'Final Practical',
+    author: 'DEADBOARD',
+    difficulty: 4,
+    description: 'The whole course on one card. Pressing SW1 lights nothing: Q1 (2N3904) burned out. The card is coated with thin acrylic, the air is dry, and the inspector checks everything you have learned. Replace Q1, repair what else you find, and leave the card as the textbook demands.',
+    hints: [
+      'Order of work: coating off Q1 (Table 3-1\'s first choice for acrylic), Q1\'s three holes cleared with continuous vacuum, Q1 out, wrist strap on, new Q1 in.',
+      'Solder the new Q1 with a thermal shunt on each lead, clean the flux with Isopropyl, and look at the collector track between D1 and Q1: a nick over a tenth of it needs a staple.',
+      'Last: acrylic coating back on Q1 (and on any other part you uncoated), then run the tests.',
+    ],
+    par: 14,
+  }, k.b, [{ type: 'led', ref: 'D1', on: true, switches: sw(true) }, { type: 'led', ref: 'D2', on: true, switches: sw(true) }, { type: 'led', ref: 'D1', on: false, switches: sw(false) }, { type: 'led', ref: 'D2', on: false, switches: sw(false) }], 'PCB{2m_pr4ct1c4l_p4ss3d}',
+  (b) => {
+    b.components.find((c) => c.ref === 'Q1')!.state.burnt = true;
+    const t = b.traces.find((x) => x.net === 'COLLECTOR' && x.layer === 'F' && Math.abs(x.a[1] - 38) < 0.01 && Math.abs(x.b[1] - 38) < 0.01)!;
+    const depth = 0.4, x = 52; // on the collector run, clear of TP2 (x 62)
+    b.nicks = [{ id: 'n' + (b.nextId++).toString(36), at: [x, 38 - t.w / 2 + (depth * t.w) / 2], layer: 'F', len: 0.6, depth, rot: 0, width: t.w }];
+  });
+  sc.solver = 'spice';
+  return sc;
+}
+
 export async function solderingScenarios(): Promise<Scenario[]> {
-  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern(), conductorRepair(), conformalCoating(), esdBoard()]);
+  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern(), conductorRepair(), conformalCoating(), esdBoard(), padRepair(), finalPractical()]);
 }
 
 /** The track's boards, in order. */
-export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern', 'hr-conductor-repair', 'hr-conformal-coating', 'hr-esd'] as const;
+export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern', 'hr-conductor-repair', 'hr-conformal-coating', 'hr-esd', 'hr-pad-repair', 'hr-final-practical'] as const;

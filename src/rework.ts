@@ -81,6 +81,8 @@ export interface JointEpisode {
   shunt: boolean;
   /** Peak temperature of the part's body during the heating (°C). */
   bodyPeak: number;
+  /** The part was already burnt (a dead part being taken out: no shunt needed for it). */
+  dead?: boolean;
 }
 
 /** A through-hole part with a body: soldered through plated holes (the desoldering rules apply). */
@@ -228,7 +230,7 @@ export class ReworkMonitor {
         if (!js) this.joints.set(key, (js = { above: 0, melted: false, hot: 0, fed: false }));
         const tj = this.thermal.jointTemp(c, pi);
         if (tj >= L.alloy.liquidus) {
-          if (!js.ep) { js.ep = { ref: c.ref, pad: pi, molten: 0, peak: tj, flux: ps.flux > 0, t: this.thermal.time, open: true, shunt: !!c.state.shunts?.includes(pi), bodyPeak: T }; this.episodes.push(js.ep); }
+          if (!js.ep) { js.ep = { ref: c.ref, pad: pi, molten: 0, peak: tj, flux: ps.flux > 0, t: this.thermal.time, open: true, shunt: !!c.state.shunts?.includes(pi), bodyPeak: T, ...(c.state.burnt && { dead: true }) }; this.episodes.push(js.ep); }
           js.ep.molten += dt;
           js.ep.peak = Math.max(js.ep.peak, tj);
           js.ep.bodyPeak = Math.max(js.ep.bodyPeak, T);

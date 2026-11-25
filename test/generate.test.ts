@@ -48,6 +48,8 @@ const FIXES: Record<string, (b: Board) => void> = {
   'hr-conductor-repair': (b) => { addBlob(b, [37, 11], 'F', 0.75); },
   'hr-conformal-coating': (b) => toggleCold(part(b, 'R2'), 1),
   'hr-esd': (b) => installPart(part(b, 'Q1')),
+  'hr-pad-repair': (b) => { const r2 = part(b, 'R2'); r2.state.lifted = undefined; r2.state.cold = []; },
+  'hr-final-practical': (b) => installPart(part(b, 'Q1')),
 };
 
 async function fixed(sc: Scenario, solver: Solver): Promise<Board> {

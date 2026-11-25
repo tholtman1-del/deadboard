@@ -40,6 +40,7 @@ const P: Record<string, string> = {
   extract: '<path d="M14 3h4v6"/><path d="M18 9l-7 7"/><path d="M8 13l3 3-5 5-3-3z"/><path d="M15 6l3 3"/>',
   scrape: '<path d="M4 20l7-7"/><path d="M10 14l7-10 3 3-10 7z"/><path d="M3 21h6"/>',
   coat: '<path d="M7 3h10v5H7z"/><path d="M12 8v4"/><path d="M5 12h14v3a6 6 0 0 1-6 6h-2a6 6 0 0 1-6-6z"/>',
+  eyelet: '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3"/><path d="M12 19v3"/>',
   staple: '<path d="M5 15V8h14v7"/><path d="M3 15h4"/><path d="M17 15h4"/>',
   clip: '<path d="M7 3l3 8"/><path d="M17 3l-3 8"/><path d="M8 11h8l-1 10H9z"/><path d="M10 15h4"/>',
   rosin: '<path d="M9 3h6"/><path d="M10 3v4L6 13v6a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-6l-4-6V3"/><path d="M7 15h10"/>',

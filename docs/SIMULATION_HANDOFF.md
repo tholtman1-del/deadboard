@@ -8,7 +8,7 @@ No reference hardware is available, so realism is validated against *design inte
 ## Status (start here)
 
 - **High-reliability soldering track: Phase 1 pushed (`8fb70ba`, live); Phase 2 (`fd53b00`) and
-  lessons 6–9 (`4d036fd`, `b15380c`, `493834f`, + ESD) committed locally, NOT pushed (the auto-mode
+  lessons 6–11 (`4d036fd` … ) committed locally, NOT pushed (the auto-mode
   permission check refused `git push`; the user pushes, or allows it).** A separate learning path after NEETS Module 14 (NAVEDTRA 14186, Navy 2M
   soldering; Distribution A, public domain). Research and the 3-phase plan: `ideas/navy-2m-soldering.md`
   (local only). User's choices: lesson card + original text before, workmanship debrief + the module's
@@ -73,8 +73,17 @@ No reference hardware is available, so realism is validated against *design inte
     bipolar part degraded (latent); Bench: ESD protection (strap) + Humidity, a lesson can preset them
     (`Lesson.bench`). Rules `esd-damage`, `esd-handling` (procedural). Board `hr-esd` (2N7000 switch,
     Q1 missing; devicelib gained 2N7000, unverified). Table 3-2 rebuilt in the lesson card.
-  - **Next:** eyelet and replacement-pad repairs (3-33), flat packs (3-29), TO packages (3-27);
-    read the 2M certification manual + T.O. 00-25-259 (the user downloads them).
+  - **Lessons 10–11 (2026-11-25):** 10 Pad Repair — `hr-pad-repair` (R2 pad 2 lifted); Pad repair
+    tool (E): new pad + eyelet (`state.padRepaired`, drawn as the eyelet flange), the lead then needs
+    soldering; the inspection now flags any lifted pad left on the board (state, not only events).
+    11 Final Practical — `hr-final-practical`: the transistor switch (`transistorSwitchBoard`, shared
+    with lesson 5) under thin acrylic, Q1 burnt, a 40 % nick on the collector run, dry air, strap
+    off; every rule graded. Episodes heating a burnt part (`dead`) need no shunt. A test plays the
+    whole practical through on the model.
+  - **Follow-ups:** the app chunk grew 226 → 263 KB gz this session, mostly lesson text: load
+    `src/lessons/neets14.ts` lazily (dynamic import when a track board opens); flat packs (3-29)
+    and TO-5 cans (3-27) need new footprints; read the 2M certification manual + T.O. 00-25-259
+    (the user downloads them) and compare the practical's grading with ours.
 
 - **NEXT SESSION — START HERE (written end of 2026-11-24).** All code up to `c789ba5` is pushed and
   live; the local `.claude/` folder (skills, settings) is untracked on purpose, never commit it.

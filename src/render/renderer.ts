@@ -985,6 +985,11 @@ export class Renderer {
           const leadZ = c.side === 'F' ? -ht - 0.42 : ht + 0.42;
           op.cyl.pushTRS(padPos[0], padPos[1], leadZ, Math.min(0.55, p.drill * 0.65), Math.min(0.55, p.drill * 0.65), 0.72, 0, 0.82, 0.84, 0.88, 1, 0, 0.95, 0.2);
         }
+        // A replaced pad: the eyelet's tin-plated flange on both faces (NEETS fig. 3-25)
+        if (!both && !thermal && c.state.padRepaired?.includes(pi)) {
+          const d = Math.max(p.size[0], p.size[1]) * 0.95;
+          for (const zs of [1, -1]) op.cyl.pushTRS(padPos[0], padPos[1], zs * (ht + 0.06), d, d, 0.05, 0, 0.8, 0.82, 0.86, 1, 0, 0.95, 0.2);
+        }
         // Thermal shunt: a copper spring clip on the lead, above the board on the part's side
         if (!both && !thermal && c.state.populated && c.state.shunts?.includes(pi)) {
           const z = c.side === 'F' ? ht + 1.6 : -ht - 1.6;

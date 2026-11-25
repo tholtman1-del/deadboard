@@ -341,6 +341,53 @@ async function main() {
     assert(handleEsd(led, false, 'high') === 'safe' && handleEsd(led, false, 'low') === 'latent', 'an LED (a diode, < 3,000 V): safe at 100 V, degraded at 6,000 V without a visible effect');
   }
 
+  {
+    // lesson 10: a new pad and eyelet, then the lead soldered, passes; a wire around the lifted pad fails
+    const sc = scs.find((x) => x.id === 'hr-pad-repair')!;
+    const l10 = lessonFor('hr-pad-repair')!;
+    const ref = referenceBoard(sc)!;
+    assert(inspect(sc.board, ref, [], []).findings.some((f) => f.kind === 'pad-lifted'), 'a lifted pad on the board is a defect, whatever lifted it');
+    const wire = structuredClone(sc.board);
+    addJumper(wire, [31.08, 23], 'B', [42.73, 23], 'B');
+    const wi = inspect(wire, ref, [], []);
+    assert(wi.findings.some((f) => f.kind === 'wire-repair') && !lessonAccepted(l10, wi), 'a wire around the lifted pad fails lesson 10');
+    const fixed = structuredClone(sc.board), r2 = fixed.components.find((c) => c.ref === 'R2')!;
+    r2.state.lifted = undefined; r2.state.padRepaired = [1]; r2.state.cold = [];
+    const fi = inspect(fixed, ref, [], []);
+    assert(evaluateObjectives(fixed, buildConnectivity(fixed), sc.objectives, 'spice').allPassed && lessonAccepted(l10, fi), `a replaced pad with its lead soldered passes (${JSON.stringify(fi.findings)})`);
+  }
+
+  {
+    // lesson 11, the final practical, played through on the model: every step the course taught
+    const sc = scs.find((x) => x.id === 'hr-final-practical')!;
+    const l11 = lessonFor('hr-final-practical')!;
+    const b = structuredClone(sc.board), q = b.components.find((c) => c.ref === 'Q1')!;
+    const m = new ThermalModel(b), rw = new ReworkMonitor(b, m, limitsFor('sn63'));
+    const heat = (pi: number, feed: boolean) => {
+      rw.applyFlux(q.at[0], q.at[1], 6);
+      if (feed) rw.feedSolder(q, pi);
+      m.addSource({ kind: 'iron', x: 0, y: 0, temp: 350, g: IRON_G.flux, pmax: 60, until: m.time + 1.5, partId: q.id, pad: pi });
+      for (let t = 0; t < 1.5; t += 0.05) { m.step(0.05); rw.update(0.05); }
+    };
+    const cool = () => { for (let t = 0; t < 15; t += 0.1) { m.step(0.1); rw.update(0.1); } };
+    assert(removeCoating(b, q, 'solvent').ok, 'acrylic: solvent comes off first');
+    for (const pi of [0, 2, 1]) { heat(pi, false); rw.extract(q, pi, 'vacuum'); cool(); }
+    assert(heldPads(q).length === 0, 'all three holes clear');
+    removePart(q); installPart(q, { value: q.value });
+    q.state.holes = { 0: 'clear', 1: 'clear', 2: 'clear' }; q.state.cold = [0, 1, 2];
+    assert(handleEsd(q, true, 'low') === 'protected', 'fitted grounded');
+    q.state.shunts = [0, 1, 2];
+    for (const pi of [0, 2, 1]) { heat(pi, true); cool(); }
+    q.state.shunts = undefined;
+    for (const c of b.components) c.state.fluxResidue = undefined;
+    const n = b.nicks![0];
+    addJumper(b, [n.at[0] - 3, 38], 'F', [n.at[0] + 3, 38], 'F', 'staple');
+    applyCoating(b, q, 'acrylic');
+    const ins = inspect(b, referenceBoard(sc)!, rw.episodes, rw.log);
+    assert(evaluateObjectives(b, buildConnectivity(b), sc.objectives, 'spice').allPassed, 'the final card works');
+    assert(lessonAccepted(l11, ins), `…and passes the final inspection (${JSON.stringify(ins.findings)})`);
+  }
+
   // ---- lesson data ----
   assert(LESSONS.length === SOLDERING_TRACK_IDS.length && LESSONS.every((l, i) => l.scenario === SOLDERING_TRACK_IDS[i]), 'one lesson per board, in order');
   for (const l of LESSONS) {
