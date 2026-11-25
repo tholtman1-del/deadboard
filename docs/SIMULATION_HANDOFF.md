@@ -1,4 +1,4 @@
-# DEADBOARD — handoff (evening of 2026-11-25: course audit fixed, UNCOMMITTED — see the first Status bullet; dock + two-wire rules live at 341b030; tool dock + course UI live at b632b87; 2M course map below; analytics: read the data from 11-27)
+# DEADBOARD — handoff (evening of 2026-11-25: course audit fixed, live at 88b3f36 — see the first Status bullet; dock + two-wire rules live at 341b030; tool dock + course UI live at b632b87; 2M course map below; analytics: read the data from 11-27)
 
 Goal: make DEADBOARD (formerly PCB//FIX) a realistic board-repair trainer, as close to a real bench as possible,
 **universal** (any board, not just the MacBook), with honest provenance for every value.
@@ -7,11 +7,11 @@ No reference hardware is available, so realism is validated against *design inte
 
 ## Status (start here)
 
-- **NEXT SESSION — START HERE (evening of 2026-11-25): the course audit, all fixed, UNCOMMITTED.**
+- **NEXT SESSION — START HERE (evening of 2026-11-25): the course audit, all fixed, live at `88b3f36`.**
   The user dropped `docs/NEETS_AUDIT_AND_IMPROVEMENTS.md` (untracked, by another tool; it names local
   manual paths: ask before committing it), asked for a check (claims verified against the T.O., the
   cert manual and NEETS 14 from archive.org; almost all held) and then "fix all issues". Done, tests +
-  build green, checked in Chrome; waiting for the user's OK to commit / push. What changed:
+  build green, checked in Chrome; committed and published on the user's "commit and publish". What changed:
   - **Facts:** 60/40 = 183–191 °C (T.O. 05-7.1.1) in lesson 1; nick limit 20 % taught in lesson 7
     (+ T.O. 12-6.3 staple rules, multilayer out of scope); solvents: isopropyl only (T.O. 05-5.4),
     TCA/xylene marked as 1998 (Q3 moved to lesson 8 with a note); footnote F = 500 °F (260 °C);
@@ -44,7 +44,7 @@ No reference hardware is available, so realism is validated against *design inte
     glossary with search, quick reference + Table 06-3 + flowchart) from the course card, every
     lesson dialog and lesson 1's pointer; lead forming taught in lesson 4 (figs 3-13, 3-14).
   - Levels 15–19 monotonic (4.8 → 5.2). Board-notes 1.22.0, example zips, community, docs regenerated.
-  To do next: ask for the commit OK and play-through notes; Pages actions on Node 20; analytics from 11-27.
+  To do next: ask for play-through notes; Pages actions on Node 20; analytics from 11-27.
 - **Earlier on 2026-11-25 (pushed, live at 341b030):** final-practical dock list, silkscreen numbers,
   two-wire rules (see the build log below).
 - **Tool dock + course UI pass (2026-11-25, live at `b632b87`).** With the course's 10 tools the dock
