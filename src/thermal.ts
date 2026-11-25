@@ -109,6 +109,9 @@ export type HeatSource =
   /** Bottom preheater: heats the whole board from below with coefficient `h` toward `temp`. */
   | { kind: 'preheat'; temp: number; h: number; until: number };
 
+/** A surface part with more than two leads (gull wing, flat pack, IC): each lead is its own joint. */
+const multiLead = (c: Component) => c.pads.length > 2 && !c.pads.some((p) => (p.drill ?? 0) > 0);
+
 /** Cells (row-major, nx × ny, size dxmm) whose centres lie inside a polygon (scanline fill). */
 function fillPolygon(poly: [number, number][], nx: number, ny: number, dxmm: number, cb: (k: number) => void) {
   for (let j = 0; j < ny; j++) {
@@ -350,7 +353,10 @@ export class ThermalModel {
         }
         if (src.kind === 'iron') {
           const k = this.cellAt(src.x, src.y);
-          const node = src.partId ? this.byId.get(src.partId) : undefined;
+          // the tip on one lead of a multi-lead surface part heats that lead and its land; the body
+          // warms only through the leads (a 2-terminal chip is heated whole, tip across both ends)
+          const whole = src.partId ? this.byId.get(src.partId) : undefined;
+          const node = whole && src.pad !== undefined && multiLead(whole.c) ? undefined : whole;
           const tj = node ? 0.5 * (node.T + T[k]) : T[k];
           // never deliver more than brings the joint to tip temperature within this sub-step
           const cJoint = (node ? node.C : 0) + Ccell;
@@ -478,6 +484,8 @@ export class ThermalModel {
     const p = c.pads[padIndex];
     const a = (c.rot * Math.PI) / 180, cs = Math.cos(a), sn = Math.sin(a);
     const cell = this.T[this.cellAt(c.at[0] + p.at[0] * cs - p.at[1] * sn, c.at[1] + p.at[0] * sn + p.at[1] * cs)];
+    // a lead of a multi-lead surface part sits on its own land: mostly the land's temperature
+    if (n && multiLead(c)) return 0.25 * n.T + 0.75 * cell;
     return n ? 0.5 * (n.T + cell) : cell;
   }
 

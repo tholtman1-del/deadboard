@@ -179,8 +179,19 @@ No reference hardware is available, so realism is validated against *design inte
     (unverified: onsemi pins, hFE ≥ 100 at 150 mA; typical 150 estimate). Board =
     `transistorSwitchBoard(label, can)` with Q1 a can on a spacer, burnt. NEETS fig. 3-19, Q24, Q25,
     Q34. Not modelled: clipping a dead part's leads (Q24), embedded mounting, tab orientation.
-  - **Next from the manuals:** flat packs (NEETS pp. 3-29 – 3-31: heat each lead and lift, lead
-    forming/trimming, pretinned lap joints, skipping pattern); icicles (05-4.2.12: lifting the iron before the solder, or reflowing
+  - **Flat packs (2026-11-25), lesson 18 `hr-flat-pack` (track: 19):** `src/flatpack.ts`: body shape
+    `flatpack` (`Builder.flatpack`, 10 leads at 1.27 mm on top lands 0.6 × 2.0 mm, estimates),
+    devicelib FP10-5R-331 (a generic stand-in network, says so). Removal point to point: iron on a
+    lead, L (or the readout's "Lift lead" button) lifts it — off a molten joint it is freed
+    (`leadsLifted`), before complete melt the land tears (lifted, 18-5.4.3); with every lead off
+    the part comes away. Bench → Flat pack leads (as received / formed at 15–110 % of the land) set
+    `leadForm` on fit; unformed leads never join (rework skips them); fresh joints start at
+    `FP_PRETIN` 0.3 fill (pretinned land + tinned lead, estimate). Rule `flatpack-leads` (18-6.6).
+    **Thermal change (all multi-lead SMD parts):** a tip on one lead heats that lead's land, not the
+    whole body (`multiLead`), and such a lead's joint temperature is 0.25 body + 0.75 land: a flat
+    pack lead melts on its own and its neighbour stays at ~65 °C (before: the body heated and every
+    lead melted together). NEETS fig. 3-22, Q26 – Q28.
+  - **Next from the manuals:** icicles (05-4.2.12: lifting the iron before the solder, or reflowing
     without flux), pinholes / blowholes; two-wire rules (overlap, alternating directions on a hook) are not modelled (the tool stacks
     wires); bifurcated terminals (08-6.8); resistive tweezers for cups; remaining 05-6.1 defects
     need a solder-volume model (convex fillet, icicles, solder balls).

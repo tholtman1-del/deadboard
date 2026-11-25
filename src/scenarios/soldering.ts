@@ -451,6 +451,52 @@ async function toPackages(): Promise<Scenario> {
 }
 
 /**
+ * Flat packs (NEETS 14 pp. 3-29 – 3-31, T.O. 00-25-259 18-5.4.3, 18-5.7, 18-6.6): four LEDs fed through
+ * FP1, a 10-lead flat-pack resistor network lap-soldered on top-side lands (resistor n between pins
+ * n and 11 − n). FP1 burned out: lift its leads one by one, fit a new one with formed, trimmed leads.
+ */
+async function flatPacks(): Promise<Scenario> {
+  const k = new Builder(64, 46);
+  const j1 = k.header('J1', 5, [6, 22], 0, '5V DC');
+  setNets(j1, { '1': '+5V', '2': 'GND' });
+  const fp = k.flatpack('FP1', 'FP10-5R-331', [32, 22], 10);
+  const ledX = [14, 25.65, 38, 50];
+  const leds = ledX.map((x, i) => k.led(`D${i + 1}`, 'red', [x, 38], -90)); // anode at 36.73
+  const pin = (n: number) => k.pad(fp, String(n));
+  for (const n of [1, 2, 3, 4]) {
+    setNets(leds[n - 1], { '2': `LED${n}_A`, '1': 'GND' });
+    fp.pads[n - 1].net = `LED${n}_A`; fp.pads[10 - n].net = '+5V';
+  }
+  fp.pads[4].net = undefined; fp.pads[5].net = undefined; // pins 5 and 6: the fifth resistor, unused
+  k.track('F', [k.pad(j1, '1'), [6, 12], [33.27, 12]], 0.9, '+5V');
+  for (const n of [10, 9, 8, 7]) { const p = pin(n); k.track('F', [[p[0], 12], p], 0.5, '+5V'); }
+  // fan-out from the lands (1.27 mm pitch) to the LEDs, without crossing
+  k.track('F', [pin(1), [pin(1)[0], 31], [ledX[0], 31], k.pad(leds[0], '2')], 0.5, 'LED1_A');
+  k.track('F', [pin(2), [pin(2)[0], 33], [ledX[1], 33], k.pad(leds[1], '2')], 0.5, 'LED2_A');
+  k.track('F', [pin(3), [pin(3)[0], 33], [ledX[2], 33], k.pad(leds[2], '2')], 0.5, 'LED3_A');
+  k.track('F', [pin(4), [pin(4)[0], 29], [ledX[3], 29], k.pad(leds[3], '2')], 0.5, 'LED4_A');
+  k.track('B', [k.pad(leds[0], '1'), [ledX[0], 42], [ledX[3], 42], k.pad(leds[3], '1')], 0.9, 'GND');
+  for (const i of [1, 2]) k.track('B', [k.pad(leds[i], '1'), [ledX[i], 42]], 0.9, 'GND');
+  k.track('B', [[ledX[0], 42], [6, 42], k.pad(j1, '2')], 0.9, 'GND');
+  k.text([16, 4], 'HI-REL 18  FLAT PACKS', 1.4);
+  const sc = await finalize('hr-flat-pack', {
+    title: 'Flat Packs',
+    author: 'DEADBOARD',
+    difficulty: 4,
+    description: 'Four LEDs fed through FP1, a 10-lead flat-pack resistor network lap-soldered on its lands. All four are dark: FP1 burned out. A flat pack comes off lead by lead, and a new one arrives with straight leads that you form and cut before you fit it.',
+    hints: [
+      'FP1\'s leads lie on lands on the top. Hold the iron on a lead until the solder is completely molten, then, with the tip still on it, press L (on a phone: the Lift lead button) to lift it. Lifting early tears the land.',
+      'Work round the leads in a skipping pattern (never the neighbour next). With every lead off its land, lift FP1 away (wick, 4, or Inspector).',
+      'Bench → Flat pack leads: formed, 50–80 % of the land long. Fit a new FP1, hold the iron with "+ flux" on each lead in a skipping pattern until the fillet is full, then clean.',
+    ],
+    par: 30,
+  }, k.b, leds.map((d) => lit(d.ref)), 'PCB{fl4t_p4ck_l34ds_f0rm3d}',
+  (b) => { b.components.find((c) => c.ref === 'FP1')!.state.burnt = true; });
+  sc.solver = 'spice';
+  return sc;
+}
+
+/**
  * Point-to-point wiring on terminals (T.O. 00-25-259 WP 008 00 / 009 00): +5V from J1 reaches
  * terminal E1; each LED row is fed from its own terminal (E2, E3 …); hook-up wires join them as
  * `wires` lists. The good board carries target wires (one diameter clearance, 180°, cut flush,
@@ -584,8 +630,8 @@ async function finalPractical(): Promise<Scenario> {
 }
 
 export async function solderingScenarios(): Promise<Scenario[]> {
-  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern(), conductorRepair(), conformalCoating(), coatingId(), esdBoard(), padRepair(), turretTerminals(), hookAndTab(), solderCups(), clinchedLeads(), burnedLaminate(), toPackages(), finalPractical()]);
+  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern(), conductorRepair(), conformalCoating(), coatingId(), esdBoard(), padRepair(), turretTerminals(), hookAndTab(), solderCups(), clinchedLeads(), burnedLaminate(), toPackages(), flatPacks(), finalPractical()]);
 }
 
 /** The track's boards, in order. */
-export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern', 'hr-conductor-repair', 'hr-conformal-coating', 'hr-coating-id', 'hr-esd', 'hr-pad-repair', 'hr-turret', 'hr-hook-tab', 'hr-solder-cup', 'hr-clinched-leads', 'hr-laminate', 'hr-to-package', 'hr-final-practical'] as const;
+export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern', 'hr-conductor-repair', 'hr-conformal-coating', 'hr-coating-id', 'hr-esd', 'hr-pad-repair', 'hr-turret', 'hr-hook-tab', 'hr-solder-cup', 'hr-clinched-leads', 'hr-laminate', 'hr-to-package', 'hr-flat-pack', 'hr-final-practical'] as const;

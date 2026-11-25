@@ -57,6 +57,7 @@ import { inspect, type Inspection } from '../workmanship';
 import { lessonMeta } from '../lessons/track';
 import { handle as handleEsd, type Humidity } from '../esd';
 import { clinchFitted, straighten, type Termination } from '../clinch';
+import { FP_PRETIN, allLifted, isFlatPack, liftLead, type LeadForm } from '../flatpack';
 import { applyLeak, charRemoved, excavate, fillBurn, partsOver, type Burn, type Excavation, type Fill } from '../laminate';
 import { START_EX, START_FILL, lamDialogHtml, lamPreviewSvg } from './laminate-ui';
 import { addWire, endsAt, terminalType, type TerminalType, type WirePrep } from '../terminals';
@@ -242,6 +243,8 @@ export class PcbApp {
   private leadAlong = true;
   /** How a fitted metal-can (TO) part stands on the board (NEETS 14 fig. 3-19). */
   private toMount: 'flush' | 'spacer' | 'gap' = 'flush';
+  /** How a replacement flat pack's leads are prepared (NEETS 14 pp. 3-29 – 3-30, T.O. 18-5.7). */
+  private fpForm: LeadForm = { formed: false, len: 0.65 };
   /** ESD: a grounded wrist strap and mat, and the air's relative humidity (Bench; NEETS 14 Table 3-2). */
   private grounded = true;
   private humidity: Humidity = 'high';
@@ -259,7 +262,7 @@ export class PcbApp {
   /** Everything rework did on this board (kept across undo, which swaps the board object). */
   private workHistory: ReworkHistory = { episodes: [], log: [] };
   /** The iron held on a joint (realistic rework): released on pointer / key up. */
-  private ironHold: { src: { until: number }; start: number; where: string; el: HTMLElement | null; comp: Component; pad: number; vacuum: boolean; done: boolean; melted?: boolean; slow?: boolean } | null = null;
+  private ironHold: { src: { until: number }; start: number; where: string; el: HTMLElement | null; lift?: HTMLButtonElement; comp: Component; pad: number; vacuum: boolean; done: boolean; melted?: boolean; slow?: boolean } | null = null;
   /** The lesson text module, once loaded (src/lessons/neets14.ts is its own chunk). */
   private neets: typeof import('../lessons/neets14') | null = null;
   /** Soldering-track lesson dialog: before the repair, or the inspection after it. */
@@ -907,6 +910,10 @@ export class PcbApp {
               <option value="flush">${t('Flush with the board')}</option>
               <option value="spacer">${t('On a spacer')}</option>
               <option value="gap">${t('Air gap above the board')}</option>
+            </select></label>
+            <label class="bench-row"><span>${t('Flat pack leads')}</span><select id="fp-form" title="${t('How the leads of a flat pack you fit are prepared: tinned, formed with two bends and cut to length (T.O. 18-5.7)')}">
+              <option value="raw">${t('As received (straight)')}</option>
+              ${[0.15, 0.35, 0.65, 0.9, 1.1].map((x) => `<option value="${x}">${t('Formed, {p} % of the land long', { p: Math.round(x * 100) })}</option>`).join('')}
             </select></label>
             <label class="bench-row"><span>${t('ESD protection')}</span><select id="esd-mode" title="${t('Grounded wrist strap and bench mat (NEETS p. 3-40)')}">
               <option value="on">${t('Wrist strap on')}</option>
@@ -3182,6 +3189,7 @@ export class PcbApp {
     });
     q('#coat-method').addEventListener('change', (e) => { this.coatMethod = (e.target as HTMLSelectElement).value as CoatMethod; });
     q('#coat-type').addEventListener('change', (e) => { this.coatType = (e.target as HTMLSelectElement).value as CoatingType; });
+    q('#fp-form').addEventListener('change', (e) => { const v = (e.target as HTMLSelectElement).value; this.fpForm = v === 'raw' ? { formed: false, len: 0.65 } : { formed: true, len: Number(v) }; });
     q('#to-mount').addEventListener('change', (e) => { this.toMount = (e.target as HTMLSelectElement).value as 'flush' | 'spacer' | 'gap'; });
     q('#lead-term').addEventListener('change', (e) => { this.leadTerm = (e.target as HTMLSelectElement).value as Termination; });
     q('#lead-len').addEventListener('change', (e) => { this.leadLen = Number((e.target as HTMLSelectElement).value) || 1; });
@@ -3751,7 +3759,16 @@ export class PcbApp {
     const vp = this.mount.querySelector<HTMLElement>('#viewport');
     const el = vp ? document.createElement('div') : null;
     if (el && vp) { el.className = 'iron-hud mono'; el.setAttribute('aria-hidden', 'true'); vp.appendChild(el); }
-    this.ironHold = { src, start: performance.now(), where: `${hit.comp.ref}.${hit.comp.pads[hit.padIndex].name}`, el, comp: hit.comp, pad: hit.padIndex, vacuum, done: false };
+    // a flat-pack lead: lift it off its land while the tip keeps it molten (L, or this button with a second finger)
+    let lift: HTMLButtonElement | undefined;
+    if (vp && isFlatPack(hit.comp) && !vacuum) {
+      lift = document.createElement('button');
+      lift.className = 'btn sm iron-lift';
+      lift.textContent = t('Lift lead (L)');
+      lift.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.liftHeldLead(); });
+      vp.appendChild(lift);
+    }
+    this.ironHold = { src, start: performance.now(), where: `${hit.comp.ref}.${hit.comp.pads[hit.padIndex].name}`, el, lift, comp: hit.comp, pad: hit.padIndex, vacuum, done: false };
     this.updateIronHud();
     return true;
   }
@@ -3768,6 +3785,7 @@ export class PcbApp {
     this.ironHold = null;
     if (this.thermal) h.src.until = Math.min(h.src.until, this.thermal.time);
     h.el?.remove();
+    h.lift?.remove();
     const sec = (performance.now() - h.start) / 1000;
     if (sec < 0.3) this.toast(t('Hold the iron on the joint: a joint takes about 2–3 s of heat.'), 'info');
     else this.announce(t('Iron off {joint} after {s} s', { joint: h.where, s: sec.toFixed(1) }));
@@ -3868,6 +3886,12 @@ export class PcbApp {
     if (isThroughHole(c)) clinchFitted(c, this.leadTerm, this.leadLen, this.leadAlong);
     // a metal can stands the way the bench says (flush is the default, so other parts are unchanged)
     if (c.body.shape === 'to5') c.state.mount = this.toMount === 'flush' ? undefined : this.toMount;
+    // a flat pack: leads prepared as the bench says, placed on pretinned lands, every joint still to make
+    if (isFlatPack(c) && this.reworkMode.realistic) {
+      c.state.leadForm = { ...this.fpForm };
+      c.state.cold = c.pads.map((_, i) => i);
+      c.state.solderFill = Object.fromEntries(c.pads.map((_, i) => [i, FP_PRETIN]));
+    }
     // a part fitted over charred laminate: the char still leaks between its pads
     for (const b of this.board.burns ?? []) if (b.comp === c.id) applyLeak(this.board, b);
     const out = handleEsd(c, this.grounded, this.humidity);
@@ -4003,6 +4027,8 @@ export class PcbApp {
       return;
     }
     const k = e.key.toLowerCase();
+    // the iron on a flat-pack lead: L lifts that lead with a dental pick (T.O. 00-25-259 18-5.4.3)
+    if (k === 'l' && this.ironHold && isFlatPack(this.ironHold.comp)) { this.liftHeldLead(); return; }
     if (k === 'f') {
       this.flipSide();
       return;
@@ -4296,7 +4322,7 @@ export class PcbApp {
       if (hit?.kind === 'comp' || hit?.kind === 'pad') {
         const c = hit.comp;
         if (c.state.populated && !this.benchAllows(c, 'remove')) return;
-        if (c.state.populated && this.reworkMode.realistic && !isThroughHole(c) && !this.rework?.isMolten(c)) {
+        if (c.state.populated && this.reworkMode.realistic && !isThroughHole(c) && !this.rework?.isMolten(c) && !(isFlatPack(c) && allLifted(c))) {
           this.toast(t('{ref}: joints are not molten — heat the part with hot air first (preheat helps on plane-heavy boards).', { ref: c.ref }), 'info');
           return;
         }
@@ -4363,6 +4389,7 @@ export class PcbApp {
       // T.O. 00-25-259 07-5.4: surface solder wicked off, the sweat joint broken (lead turned 15°), the lead straightened
       if (hit?.kind !== 'pad') { this.toast(t('Click the pad of a clinched lead.'), 'info'); return; }
       const c = hit.comp, pi = hit.padIndex, where = { ref: c.ref, pad: c.pads[pi].name };
+      if (isFlatPack(c) && c.state.populated) { this.liftLeadAt(c, pi); return; }
       if (!c.state.clinch?.[pi]) { this.toast(t('{ref} pad {pad}: the lead is straight already.', where), 'info'); return; }
       if (!workable(this.board, c)) { this.coatingInTheWay(c, false); return; }
       this.pushUndo();
@@ -7102,6 +7129,28 @@ export class PcbApp {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     this.toast(t('Saved {file}: check the name, author and licence in mod.json before sharing.', { file: `${manifest.id}.zip` }) + lockNote, lockNote ? 'info' : 'success');
+  }
+
+  /** Lifts the flat-pack lead under the iron: freed when its solder is completely molten, else the land comes with it. */
+  private liftHeldLead() {
+    const h = this.ironHold;
+    if (!h) return;
+    this.liftLeadAt(h.comp, h.pad);
+  }
+  private liftLeadAt(c: Component, pi: number) {
+    const molten = !!this.thermal && !!this.rework && this.thermal.jointTemp(c, pi) >= this.rework.limits.alloy.liquidus;
+    const where = { ref: c.ref, pad: c.pads[pi].name };
+    if (c.state.leadsLifted?.includes(pi)) { this.toast(t('{ref} lead {pad} is already off its land.', where), 'info'); return; }
+    this.pushUndo();
+    const r = liftLead(c, pi, molten);
+    if (r === 'damaged') {
+      const detail = t('{ref} lead {pad}: lifted before the solder was completely molten — the land came off with it.', where);
+      this.rework?.log.push({ kind: 'pad-lifted', ref: c.ref, pad: pi, detail, t: this.thermal?.time ?? 0 });
+      this.toast(detail, 'danger');
+    } else this.toast(allLifted(c) ? t('{ref}: every lead is off its land; lift the part away (wick, 4, or Inspector).', where) : t('{ref} lead {pad} lifted off its land.', where), 'success');
+    sfxClick();
+    this.recompute(false);
+    this.renderUI();
   }
 
   /** The laminate repair dialog: excavation, then fill and finish. */

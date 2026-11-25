@@ -591,6 +591,37 @@ CONTENT.push({
   ],
 });
 
+// Flat packs: NEETS Module 14 pp. 3-29 – 3-31, with the 2M manual's gull-wing removal and lead forming.
+CONTENT.push({
+  scenario: 'hr-flat-pack',
+  source: { ...NEETS14_SOURCE, pages: '3-29 – 3-31' },
+  points: [
+    tk('A flat pack sits on the board, its leads lap-soldered onto lands: no holes. Sketch its position before you remove it, and take off any coating.'),
+    tk('Removal is lead by lead: heat a lead until its solder is completely molten, then lift it off its land with a dental pick or tweezers. Lifting before complete melt damages the land. When every lead is free, lift the part away.'),
+    tk('A replacement comes in a holder with long straight leads: tin them, form them with two distinct bends (radius at least one lead thickness; NEETS asked for two), and cut them so the lead on the land is 50–80 % of the land length, its toe never past the land.'),
+    tk('Lap-solder each lead to its pretinned land in a skipping pattern: a full fillet, the lead still visible. Clean, inspect, test.'),
+  ],
+  numbers: [
+    { label: tk('Lead pitch'), value: tk('0.050 in (1.27 mm)') },
+    { label: tk('Lead on the land'), value: tk('50–80 % of the land length') },
+    { label: tk('Tip'), value: tk('600 °F (316 °C), melt within 2 s') },
+  ],
+  figure: { src: 'lessons/neets14/fig-3-22a.png', more: ['lessons/neets14/fig-3-22b.png'], caption: tk('NEETS 14, figure 3-22. Properly formed flat pack leads.') },
+  original: [
+    'To remove the flat pack, the 2M technician carefully heats the leads and lifts them free with tweezers. If the part is to be reused, special care is taken not to damage or bend the leads. The work area around the component should then be thoroughly cleaned and prepared for the new part. (p. 3-29)',
+    'Because most replacement flat packs come with leads that are longer than required, they must be trimmed before they are soldered. The removed part is used as a guide in determining lead length. (p. 3-31)',
+    'Before a connection is lap-soldered, the solder pads are cleaned and pretinned and the component leads are tinned. The IC is properly positioned on the pad areas, and the soldering process is a matter of "sweating" the two conductors together. When multilead components, such as ICs, are soldered, a skipping pattern is used to prevent excessive heat buildup in a single area of the board or component. (p. 3-31)',
+    'LIFTING OF THE LEAD BEFORE COMPLETE SOLDER MELT MAY CAUSE THE LAND TO BE DAMAGED. FOOTPRINTS (LEAD INDENTATIONS) LEFT IN THE SOLDER ARE AN INDICATION OF LIFTING THE LEAD BEFORE COMPLETE SOLDER MELT. (T.O. 00-25-259, 18-5.4.3)',
+    'The lead length is 50-80% of the land length. (Defect: the lead length is less than the lead width or the toe of the lead overhangs the land.) (T.O. 00-25-259, 18-6.6)',
+  ],
+  task: tk('FP1 burned out. Lift its ten leads one by one (iron on the lead until it is completely molten, then L), in a skipping pattern, and lift it away. Fit a new FP1 with formed leads cut to 50–80 % of the land (Bench → Flat pack leads), lap-solder every lead in a skipping pattern with "+ flux", clean, and test.'),
+  questions: [
+    { ref: 'Q26', q: tk('How is a flat pack removed from a pcb?'), a: tk('Heat each lead and lift with tweezers.'), page: '3-31' },
+    { ref: 'Q27', q: tk('How do you prevent excessive heat buildup on an area of a board when soldering multilead components?'), a: tk('Use a skipping pattern.'), page: '3-31' },
+    { ref: 'Q28', q: tk('What are the two final steps of any repair?'), a: tk('Inspect and test.'), page: '3-31' },
+  ],
+});
+
 /** The whole lesson (meta and content) for a board. */
 export function lessonFor(scenarioId: string): Lesson | undefined {
   const m = LESSON_META.find((l) => l.scenario === scenarioId), c = CONTENT.find((l) => l.scenario === scenarioId);

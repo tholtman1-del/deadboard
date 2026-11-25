@@ -115,6 +115,24 @@ export class Builder {
   }
 
   /**
+   * A flat pack: `pins` ribbon leads on a 1.27 mm (0.050 in) pitch, lap-soldered on lands on the top
+   * side; pin 1 at the left of the row along +y, numbered on along it, then back along the other row
+   * (as a DIP). Lands 0.6 × 2.0 mm, centred 5 mm from the axis; body 6.4 mm across (estimates).
+   */
+  flatpack(ref: string, label: string, at: V2, pins = 10) {
+    const half = pins / 2, x0 = -((half - 1) * 1.27) / 2;
+    const pads: Pad[] = Array.from({ length: pins }, (_, i) => {
+      const near = i < half, k = near ? i : pins - 1 - i;
+      return { name: String(i + 1), at: [x0 + k * 1.27, near ? 5 : -5], size: [0.6, 2.0], shape: i === 0 ? 'rect' : 'roundrect', layers: 'F' };
+    });
+    return this.comp({
+      ref, kind: 'generic', value: 0, label, at, rot: 0,
+      pads, pins: Object.fromEntries(pads.map((p) => [p.name, p.name])),
+      body: { shape: 'flatpack', w: half * 1.27 + 1.6, h: 6.4, z: 1.2 },
+    });
+  }
+
+  /**
    * A through-hole DIP: `pins` pads on a 2.54 mm pitch, rows 7.62 mm apart, seen from the top with
    * pin 1 bottom left: 1 … n/2 left to right along the bottom row, then back along the top row.
    * `label` names a part in the SPICE device library (src/spice/devicelib.ts), which models it.

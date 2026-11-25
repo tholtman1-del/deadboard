@@ -65,6 +65,7 @@ const FIXES: Record<string, (b: Board) => void> = {
   'hr-clinched-leads': (b) => installPart(part(b, 'R2'), { value: 330 }),
   'hr-laminate': (b) => { excavate(b, b.burns![0], { depth: 0.75, dia: 5, straight: true, undercut: 0.5, bevel: 1 }); fillBurn(b.burns![0], { bubbleFree: true, overfill: 0.05, cured: true, leveled: true, buttercoat: true }); installPart(part(b, 'R2'), { value: 330 }); },
   'hr-to-package': (b) => installPart(part(b, 'Q1')),
+  'hr-flat-pack': (b) => installPart(part(b, 'FP1')),
   'hr-final-practical': (b) => { const rn = part(b, 'RN1'); rn.state.lifted = undefined; installPart(rn); wire(b, [['E1', 'E2'], ['E1', 'E3']]); excavate(b, b.burns![0], { depth: 0.75, dia: 5, straight: true, undercut: 0.5, bevel: 1 }); installPart(part(b, 'R5'), { value: 330 }); },
 };
 

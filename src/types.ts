@@ -28,7 +28,9 @@ export type BodyShape =
   /** wire terminals (src/terminals.ts) */
   | 'turret' | 'hook' | 'tab' | 'cup'
   /** a metal-can transistor (TO-5 / TO-39) */
-  | 'to5';
+  | 'to5'
+  /** a flat pack: ribbon leads lap-soldered on lands (src/flatpack.ts) */
+  | 'flatpack';
 
 export interface Body {
   shape: BodyShape;
@@ -123,6 +125,10 @@ export interface ComponentState {
    * Absent = flush. A replacement is mounted the way the manufacturer mounted the original.
    */
   mount?: 'flush' | 'spacer' | 'gap';
+  /** Flat pack: leads lifted off their lands during removal (src/flatpack.ts). */
+  leadsLifted?: number[];
+  /** Flat pack: how the fitted part's leads were prepared (formed, length on the land). */
+  leadForm?: import('./flatpack').LeadForm;
   /** Clinched leads whose surface solder was wicked off: only a sweat joint holds them to the pad. */
   surfaceWicked?: number[];
   /** Intermittent faults driven by temperature / board flex (see src/intermittent.ts). */

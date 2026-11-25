@@ -2,7 +2,7 @@
   "format": "deadboard-mod/2",
   "id": "board-notes",
   "name": "Board notes (knowledge packs for the shipped boards)",
-  "version": "1.20.0",
+  "version": "1.21.0",
   "author": "Biga73 (idea) · DEADBOARD",
   "description": "An example data mod: a knowledge pack for every board that ships with DEADBOARD. Rails, where each one comes from, what to expect at which pin, and what a low reading usually means, each marked documented, derived or estimated. The packs describe the working board and point at likely causes, the way the board's hints do; they don't name the planted faults. Based on the device knowledge pack RFC by Biga73.",
   "license": "CC0-1.0",
@@ -1389,6 +1389,65 @@
         "Through-hole parts are soldered on the bottom side: a dull, grainy joint there can look fine from the top and still be open.",
         "Soldered with 63/37 tin-lead (melts at 183 °C, 361 °F), as in NEETS Module 14 (public-domain US Navy textbook).",
         "Q1 is a 2N2219A in a TO-39 metal can (pins 1 emitter, 2 base, 3 collector), mounted on a spacer: a replacement goes in the same way (NEETS Module 14 p. 3-27)."
+      ]
+    },
+    {
+      "id": "hr-flat-pack",
+      "board": "official-boards/boards/hr-flat-pack",
+      "title": "Flat Packs",
+      "provenance": { "kind": "board design + simulator", "where": "part values from the board; readings from DEADBOARD's simulator (SPICE) on the working board", "confidence": "derived" },
+      "rails": [
+        {
+          "net": "+5V",
+          "nominal": 5.0,
+          "domain": "always on",
+          "source": { "ref": "J1", "kind": "5 V DC input header" },
+          "checks": [
+            { "at": "J1", "pin": "1", "expect": "≈5.00 V with all four LEDs lit (≈36 mA in all)", "readsLowIf": "the bench supply is off or current-limited" }
+          ]
+        },
+        {
+          "net": "LED1_A",
+          "nominal": 2.0,
+          "domain": "always on",
+          "source": { "ref": "FP1", "kind": "330 Ω resistor between FP1 pins 10 and 1" },
+          "checks": [
+            { "at": "D1", "pin": "2", "expect": "≈2.00 V (red LED, ≈9.1 mA)", "readsLowIf": "0 V: nothing reaches D1 through FP1 (a burnt network, or lead 1 or 10 not soldered to its land)" }
+          ]
+        },
+        {
+          "net": "LED2_A",
+          "nominal": 2.0,
+          "domain": "always on",
+          "source": { "ref": "FP1", "kind": "330 Ω resistor between FP1 pins 9 and 2" },
+          "checks": [
+            { "at": "D2", "pin": "2", "expect": "≈2.00 V (red LED, ≈9.1 mA)", "readsLowIf": "0 V: nothing reaches D2 through FP1 (a burnt network, or lead 2 or 9 not soldered to its land)" }
+          ]
+        },
+        {
+          "net": "LED3_A",
+          "nominal": 2.0,
+          "domain": "always on",
+          "source": { "ref": "FP1", "kind": "330 Ω resistor between FP1 pins 8 and 3" },
+          "checks": [
+            { "at": "D3", "pin": "2", "expect": "≈2.00 V (red LED, ≈9.1 mA)", "readsLowIf": "0 V: nothing reaches D3 through FP1 (a burnt network, or lead 3 or 8 not soldered to its land)" }
+          ]
+        },
+        {
+          "net": "LED4_A",
+          "nominal": 2.0,
+          "domain": "always on",
+          "source": { "ref": "FP1", "kind": "330 Ω resistor between FP1 pins 7 and 4" },
+          "checks": [
+            { "at": "D4", "pin": "2", "expect": "≈2.00 V (red LED, ≈9.1 mA)", "readsLowIf": "0 V: nothing reaches D4 through FP1 (a burnt network, or lead 4 or 7 not soldered to its land)" }
+          ]
+        }
+      ],
+      "powerUp": [ "+5V" ],
+      "notes": [
+        "FP1 is a generic 10-lead flat-pack network (5 × 330 Ω isolated, resistor n between pins n and 11 − n; pins 5 and 6 unused), lap-soldered on top-side lands at a 0.050 in pitch.",
+        "Flat packs come off lead by lead: each lead lifted only when its solder is completely molten (T.O. 00-25-259 18-5.4.3); a replacement's leads are formed and cut to 50–80 % of the land (18-6.6).",
+        "Soldered with 63/37 tin-lead (melts at 183 °C, 361 °F), as in NEETS Module 14 (public-domain US Navy textbook)."
       ]
     },
     {

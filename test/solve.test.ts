@@ -64,7 +64,7 @@ function tutCheckState(
 
 async function run() {
   const scenarios = await builtinScenarios();
-  assertEq(scenarios.length, 30, 'Expected 30 built-in scenarios (12 + 18 soldering-track boards)');
+  assertEq(scenarios.length, 31, 'Expected 31 built-in scenarios (12 + 19 soldering-track boards)');
 
   for (const id of TUTORIAL_SCENARIO_IDS) {
     const steps = getTutorialSteps(id);

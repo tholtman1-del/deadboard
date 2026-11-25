@@ -1606,6 +1606,28 @@ export class Renderer {
       return;
     }
 
+    if (shape === 'flatpack') {
+      // a flat pack: a thin ceramic body and ribbon leads, formed down onto the lands (two bends),
+      // straight out as received, or raised where a lead was lifted off its land
+      const bc = thermCol ?? (burnt ? [0.1, 0.09, 0.09] : [0.32, 0.33, 0.36]);
+      const pb = toW(0, 0, 0.75);
+      op.box.pushTRS(pb[0], pb[1], pb[2], c.body.w, c.body.h, 0.9, effRot, bc[0], bc[1], bc[2], 1, thermEm, 0.1, 0.5, spec);
+      const formed = c.state.leadForm?.formed !== false, len = c.state.leadForm?.len ?? 0.65;
+      const edge = c.body.h / 2;
+      c.pads.forEach((p, pi) => {
+        const sy = Math.sign(p.at[1]) || 1, x = p.at[0];
+        const lifted = c.state.leadsLifted?.includes(pi);
+        const P = (y: number, z: number) => toPadW(x, sy * y, z);
+        const tin = [0.84, 0.85, 0.89] as const, seg = (a: V3, b: V3) => op.cyl.pushSeg3D(a, b, 0.3, 0.3, tin[0], tin[1], tin[2], 1, 0, 0.9, 0.25);
+        if (!formed) { seg(P(edge, 0.75), P(edge + 3.2, 0.75)); return; }
+        const toe = 4.0 + 2.0 * len;
+        seg(P(edge, 0.75), P(edge + 0.6, 0.75));
+        seg(P(edge + 0.6, 0.75), P(edge + 0.9, 0.1));
+        seg(P(edge + 0.9, 0.1), lifted ? P(toe, 1.1) : P(toe, 0.1));
+      });
+      return;
+    }
+
     if (shape === 'to5') {
       // a TO-5 / TO-39 metal can: flange, can and the reference tab; on a spacer or over an air gap if mounted so
       const lift = c.state.mount === 'spacer' ? 1.5 : c.state.mount === 'gap' ? 1.5 : 0;

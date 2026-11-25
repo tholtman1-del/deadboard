@@ -345,7 +345,9 @@ export class ReworkMonitor {
               ? t('{ref}: wire soldered', { ref: c.ref })
               : t('{ref}: the wire is held only by the tinning — no solder was added, so the fillet is starved', { ref: c.ref }) });
           }
-          if (!lifted && c.state.cold.includes(pi)) {
+          // a flat pack fitted with unformed leads: they do not lie on the lands, solder cannot join them
+          const unreached = c.state.leadForm?.formed === false || !!c.state.leadsLifted?.includes(pi);
+          if (!lifted && !unreached && c.state.cold.includes(pi)) {
             const ok = ps.flux > 0 || rng(seedOf(`${c.ref}|${pi}|${Math.round(this.thermal.time)}`))() < 0.4;
             if (ok) {
               c.state.cold = c.state.cold.filter((x) => x !== pi);

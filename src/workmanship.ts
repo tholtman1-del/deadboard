@@ -7,6 +7,7 @@ import type { Board } from './types';
 import { FILL_LIMITS, isHeatSensitive, isPlated, type JointEpisode, type ReworkEvent } from './rework';
 import { judgeClinch, terminationName, terminationOf } from './clinch';
 import { judgeBurn, type LamArea } from './laminate';
+import { judgeLeadForm } from './flatpack';
 import { isWire, judge, type Check, type CheckArea, type TerminalType } from './terminals';
 
 /** Where a rule comes from (public-domain source, page as printed). */
@@ -25,7 +26,7 @@ export type FindingKind =
   | 'wire-strip' | 'wire-tinning' | 'wire-clearance' | 'wire-forming' | 'wire-solder'
   | 'clinch' | 'termination-style'
   | 'laminate-burn' | 'laminate-excavation' | 'epoxy-fill' | 'buttercoat'
-  | 'solder-insufficient' | 'solder-excess' | 'mounting-style';
+  | 'solder-insufficient' | 'solder-excess' | 'mounting-style' | 'flatpack-leads';
 
 /**
  * `procedural`: about how the work was done, which the finished board does not show; listed only
@@ -70,6 +71,7 @@ export const RULES: Record<FindingKind, Rule> = {
   'solder-insufficient': { kind: 'solder-insufficient', severity: 'reject', title: tk('Insufficient solder'), rule: tk('The pad on the termination side is at least 75 % covered with wetted solder (100 % is the target), and the vertical fill of a plated-through hole is 100 %.'), source: src('3-24'), also: [to('07-6.20')] },
   'solder-excess': { kind: 'solder-excess', severity: 'reject', title: tk('Excessive solder'), rule: tk('Too much solder hides the parts being joined: the fillet is convex and their outline is not discernible. The solder must be removed and the joint resoldered.'), source: to('05-4.2.10, 05-6.1') },
   'mounting-style': { kind: 'mounting-style', severity: 'reject', title: tk('Not mounted like the original'), rule: tk('TOs are mounted flush, on a spacer or over an air gap, as the manufacturer chose (heat dissipation, short-circuit protection, support): the technician replaces them the same way.'), source: src('3-27') },
+  'flatpack-leads': { kind: 'flatpack-leads', severity: 'reject', title: tk('Flat pack leads'), rule: tk('Replacement flat pack leads are tinned, formed with two distinct bends and cut to length: the lead on the land is 50–80 % of the land length, never shorter than the lead width, and its toe never overhangs the land.'), source: src('3-30'), also: [to('18-6.6, 18-5.7')] },
   'wire-repair': { kind: 'wire-repair', severity: 'note', title: tk('Wire repair'), rule: tk('A wire lap-soldered across a break is stronger than a solder bridge but not highly reliable; the clinched staple is the preferred repair of a broken conductor.'), source: src('3-32') },
 };
 
@@ -164,6 +166,13 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
     if (st === 'removed') add({ kind: 'coating-missing', where: c.ref });
     else if (st && st !== board.coating.type) add({ kind: 'coating-mismatch', where: c.ref, detail: st });
     if (c.state.coatMethodRank !== undefined && c.state.coatBestRank !== undefined && c.state.coatMethodRank > c.state.coatBestRank) add({ kind: 'coating-method', where: c.ref, detail: `#${c.state.coatMethodRank}` });
+  }
+
+  // flat packs: how the replacement's leads were formed and cut (18-6.6)
+  for (const c of board.components) {
+    if (!c.state.populated || !c.state.leadForm) continue;
+    const bad = judgeLeadForm(c.state.leadForm).filter((x) => x.verdict === 'defect').map((x) => x.what);
+    if (bad.length) add({ kind: 'flatpack-leads', where: c.ref, detail: bad.join('; ') });
   }
 
   // new joints: how much fresh solder went in (07-6.20, 05-4.2.10)
