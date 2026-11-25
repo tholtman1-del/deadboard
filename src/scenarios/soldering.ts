@@ -185,15 +185,31 @@ async function thermalShunt(): Promise<Scenario> {
  * A DIP-16 resistor network (8 × 330 Ω isolated) driving four LEDs: resistor n sits between pin n
  * (bottom row, to the LED) and pin 17 − n (top row, on +5V). Pins 1–4 never bonded.
  */
-/** The DIP-16 network board (lessons 6 and the final practical). */
-function dipNetworkBoard(label: string) {
+/**
+ * The DIP-16 network board (lessons 6 and the final practical). `wired`: +5V from J1 lands on
+ * turret E1 and the supply run starts at hook E2, joined by a hook-up wire (as on the 2M
+ * practical's card, Appendix C).
+ */
+function dipNetworkBoard(label: string, wired = false) {
   const k = new Builder(64, 46);
   const j1 = k.header('J1', 5, [6, 22], 0, '5V DC');
   const rn = k.dip('RN1', '4116R-2-331', [32, 22], 16);
   const ledX = [14, 25.65, 38, 50];
   const leds = ledX.map((x, i) => k.led(`D${i + 1}`, 'red', [x, 38], -90)); // anode up (36.73), cathode down (39.27)
-  k.track('F', [k.pad(j1, '1'), [6, 12], [30.73, 12]], 0.9, '+5V');
-  for (const n of [16, 15, 14, 13]) { const p = k.pad(rn, String(n)); k.track('F', [[p[0], 12], p], 0.8, '+5V'); }
+  const bus = (n: number) => (!wired ? '+5V' : n >= 15 ? 'VBUS1' : 'VBUS2');
+  if (wired) {
+    // Appendix C: a double wire on a turret (E1) and a single wire on a pierced tab (E3); E2 is a hook
+    const e1 = k.terminal('E1', 'turret', [6, 5]), e2 = k.terminal('E2', 'hook', [14, 9]), e3 = k.terminal('E3', 'tab', [40, 5]);
+    setNets(e1, { '1': '+5V' }); setNets(e2, { '1': 'VBUS1' }); setNets(e3, { '1': 'VBUS2' });
+    k.track('F', [k.pad(j1, '1'), k.pad(e1, '1')], 0.9, '+5V');
+    k.track('F', [k.pad(e2, '1'), [14, 12], [25.65, 12]], 0.9, 'VBUS1');
+    k.track('F', [k.pad(e3, '1'), [40, 12], [28.19, 12]], 0.9, 'VBUS2');
+    for (const [a, z] of [[e1, e2], [e1, e3]]) {
+      const j = addWire(k.b, a, targetEnd(a, terminalType(a)!), z, targetEnd(z, terminalType(z)!));
+      for (const e of j.ends!) e.soldered = 'ok';
+    }
+  } else k.track('F', [k.pad(j1, '1'), [6, 12], [30.73, 12]], 0.9, '+5V');
+  for (const n of [16, 15, 14, 13]) { const p = k.pad(rn, String(n)); k.track('F', [[p[0], 12], p], 0.8, bus(n)); }
   const pin = (n: number) => k.pad(rn, String(n));
   k.track('F', [pin(1), [pin(1)[0], 31], [ledX[0], 31], k.pad(leds[0], '2')], 0.8, 'LED1_A');
   k.track('F', [pin(2), k.pad(leds[1], '2')], 0.8, 'LED2_A');
@@ -202,7 +218,7 @@ function dipNetworkBoard(label: string) {
   k.track('B', [k.pad(leds[0], '1'), [ledX[0], 42], [ledX[3], 42], k.pad(leds[3], '1')], 0.9, 'GND');
   for (const i of [1, 2]) k.track('B', [k.pad(leds[i], '1'), [ledX[i], 42]], 0.9, 'GND');
   k.track('B', [[ledX[0], 42], [6, 42], k.pad(j1, '2')], 0.9, 'GND');
-  k.text([16, 4], label, 1.4);
+  k.text(wired ? [32, 44.6] : [16, 4], label, 1.4);
   return { k, leds };
 }
 
@@ -439,16 +455,17 @@ function solderCups() {
  * (staple), and the same coating goes back on.
  */
 async function finalPractical(): Promise<Scenario> {
-  const { k, leds } = dipNetworkBoard('HI-REL  FINAL PRACTICAL');
+  const { k, leds } = dipNetworkBoard('HI-REL  FINAL PRACTICAL', true);
   k.b.coating = { type: 'polyurethane', thick: false };
   const sc = await finalize('hr-final-practical', {
     title: 'Final Practical',
     author: 'DEADBOARD',
     difficulty: 4,
-    description: 'The course\'s practical, like the 2M miniature performance test. All four LEDs are dark: RN1, the DIP-16 resistor network, burned out. The card is coated (no drawing), and the inspector checks everything you have learned. Replace RN1, repair what else you find, and leave the card as the manuals demand.',
+    description: 'The course\'s practical, like the 2M miniature performance test. All four LEDs are dark: RN1, the DIP-16 resistor network, burned out, and the supply wires from turret E1 to hook E2 and tab E3 were never fitted. The card is coated (no drawing), and the inspector checks everything you have learned. Replace RN1, wire the terminals, repair what else you find, and leave the card as the manuals demand.',
     hints: [
       'Order of work: identify the coating by test and record it, take it off RN1 with Table 3-1\'s first choice, then clear all 16 holes with continuous vacuum in a skipping pattern (never two neighbouring pins in a row).',
       'RN1 out: the pad under pin 1 has lifted, replace it (Pad repair, E). Fit a new RN1, solder all 16 pins in a skipping pattern, clean the flux. The +5V run has a deep nick: staple it (K).',
+      'Wire E1 to E2 and E1 to E3 (Hook-up wire, W): a double wire on the turret, the hook wire in the arc, the tab wire through the eye. Solder E1 with both wires on it, then clean.',
       'Last: the same coating back on RN1, then run the tests.',
     ],
     par: 40,
@@ -458,9 +475,10 @@ async function finalPractical(): Promise<Scenario> {
     rn.state.burnt = true;
     rn.state.lifted = [0];
     rn.state.cold = [0];
-    const t = b.traces.find((x) => x.net === '+5V' && x.layer === 'F' && Math.abs(x.a[1] - 12) < 0.01 && Math.abs(x.b[1] - 12) < 0.01 && Math.abs(x.b[0] - x.a[0]) > 10)!;
+    const t = b.traces.find((x) => x.net === 'VBUS1' && x.layer === 'F' && Math.abs(x.a[1] - 12) < 0.01 && Math.abs(x.b[1] - 12) < 0.01 && Math.abs(x.b[0] - x.a[0]) > 10)!;
     const depth = 0.4;
     b.nicks = [{ id: 'n' + (b.nextId++).toString(36), at: [18, 12 - t.w / 2 + (depth * t.w) / 2], layer: 'F', len: 0.6, depth, rot: 0, width: t.w }];
+    b.jumpers = []; // the supply wires from E1 to E2 and E3 are not fitted yet
   });
   sc.solver = 'spice';
   return sc;

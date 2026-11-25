@@ -17,6 +17,7 @@ import { buildConnectivity } from '../src/connectivity';
 import { evaluateObjectives } from '../src/verify';
 import { BOARD_INFO, PATH_ORDER } from '../src/scenarios/catalog';
 import { addBlob, addJumper, installPart, removePart } from '../src/ops';
+import { addWire, targetEnd, terminalType } from '../src/terminals';
 
 function assert(c: unknown, m: string): asserts c { if (!c) throw new Error(m); }
 
@@ -451,6 +452,17 @@ async function main() {
     for (const pi of order) { heat(pi, true); cool(); }
     for (const c of b.components) c.state.fluxResidue = undefined;
     addJumper(b, [15, 12], 'F', [21, 12], 'F', 'staple');
+    // the supply wires: a double wire on turret E1, one to hook E2, one to pierced tab E3
+    const term = (ref: string) => b.components.find((c) => c.ref === ref)!;
+    for (const z of ['E2', 'E3']) addWire(b, term('E1'), targetEnd(term('E1'), 'turret'), term(z), targetEnd(term(z), terminalType(term(z))!));
+    for (const ref of ['E1', 'E2', 'E3']) {
+      const c = term(ref);
+      rw.applyFlux(c.at[0], c.at[1], 3); rw.feedSolder(c, 0);
+      m.addSource({ kind: 'iron', x: 0, y: 0, temp: 316, g: IRON_G.flux, pmax: 60, until: m.time + 1.6, partId: c.id, pad: 0 });
+      for (let t = 0; t < 1.6; t += 0.05) { m.step(0.05); rw.update(0.05); }
+      for (let t = 0; t < 8; t += 0.1) { m.step(0.1); rw.update(0.1); }
+    }
+    for (const c of b.components) c.state.fluxResidue = undefined;
     applyCoating(b, rn, 'polyurethane');
     const ins = inspect(b, referenceBoard(sc)!, rw.episodes, rw.log);
     assert(evaluateObjectives(b, buildConnectivity(b), sc.objectives, 'spice').allPassed, `the final card works (${JSON.stringify(rn.state)})`);

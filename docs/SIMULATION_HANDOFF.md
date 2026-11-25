@@ -127,8 +127,12 @@ No reference hardware is available, so realism is validated against *design inte
     *dwell* on a molten joint (`JointEpisode.dwell`), not the whole molten time: a brass terminal
     stays molten ~6–10 s after a correct 1.6 s touch, which is cooling, not overheating.
     Test: `test/terminals.test.ts` (checks + the three boards played through, starved and sloppy fail).
-  - **Next from the manuals:** a wire on a terminal in the final practical (Appendix C has them);
-    two-wire rules (overlap, alternating directions on a hook) are not modelled (the tool stacks
+  - **Final practical wired (2026-11-25):** +5V from J1 lands on turret E1; the DIP's supply run is
+    split (VBUS1 from hook E2 for pins 16/15, VBUS2 from pierced tab E3 for pins 14/13); the
+    practical starts without the two wires: a double wire on the turret and a single wire on a
+    pierced tab, as Appendix C lists them. Wire rules graded; label moved to the top edge
+    (`dipNetworkBoard(label, wired)`; lesson 6 unchanged). board-notes 1.16.0.
+  - **Next from the manuals:** two-wire rules (overlap, alternating directions on a hook) are not modelled (the tool stacks
     wires); bifurcated terminals (08-6.8); resistive tweezers for cups; remaining 05-6.1 defects
     need a solder-volume model (convex fillet, icicles, solder balls).
   - **Follow-ups:** flat packs (3-29)
