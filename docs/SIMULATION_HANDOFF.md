@@ -1,4 +1,4 @@
-# DEADBOARD — handoff (updated end of 2026-11-25: tool dock + course UI live at b632b87, then the 2M soldering course map — see the first two Status bullets; analytics: read the data from 11-27)
+# DEADBOARD — handoff (updated later on 2026-11-25: final-practical dock, silkscreen numbers, two-wire rules — uncommitted, see the first Status bullet; tool dock + course UI live at b632b87; 2M course map below; analytics: read the data from 11-27)
 
 Goal: make DEADBOARD (formerly PCB//FIX) a realistic board-repair trainer, as close to a real bench as possible,
 **universal** (any board, not just the MacBook), with honest provenance for every value.
@@ -7,19 +7,32 @@ No reference hardware is available, so realism is validated against *design inte
 
 ## Status (start here)
 
-- **NEXT SESSION — START HERE (end of 2026-11-25).** Last code commit `b632b87` (tool dock + course
-  UI), pushed, Pages deploy green, checked live on deadboard.org. Working tree clean apart from the
-  untracked `.claude/`. To do, in order:
-  1. Ask the user for **play-through notes** on the 2M course and on the new dock / palette (the
-     user has not played the course yet).
-  2. Open choice for the user: the **final practical** pins only the 4 tools in its `BOARD_INFO`
-     `teaches` (extract, shunt, decoat, staple); the other six 2M tools are in the palette (pinned
-     once picked). Offer to pin all ten there. Careful: `teaches` also drives "New: skill" chips and
-     skill bars, so a separate dock list may be better than widening `teaches`.
-  3. Known nits still open: silkscreen lesson numbers (`hr-coating-id` none, `hr-esd` says 9,
-     `hr-pad-repair` says 10) + re-render thumbs; Pages actions on Node 20.
-  4. Analytics: read the data from 11-27 (baselines in the 11-24 entry). New dock: no new events
-     were added (rule: none without the maintainer asking).
+- **NEXT SESSION — START HERE (updated later on 2026-11-25).** Last pushed code `b632b87`. On top of
+  it, **uncommitted** in the working tree (tests + build green, checked in Chrome), waiting for the
+  user's OK to commit / push:
+  - **Final practical dock:** `LessonMeta.dock` (track.ts) = a lesson's whole dock, most needed first,
+    in place of the 14 bench tools; its `teaches` tools never fold, the rest fold from the list's end
+    when the window is short (`dockPlan().rank`). The practical lists inspect, iron, the ten 2M tools,
+    parts bin, IPA, wick, then rosin and meter: at 1440×800 all ten 2M tools show (15 slots), at
+    1366×640 the taught four + iron, parts bin, IPA, pad repair, coating test. `teaches` untouched
+    (user chose "pin all ten", 2026-11-25; widening the bench set could not fit: ~15 slots at 800 px).
+  - **Silkscreen numbers fixed:** coating ID 9, ESD 10, pad repair 11, final practical 19; thumbs
+    re-rendered.
+  - **Two-wire rules (T.O. 08-6.5 – 08-6.7):** `WirePrep.dir` (cw / ccw) and `WirePrep.seat`
+    (close / apart / over); `judge(e, before)` gets the ends installed earlier on that terminal
+    (workmanship.ts passes them in board order). Turret: close = target, apart = acceptable, over =
+    defect. Hook / tab: over = defect, alternating direction = target, same = acceptable. Cup: none.
+    Dialog shows "Bend direction" on hooks / tabs and "Next to the wire already on {ref}" when the
+    terminal has a wire (`wirePrepHtml(..., already)`); ccw is drawn mirrored. `targetEnd(c, type, nth)`
+    alternates for reference boards. Lesson 12 got the turret point + T.O. text, tasks 12 / 13 mention
+    it. Tests: `test/terminals.test.ts` (unit + a crossed second wire fails all three wire lessons).
+  To do, in order:
+  1. Ask the user for **play-through notes** on the 2M course and the dock / palette (the user has
+     not played the course yet), and for the OK to commit + push the work above.
+  2. Known nit: Pages actions on Node 20.
+  3. Analytics: read the data from 11-27 (baselines in the 11-24 entry). No new events were added.
+  4. Still open from the manuals: see the course map's "Open from the manuals" below (two-wire rules
+     now done; the T.O.'s "complete all soldering before the tip leaves" caution is not graded).
   - How the UI was checked: dev server `npx vite --port 5199`, a throwaway playwright-core script
     (Chrome, `?automation=1`, `window.deadboard.open(id)`, close `#lesson-close` / `#tut-close`,
     click `#btn-more-tools` for the palette, `[data-bp-act="course"]` for the course list) at
@@ -97,12 +110,9 @@ No reference hardware is available, so realism is validated against *design inte
     terminal sizes, the 2.5 mm cup depth, `FEED_RATE`, `FP_PRETIN`, flat-pack land/lead sizes, the
     4.7 kΩ char leak, oxidation thresholds (6 s dwell, 3rd reflow) are estimates; devicelib 2N2219A,
     2N7000, 4116R-2-331, FP10-5R-331 (generic) are unverified.
-  - **Known nits:** silkscreen numbers drifted after inserts — `hr-coating-id` has none, `hr-esd`
-    says 9 (is 10th), `hr-pad-repair` says 10 (is 11th); fix the label + re-render the thumbnail.
-    `solve.test.ts` "100x pickAt" 25 ms budget fails ~1 in 3 runs when the machine is loaded (rerun).
+  - **Known nits:** (silkscreen numbers fixed later on 11-25.) `solve.test.ts` "100x pickAt" 25 ms budget fails ~1 in 3 runs when the machine is loaded (rerun).
     GitHub Actions warns the Pages actions target Node 20 (update action versions some day).
-  - **Open from the manuals (not built):** pinholes / blowholes (no cause modelled); two-wire rules
-    (overlap, alternating directions on a hook); bifurcated terminals (08-6.8); resistive tweezers for
+  - **Open from the manuals (not built):** pinholes / blowholes (no cause modelled); bifurcated terminals (08-6.8); resistive tweezers for
     solder cups; clipping a dead part's leads (NEETS Q24); TO tab orientation; embedded TOs; icicles
     from lifting the iron before the solder (solder wire is not modelled separately). The user has
     **not yet playtested** the course: next session, ask for their play-through notes first.
