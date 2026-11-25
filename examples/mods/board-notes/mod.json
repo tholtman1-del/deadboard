@@ -2,7 +2,7 @@
   "format": "deadboard-mod/2",
   "id": "board-notes",
   "name": "Board notes (knowledge packs for the shipped boards)",
-  "version": "1.21.0",
+  "version": "1.22.0",
   "author": "Biga73 (idea) · DEADBOARD",
   "description": "An example data mod: a knowledge pack for every board that ships with DEADBOARD. Rails, where each one comes from, what to expect at which pin, and what a low reading usually means, each marked documented, derived or estimated. The packs describe the working board and point at likely causes, the way the board's hints do; they don't name the planted faults. Based on the device knowledge pack RFC by Biga73.",
   "license": "CC0-1.0",
@@ -954,7 +954,7 @@
       "id": "hr-skipping-pattern",
       "board": "official-boards/boards/hr-skipping-pattern",
       "title": "Skipping Pattern",
-      "provenance": { "kind": "board design + simulator", "where": "part values from the board; readings from DEADBOARD's simulator (SPICE, 4116R-2-331 network model) on the working board", "confidence": "derived" },
+      "provenance": { "kind": "board design + simulator", "where": "part values from the board; readings from DEADBOARD's simulator (SPICE, 4116R-1-331 network model) on the working board", "confidence": "derived" },
       "rails": [
         {
           "net": "+5V",
@@ -1454,7 +1454,7 @@
       "id": "hr-final-practical",
       "board": "official-boards/boards/hr-final-practical",
       "title": "Final Practical",
-      "provenance": { "kind": "board design + simulator", "where": "part values from the board; readings from DEADBOARD's simulator (SPICE, 4116R-2-331 network model) on the working board", "confidence": "derived" },
+      "provenance": { "kind": "board design + simulator", "where": "part values from the board; readings from DEADBOARD's simulator (SPICE, 4116R-1-331 network model) on the working board", "confidence": "derived" },
       "rails": [
         {
           "net": "+5V",
@@ -1464,7 +1464,8 @@
           "checks": [
             { "at": "J1", "pin": "1", "expect": "≈5.00 V with all five LEDs lit (≈44 mA in all)", "readsLowIf": "the bench supply is off or current-limited" },
             { "at": "E2", "pin": "1", "expect": "≈5.00 V once the wire from E1 is soldered at both ends (feeds RN1 pins 16 and 15)", "readsLowIf": "0 V (floating): the wire to E2 is missing or an end is not soldered" },
-            { "at": "E3", "pin": "1", "expect": "≈5.00 V once the wire from E1 is soldered at both ends (feeds RN1 pins 14 and 13)", "readsLowIf": "0 V (floating): the wire to E3 is missing or an end is not soldered" }
+            { "at": "E3", "pin": "1", "expect": "≈5.00 V once the wire from E1 is soldered at both ends (feeds RN1 pins 14 and 13)", "readsLowIf": "0 V (floating): the wire to E3 is missing or an end is not soldered" },
+            { "at": "E4", "pin": "1", "expect": "≈5.00 V once the wire from E2 is soldered at both ends (feeds R5 on the bottom)", "readsLowIf": "0 V (floating): the wire from E2 to the cup is missing, or an end is not soldered" }
           ]
         },
         {
@@ -1515,8 +1516,8 @@
       ],
       "powerUp": [ "+5V" ],
       "notes": [
-        "R5 feeds the power indicator D5 from VBUS2 (a via under tab E3); its leads are full-clinched along their bottom runs, and a burn under its body conducts until it is excavated (T.O. 00-25-259 07-6.18, 11-5.2).",
-        "+5V reaches the DIP through two hook-up wires from turret E1 (a double wire): to hook E2 for pins 16 and 15, to pierced tab E3 for pins 14 and 13, as in the 2M practical (Appendix C).",
+        "R5 feeds the power indicator D5 from solder cup E4 (a bottom-side run); its leads are full-clinched along their bottom runs, and a burn under its body conducts until it is excavated (T.O. 00-25-259 07-6.18, 11-5.2).",
+        "+5V reaches the DIP through two hook-up wires from turret E1 (a double wire): to hook E2 for pins 16 and 15, to pierced tab E3 for pins 14 and 13; a third wire goes on from hook E2 to solder cup E4 for R5, as in the 2M practical (Appendix C).",
         "RN1 is a DIP-16 network of eight isolated 330 Ω resistors: resistor n sits between pins n and 17 − n. Pins 5–12 are unused here.",
         "The card is conformally coated and its drawing is missing: identify the coating by test before removing any (T.O. 00-25-259 06-5.2).",
         "Soldered with 63/37 tin-lead (melts at 183 °C, 361 °F)."

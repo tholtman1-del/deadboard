@@ -65,6 +65,8 @@ export interface WireEnd extends WirePrep {
   type: TerminalType;
   /** Soldered with fresh solder ('ok'), or only with what the tinning and the terminal carried ('starved'). */
   soldered?: 'ok' | 'starved';
+  /** The heat that soldered it: its episode's index in the rework history (ends soldered together share it). */
+  heat?: number;
 }
 
 export const isWire = (j: Jumper): j is Jumper & { kind: 'wire'; ends: [WireEnd, WireEnd] } => j.kind === 'wire' && !!j.ends;

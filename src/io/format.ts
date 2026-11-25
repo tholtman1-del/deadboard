@@ -8,6 +8,7 @@ export function normalizeBoard(b: Partial<Board>): Board {
     zones: arr(b.zones), silk: arr(b.silk), texts: arr(b.texts), nextId: num(b.nextId, 1),
     ...(Array.isArray(b.hiddenCopperNets) && { hiddenCopperNets: b.hiddenCopperNets.filter((n) => typeof n === 'string') }),
     ...(b.estimatedPads === true && { estimatedPads: true }),
+    ...(b.workUngrounded === true && { workUngrounded: true }),
     ...(b.coating && ['parylene', 'epoxy', 'acrylic', 'polyurethane', 'varnish', 'rtv'].includes(b.coating.type) && { coating: { type: b.coating.type, thick: !!b.coating.thick, ...(b.coating.solventSoluble && { solventSoluble: true }), ...(b.coating.soft && { soft: true }) } }),
     ...(typeof b.coatingId === 'string' && ['parylene', 'epoxy', 'acrylic', 'polyurethane', 'varnish', 'rtv'].includes(b.coatingId) && { coatingId: b.coatingId }),
     ...(Array.isArray(b.nicks) && { nicks: b.nicks.filter((n) => n && typeof n.id === 'string' && isPt(n.at) && (n.layer === 'F' || n.layer === 'B') && [n.len, n.depth, n.rot, n.width].every((x) => typeof x === 'number' && isFinite(x))) }),

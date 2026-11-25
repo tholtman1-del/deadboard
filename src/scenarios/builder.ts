@@ -102,13 +102,16 @@ export class Builder {
 
   /**
    * A metal-can transistor (TO-39, the 3-lead TO-5 family): leads on a 5.08 mm (0.200 in) circle,
-   * E and C opposite each other, B between them on the side of the tab (seen from the top at rot 0:
-   * E left, B up, C right); can ≈ 8.9 mm across, 6.3 mm tall (typical, estimate).
+   * 90° apart, E and C opposite each other with B between them; the reference tab sits 45° from E,
+   * on the side away from B. Viewed from the bottom, E, B, C follow the tab clockwise (NEETS 14
+   * p. 1-28); from the top, counterclockwise. In part coordinates at rot 0 (y up, seen from the top):
+   * E at −x, B at −y, C at +x, the tab between −x and +y. On the 2N2219A the collector is connected
+   * to the can. Can ≈ 8.9 mm across, 6.3 mm tall (typical, estimate).
    */
   to5(ref: string, mpn: string, at: V2, r = 0, pins: Record<string, string> = { E: '1', B: '2', C: '3' }) {
     return this.comp({
       ref, kind: 'generic', value: 0, label: mpn, at, rot: r,
-      pads: [tht('1', [-2.54, 0], 1.6, 'rect', 0.9), tht('2', [0, 2.54], 1.6, 'circle', 0.9), tht('3', [2.54, 0], 1.6, 'circle', 0.9)],
+      pads: [tht('1', [-2.54, 0], 1.6, 'rect', 0.9), tht('2', [0, -2.54], 1.6, 'circle', 0.9), tht('3', [2.54, 0], 1.6, 'circle', 0.9)],
       pins,
       body: { shape: 'to5', w: 8.9, h: 8.9, z: 6.3 },
     });

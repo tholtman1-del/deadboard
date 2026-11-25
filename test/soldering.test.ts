@@ -3,10 +3,10 @@
 import type { Board } from '../src/types';
 import { Builder } from '../src/scenarios/builder';
 import { ThermalModel, copperThickness, THERMAL_DEFAULTS } from '../src/thermal';
-import { ALLOYS, IRON_G, ReworkMonitor, heldPads, limitsFor, type ReworkEvent } from '../src/rework';
+import { ALLOYS, IRON_G, PREHEAT_H, ReworkMonitor, heldPads, limitsFor, type ReworkEvent } from '../src/rework';
 import { cleanFluxWithIpa, fluxResidueNear } from '../src/residue';
 import { RULES, inspect } from '../src/workmanship';
-import { ID_TYPES, TABLE_3_1, applyCoating, observe, removeCoating, workable } from '../src/coating';
+import { ID_TYPES, TABLE_06_3, TABLE_3_1, applyCoating, observe, removeCoating, workable } from '../src/coating';
 import { TABLE_3_2, benchCharge, handle as handleEsd } from '../src/esd';
 import { CONTENT, LESSONS, lessonFor } from '../src/lessons/neets14';
 import { LESSON_META } from '../src/lessons/track';
@@ -17,7 +17,7 @@ import { buildConnectivity } from '../src/connectivity';
 import { evaluateObjectives } from '../src/verify';
 import { BOARD_INFO, PATH_ORDER } from '../src/scenarios/catalog';
 import { addBlob, addJumper, installPart, removePart } from '../src/ops';
-import { addWire, targetEnd, terminalType } from '../src/terminals';
+import { addWire, endsAt, targetEnd, terminalType } from '../src/terminals';
 import { clinchFitted, straighten } from '../src/clinch';
 import { excavate, fillBurn } from '../src/laminate';
 
@@ -81,13 +81,24 @@ async function main() {
   {
     // a joint in a ground pour runs cooler than one on a track: the pour pulls heat away
     const sc = (await solderingScenarios()).find((s) => s.id === 'hr-heat-time')!;
-    const pour = solder(structuredClone(sc.board), 'D1', '1', { hold: 3 });
-    const track = solder(structuredClone(sc.board), 'R2', '2', { hold: 3 });
+    // at the 2M manual's 600 °F (316 °C) start (T.O. 05-5.3.4) the pour joint runs cooler but still flows in 3 s
+    const pour = solder(structuredClone(sc.board), 'D1', '1', { hold: 3, temp: 316 });
+    const track = solder(structuredClone(sc.board), 'R2', '2', { hold: 3, temp: 316 });
     assert(pour.peak < track.peak - 15, `pour joint ${pour.peak.toFixed(0)} °C, track joint ${track.peak.toFixed(0)} °C`);
-    assert(pour.peak < 288, 'at 350 °C the pour joint stays below the textbook\'s 288 °C…');
+    assert(!pour.c.state.cold.length && !track.c.state.cold.length, 'both joints reflow with flux in 3 s at 316 °C');
+    // preheating the board (the manual's answer for heavy ground planes) brings the pour joint up without a hotter tip
+    const pre = (() => {
+      const b = structuredClone(sc.board), m = new ThermalModel(b);
+      for (let t = 0; t < 60; t += 0.1) { m.addSource({ kind: 'preheat', temp: 150, h: PREHEAT_H, until: m.time + 0.2 }); m.step(0.1); }
+      const c = b.components.find((x) => x.ref === 'D1')!;
+      m.addSource({ kind: 'iron', x: 0, y: 0, temp: 316, g: IRON_G.flux, pmax: 60, until: m.time + 3, partId: c.id, pad: 0 });
+      let peak = 0;
+      for (let t = 0; t < 3; t += 0.05) { m.addSource({ kind: 'preheat', temp: 150, h: PREHEAT_H, until: m.time + 0.1 }); m.step(0.05); peak = Math.max(peak, m.jointTemp(c, 0)); }
+      return peak;
+    })();
+    assert(pre > pour.peak + 10, `preheated, the pour joint runs hotter at the same tip (${pre.toFixed(0)} vs ${pour.peak.toFixed(0)} °C)`);
     const hot = solder(structuredClone(sc.board), 'D1', '1', { hold: 3, temp: 400 });
-    assert(hot.peak > pour.peak + 25, `…a hotter station gets it there (${hot.peak.toFixed(0)} °C at 400 °C)`);
-    assert(!pour.c.state.cold.length && !track.c.state.cold.length, 'both joints reflow with flux in 3 s');
+    assert(hot.peak > pour.peak + 25, `a hotter tip also gets there (${hot.peak.toFixed(0)} °C at 400 °C), the manual\'s last resort`);
   }
   {
     // no flux: an oxidised joint usually stays dull; with flux it always wets
@@ -328,24 +339,34 @@ async function main() {
     {
       const { b, r2 } = fresh();
       assert(!workable(b, r2), 'a coated part cannot be worked on');
-      assert(!removeCoating(b, r2, 'ballmill').ok && !removeCoating(b, r2, 'peel').ok, 'methods Table 3-1 does not list for polyurethane do nothing');
-      assert(!removeCoating(b, r2, 'solvent').ok, 'solvent only for specific polyurethane compositions (A): not this one');
-      const r = removeCoating(b, r2, 'hotair');
+      assert(!removeCoating(b, r2, 'ballmill', false, '3-1').ok && !removeCoating(b, r2, 'peel', false, '3-1').ok, 'methods Table 3-1 does not list for polyurethane do nothing');
+      assert(!removeCoating(b, r2, 'solvent', false, '3-1').ok, 'solvent only for specific polyurethane compositions (A): not this one');
+      const r = removeCoating(b, r2, 'hotair', false, '3-1');
       assert(r.ok && r.rank === 1 && r.best === 1 && r.identifies && workable(b, r2), 'hot air jet: first choice for polyurethane, and it identifies the coating');
     }
     {
       const b: Board = structuredClone(sc.board); b.coating = { type: 'epoxy', thick: true };
       const c = b.components[1];
-      const r = removeCoating(b, c, 'brush');
+      const r = removeCoating(b, c, 'brush', false, '3-1');
       assert(!r.ok && r.why === 'thin-only', 'a rotary brush only takes thin epoxy (C)');
-      const m = removeCoating(b, c, 'ballmill');
+      const m = removeCoating(b, c, 'ballmill', false, '3-1');
       assert(m.ok && m.rank === 5 && m.best === 2, `thick epoxy: ball mill works (B) but the thermal parting tool ranks first (best ${m.ok && m.best})`);
+    }
+    // the current manual's Table 06-3 (2013): alcohol the only solvent, parylene mechanical only, hot air not thin-only
+    assert(TABLE_06_3.parylene.manual?.rank === 1 && TABLE_06_3.parylene.peel?.rank === 2 && !TABLE_06_3.parylene.parting, 'Table 06-3: parylene comes off with dental tools / a pin-vise ball mill, then cutting and peeling; no thermal parting');
+    assert(!TABLE_06_3.polyurethane.solvent && !TABLE_06_3.epoxy.hotair?.thin && TABLE_06_3.acrylic.solvent?.rank === 1, 'Table 06-3: no solvent on polyurethane; hot air on epoxy is not thin-only; alcohol first on acrylic');
+    {
+      const b: Board = structuredClone(sc.board); b.coating = { type: 'parylene', thick: false };
+      const c = b.components[1];
+      assert(!removeCoating(b, c, 'parting', true).ok && removeCoating(b, c, 'parting', true, '3-1').ok, 'parylene: the thermal parting tool is Table 3-1\'s first choice, not listed in Table 06-3');
+      const r = removeCoating(b, c, 'manual');
+      assert(r.ok && r.rank === 1 && r.best === 1, 'Table 06-3 (the default): manual tools first on parylene');
     }
     assert(TABLE_3_1.rtv.peel?.rank === 1 && TABLE_3_1.acrylic.solvent?.rank === 1 && TABLE_3_1.parylene.parting?.rank === 1, 'Table 3-1 first choices: peel RTV, solvent on acrylic, thermal parting tool on parylene');
     // a whole repair: method 1, reflow, clean, same coating back
     const repair = (method: 'hotair' | 'brush', back: 'polyurethane' | 'acrylic' | null) => {
       const { b, r2 } = fresh();
-      removeCoating(b, r2, method);
+      removeCoating(b, r2, method, false, '3-1');
       r2.state.cold = [];
       if (back) applyCoating(b, r2, back);
       return { works: evaluateObjectives(b, buildConnectivity(b), sc.objectives, 'spice').allPassed, ins: inspect(b, referenceBoard(sc)!, [], []) };
@@ -454,10 +475,12 @@ async function main() {
     for (const pi of order) { heat(pi, true); cool(); }
     for (const c of b.components) c.state.fluxResidue = undefined;
     addJumper(b, [15, 12], 'F', [21, 12], 'F', 'staple');
-    // the supply wires: a double wire on turret E1, one to hook E2, one to pierced tab E3
+    // the supply wires: a double wire on turret E1, one to hook E2, one to pierced tab E3, and on from E2 to cup E4
     const term = (ref: string) => b.components.find((c) => c.ref === ref)!;
-    for (const z of ['E2', 'E3']) addWire(b, term('E1'), targetEnd(term('E1'), 'turret'), term(z), targetEnd(term(z), terminalType(term(z))!));
-    for (const ref of ['E1', 'E2', 'E3']) {
+    const wire = (a: string, z: string) => addWire(b, term(a), targetEnd(term(a), terminalType(term(a))!, endsAt(b, term(a), 0).length), term(z), targetEnd(term(z), terminalType(term(z))!, endsAt(b, term(z), 0).length));
+    wire('E1', 'E2'); wire('E1', 'E3'); wire('E2', 'E4');
+    assert(term('E4') && terminalType(term('E4')) === 'cup', 'Appendix C\'s solder cup is on the card');
+    for (const ref of ['E1', 'E2', 'E3', 'E4']) {
       const c = term(ref);
       rw.applyFlux(c.at[0], c.at[1], 3); rw.feedSolder(c, 0);
       m.addSource({ kind: 'iron', x: 0, y: 0, temp: 316, g: IRON_G.flux, pmax: 60, until: m.time + 1.6, partId: c.id, pad: 0 });
@@ -491,6 +514,9 @@ async function main() {
     const ins = inspect(b, referenceBoard(sc)!, rw.episodes, rw.log);
     assert(evaluateObjectives(b, buildConnectivity(b), sc.objectives, 'spice').allPassed, `the final card works (${JSON.stringify(rn.state)})`);
     assert(lessonAccepted(lf, ins), `…and passes the final inspection (${JSON.stringify(ins.findings)})`);
+    // the same card, but some of the work was done without the wrist strap: the work area fails (Appendix C, T.O. 03-3)
+    const unstrapped = inspect({ ...b, workUngrounded: true }, referenceBoard(sc)!, rw.episodes, rw.log);
+    assert(!lessonAccepted(lf, unstrapped) && unstrapped.findings.some((f) => f.kind === 'esd-workarea'), 'work done ungrounded fails the practical\'s ESD-safe work area');
     // the same work with the pins taken in order fails on the skipping pattern
     const inRow = inspect(b, referenceBoard(sc)!, rw.episodes.map((e, i) => ({ ...e, pad: i % 16, t: i * 2 })), []);
     assert(inRow.findings.some((f) => f.kind === 'skip-pattern'), 'pins heated one after the other are caught');
@@ -500,6 +526,15 @@ async function main() {
   {
     const sc = scs.find((x) => x.id === 'hr-to-package')!, lesson = lessonFor('hr-to-package')!;
     assert(referenceBoard(sc)!.components.find((c) => c.ref === 'Q1')!.state.mount === 'spacer', 'the factory mounted Q1 on a spacer');
+    {
+      // TO-39 pinout: seen from the top (y up) E, B, C run counterclockwise, so from the bottom they
+      // follow the tab clockwise (NEETS 14 p. 1-28); B sits on the far side of the E–C line from the tab
+      const q = referenceBoard(sc)!.components.find((c) => c.ref === 'Q1')!;
+      const at = (n: string) => q.pads.find((p) => p.name === n)!.at;
+      const [e, bb, c] = [at('1'), at('2'), at('3')];
+      const cross = (bb[0] - e[0]) * (c[1] - bb[1]) - (bb[1] - e[1]) * (c[0] - bb[0]);
+      assert(cross > 0, `TO-39 pads E → B → C counterclockwise from the top (cross ${cross.toFixed(2)})`);
+    }
     const play = (mount: 'flush' | 'spacer') => {
       const b = structuredClone(sc.board), q1 = b.components.find((c) => c.ref === 'Q1')!;
       const m = new ThermalModel(b), rw = new ReworkMonitor(b, m, limitsFor('sn63'));
@@ -559,6 +594,15 @@ async function main() {
   // ---- lesson data ----
   assert(LESSON_META.length === CONTENT.length && LESSON_META.every((m) => CONTENT.some((c) => c.scenario === m.scenario)), 'every lesson has its bench data (track.ts) and its text (neets14.ts)');
   assert(LESSONS.length === SOLDERING_TRACK_IDS.length && LESSONS.every((l, i) => l.scenario === SOLDERING_TRACK_IDS[i]), 'one lesson per board, in order');
+  {
+    // each textbook question is asked once in the course (NEETS numbers its questions per chapter: ref + page + module)
+    const asked = new Map<string, string>();
+    for (const l of LESSONS) for (const q of l.questions) {
+      const key = `${q.source ?? 'neets' + (q.module ?? 14)} ${q.ref} ${q.page}`;
+      assert(!asked.has(key), `${key} asked in both ${asked.get(key)} and ${l.scenario}`);
+      asked.set(key, l.scenario);
+    }
+  }
   const toolIds = [...readFileSync(`${root}src/ui/app.ts`, 'utf8').matchAll(/\{ id: '(\w+)', key: '/g)].map((x) => x[1]);
   const hirelTools = ['extract', 'staple', 'padfix', 'coatest', 'decoat', 'coat', 'hookup', 'pliers', 'laminate', 'shunt'];
   assert(toolIds.length > 20 && hirelTools.every((x) => toolIds.includes(x)), 'tool ids read from the dock');
@@ -574,9 +618,12 @@ async function main() {
     assert(l.original.every((p) => p.length > 30 && !/-\s$/.test(p)), `${l.scenario}: whole quoted paragraphs or list entries`);
     assert(l.grades.every((g) => g in RULES), `${l.scenario}: grades known rules`);
     if (l.bench) assert(['low', 'high'].includes(l.bench.humidity), `${l.scenario}: bench humidity`);
-    assert(['r350', 'r316f', 'r350f', 'r400f'].includes(l.station), `${l.scenario}: a station the bench offers`);
+    assert(['r316', 'r316f', 'r350', 'r350f', 'r400f'].includes(l.station), `${l.scenario}: a station the bench offers`);
+    assert(l.station.startsWith('r316'), `${l.scenario}: starts at the 2M manual's 600 °F (316 °C) tip (T.O. 05-5.3.4)`);
+    assert(l.objectives.length >= 2, `${l.scenario}: learning objectives`);
     if (l.figure) assert(existsSync(`${root}public/${l.figure.src}`), `${l.scenario}: figure ${l.figure.src} is in public/`);
-    for (const q of l.questions) assert(/^Q\d+$/.test(q.ref) && /^\d-\d+$/.test(q.page) && q.a.length > 2, `${l.scenario} ${q.ref}: numbered, with page and answer`);
+    for (const q of l.questions) assert(q.source === 'to' ? /^S\d+$/.test(q.ref) && /^\d\d-\d/.test(q.page) : /^Q\d+$/.test(q.ref) && /^\d-\d+$/.test(q.page), `${l.scenario} ${q.ref}: numbered, with page or paragraph`);
+    for (const q of l.questions) assert(q.a.length > 2, `${l.scenario} ${q.ref}: an answer`);
   }
 
   console.log('SOLDERING TESTS PASSED (alloys, copper map, THT joint physics, pour vs track, flux and residue, inspection rules, desoldering: wick / plunger / vacuum + refit, thermal shunt, skipping pattern, track boards, lessons)');

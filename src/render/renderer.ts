@@ -1642,7 +1642,8 @@ export class Renderer {
       if (lift) for (const p of c.pads) { const a = toPadW(p.at[0], p.at[1], lift / 2); op.cyl.pushTRS(a[0], a[1], a[2], 0.45, 0.45, lift, 0, 0.82, 0.84, 0.88, 1, 0, 0.95, 0.2); }
       const fl = toW(0, 0, lift + 0.25); op.cyl.pushTRS(fl[0], fl[1], fl[2], 9.4, 9.4, 0.5, effRot, m[0], m[1], m[2], 1, thermEm, 0.9, 0.25, spec);
       const can = toW(0, 0, lift + 0.5 + (c.body.z - 0.5) / 2); op.cyl.pushTRS(can[0], can[1], can[2], 8.5, 8.5, c.body.z - 0.5, effRot, m[0], m[1], m[2], 1, thermEm, 0.9, 0.25, spec);
-      // the tab, on the emitter side of the base lead (45° between them)
+      // the reference tab, 45° from the emitter on the side away from the base: viewed from the
+      // bottom, E, B and C follow it clockwise (TO-39 / 2N2219A pinout; NEETS 14 Q35, p. 1-32)
       const tb = toW(-3.3 * Math.SQRT1_2 * 1.4, 3.3 * Math.SQRT1_2 * 1.4, lift + 0.25); op.box.pushTRS(tb[0], tb[1], tb[2], 1.0, 0.8, 0.5, effRot + 45, m[0], m[1], m[2], 1, thermEm, 0.9, 0.25, spec);
       return;
     }

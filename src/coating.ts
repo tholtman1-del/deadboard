@@ -6,7 +6,9 @@ import { tk } from './i18n';
 import type { Board, Component } from './types';
 
 export type CoatingType = 'parylene' | 'epoxy' | 'acrylic' | 'polyurethane' | 'varnish' | 'rtv';
-export type CoatMethod = 'solvent' | 'brush' | 'grit' | 'hotair' | 'parting' | 'ballmill' | 'peel';
+export type CoatMethod = 'solvent' | 'brush' | 'grit' | 'hotair' | 'parting' | 'ballmill' | 'peel' | 'manual';
+/** Which removal table grades the choice: NEETS 14 Table 3-1 (1998) or the 2M manual's Table 06-3 (2013, current). */
+export type CoatTable = '3-1' | '06-3';
 
 /** In the table's order: listed in descending order of hardness. */
 export const COATINGS: { id: CoatingType; name: string }[] = [
@@ -26,6 +28,7 @@ export const METHODS: { id: CoatMethod; name: string }[] = [
   { id: 'parting', name: tk('Thermal parting tool') },
   { id: 'ballmill', name: tk('Ball mills') },
   { id: 'peel', name: tk('Cutting and peeling') },
+  { id: 'manual', name: tk('Manual dental tools / ball mill in a pin vise') },
 ];
 
 /**
@@ -34,7 +37,7 @@ export const METHODS: { id: CoatMethod; name: string }[] = [
  * coatings only (C) / for thick coatings only, 0.025 in and thicker (B); `some`: specific coating
  * compositions only (A); `noGrind`: do not grind to the board surface (D).
  */
-export interface Cell { rank: number; ids?: true; thin?: true; thick?: true; some?: true; noGrind?: true; /** E: organic solvents are best */ organic?: true; /** F: modified drill bit for the tip, ≈500° at the tip */ drillTip?: true }
+export interface Cell { rank: number; ids?: true; thin?: true; thick?: true; some?: true; noGrind?: true; /** E: organic solvents are best */ organic?: true; /** F: modified drill bit for the tip, about 500 °F (260 °C) at the tip */ drillTip?: true }
 
 export const TABLE_3_1: Record<CoatingType, Partial<Record<CoatMethod, Cell>>> = {
   parylene: { grit: { rank: 2 }, parting: { rank: 1, drillTip: true }, ballmill: { rank: 3 } },
@@ -44,6 +47,26 @@ export const TABLE_3_1: Record<CoatingType, Partial<Record<CoatMethod, Cell>>> =
   varnish: { solvent: { rank: 1, some: true, thin: true }, brush: { rank: 3 }, grit: { rank: 4 }, hotair: { rank: 2, ids: true } },
   rtv: { brush: { rank: 2, thin: true }, peel: { rank: 1, ids: true } },
 };
+
+/**
+ * T.O. 00-25-259 Table 06-3 "Conformal Coating Removal Methods" (Rev 4, 2013), the current 2M
+ * standard: isopropyl alcohol is the only solvent (05-5.4), parylene comes off mechanically only.
+ * Its notes: * identifies the type; a: thick coatings only (0.025 in and thicker); b: thin coatings
+ * only; c: do not attempt to remove to the CCA surface. The manual lists no varnish: a varnish
+ * coating keeps its Table 3-1 row.
+ */
+export const TABLE_06_3: Record<CoatingType, Partial<Record<CoatMethod, Cell>>> = {
+  acrylic: { solvent: { rank: 1, ids: true }, hotair: { rank: 2 }, manual: { rank: 3, thin: true }, brush: { rank: 4, thick: true, noGrind: true } },
+  epoxy: { hotair: { rank: 1, ids: true }, parting: { rank: 2, ids: true }, manual: { rank: 3, thin: true }, ballmill: { rank: 4, thick: true, noGrind: true } },
+  rtv: { peel: { rank: 1, ids: true }, manual: { rank: 2, thin: true }, brush: { rank: 3, noGrind: true } },
+  polyurethane: { hotair: { rank: 1, ids: true }, parting: { rank: 2, ids: true }, manual: { rank: 3, thin: true }, ballmill: { rank: 4, thick: true, noGrind: true } },
+  parylene: { manual: { rank: 1 }, peel: { rank: 2 } },
+  varnish: TABLE_3_1.varnish,
+};
+
+export const tableFor = (t: CoatTable) => (t === '3-1' ? TABLE_3_1 : TABLE_06_3);
+/** The columns of a table, in its order. */
+export const methodsFor = (t: CoatTable): CoatMethod[] => (t === '3-1' ? ['solvent', 'brush', 'grit', 'hotair', 'parting', 'ballmill', 'peel'] : ['solvent', 'hotair', 'parting', 'peel', 'manual', 'ballmill', 'brush']);
 
 export const coatingName = (id: CoatingType) => COATINGS.find((c) => c.id === id)!.name;
 export const methodName = (id: CoatMethod) => METHODS.find((m) => m.id === id)!.name;
@@ -57,17 +80,21 @@ export type RemoveResult =
   | { ok: true; rank: number; best: number; identifies: boolean }
   | { ok: false; why: 'not-listed' | 'thin-only' | 'thick-only' | 'already' };
 
-/** Removes the coating around a part with one method, as Table 3-1 allows (`dry`: only says whether it would). */
-export function removeCoating(board: Board, c: Component, method: CoatMethod, dry = false): RemoveResult {
+/**
+ * Removes the coating around a part with one method, as the removal table allows (`dry`: only says
+ * whether it would). `table`: the current 2M manual's Table 06-3 unless a lesson teaches NEETS 3-1.
+ */
+export function removeCoating(board: Board, c: Component, method: CoatMethod, dry = false, table: CoatTable = '06-3'): RemoveResult {
   const coat = board.coating;
   if (!coat || c.state.coating === 'removed') return { ok: false, why: 'already' };
-  const cell = TABLE_3_1[coat.type][method];
+  const rows = tableFor(table);
+  const cell = rows[coat.type][method];
   if (!cell) return { ok: false, why: 'not-listed' };
   if (cell.thin && coat.thick) return { ok: false, why: 'thin-only' };
   if (cell.thick && !coat.thick) return { ok: false, why: 'thick-only' };
   // "specific coating compositions only" (A): the board says whether its coating is one of them
   if (cell.some && !coat.solventSoluble) return { ok: false, why: 'not-listed' };
-  const best = Math.min(...Object.values(TABLE_3_1[coat.type]).filter((x): x is Cell => !!x && !(x.thin && coat.thick) && !(x.thick && !coat.thick) && !(x.some && !coat.solventSoluble)).map((x) => x.rank));
+  const best = Math.min(...Object.values(rows[coat.type]).filter((x): x is Cell => !!x && !(x.thin && coat.thick) && !(x.thick && !coat.thick) && !(x.some && !coat.solventSoluble)).map((x) => x.rank));
   if (dry) return { ok: true, rank: cell.rank, best, identifies: !!cell.ids };
   c.state.coating = 'removed';
   if (!board.coatingId) c.state.coatRemovedBlind = true;

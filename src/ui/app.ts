@@ -68,6 +68,7 @@ import { START_PREP, wireMeasureHtml, wirePrepHtml, wirePreviewSvg } from './wir
 import { COATINGS, COAT_TESTS, ID_TYPES, METHODS, applyCoating, coatingName, methodName, observe, removeCoating, workable, type CoatMethod, type CoatTest, type CoatingType } from '../coating';
 import { SOLDERING_TRACK_IDS } from '../scenarios/soldering';
 import { debriefHtml, lessonAccepted, lessonBriefHtml } from './lesson-ui';
+import { glossaryItemsHtml, guideHtml } from './guide-ui';
 import { Renderer, type RendererKind, type VizMode } from '../render/renderer';
 import { NoAdapterError, gpuDiagnosis, webGlInfo } from '../render/gpuprobe';
 import { gpuHelp } from './gpuhelp';
@@ -279,6 +280,11 @@ export class PcbApp {
   private ironHold: { src: { until: number; g: number }; start: number; where: string; el: HTMLElement | null; lift?: HTMLButtonElement; comp: Component; pad: number; vacuum: boolean; done: boolean; melted?: boolean; slow?: boolean } | null = null;
   /** The lesson text module, once loaded (src/lessons/neets14.ts is its own chunk). */
   private neets: typeof import('../lessons/neets14') | null = null;
+  /** The soldering course's guide (about, safety, glossary, reference): open tab, glossary search, where Close returns to. */
+  private showGuide: import('../lessons/guide').GuideTab | null = null;
+  private guideQuery = '';
+  private guideBack: 'boards' | 'lesson' | null = null;
+  private guideMod: typeof import('../lessons/guide') | null = null;
   /** Soldering-track lesson dialog: before the repair, or the inspection after it. */
   private showLesson: 'brief' | 'debrief' | null = null;
   private lastInspection: Inspection | null = null;
@@ -918,6 +924,7 @@ export class PcbApp {
               <option value="instant">${t('Rework: instant')}</option>
               <option value="r316f">${t('Iron 316 °C (600 °F) + flux')}</option>
               <option value="r350f">${t('Iron 350 °C + flux')}</option>
+              <option value="r316">${t('Iron 316 °C (600 °F), dry')}</option>
               <option value="r350">${t('Iron 350 °C, dry')}</option>
               <option value="r400f">${t('Iron 400 °C + flux')}</option>
             </select></label>
@@ -2430,7 +2437,7 @@ export class PcbApp {
     this.fitBoardInView();
   }
 
-  /** Rework setting from its select value ('instant', 'r350', 'r350f', 'r400f'). */
+  /** Rework setting from its select value ('instant', 'r316', 'r316f', 'r350', 'r350f', 'r400f'). */
   private setRework(v: string) {
     this.reworkMode = v === 'instant' ? { ...this.reworkMode, realistic: false } : { realistic: true, ironTemp: v.startsWith('r400') ? 400 : v.startsWith('r316') ? 316 : 350, flux: v.endsWith('f') };
     const sel = this.mount.querySelector<HTMLSelectElement>('#rework-mode');
@@ -2476,6 +2483,8 @@ export class PcbApp {
   private pushUndo() {
     this.undoStack.push(cloneBoard(this.board));
     if (this.undoStack.length > 60) this.undoStack.shift();
+    // every bench action is work on the card: record it when the wrist strap is off (T.O. 03-3)
+    if (!this.grounded) this.board.workUngrounded = true;
     this.redoStack.length = 0;
     this.moves++;
     this.attempts?.move();
@@ -4050,6 +4059,14 @@ export class PcbApp {
       this.renderBoardsModal();
       return;
     }
+    // the course guide closes back to where it was opened from (the lesson, or the board picker)
+    if (e.key === 'Escape' && this.showGuide) {
+      this.showGuide = null;
+      if (this.guideBack === 'boards') this.showBoards = true;
+      this.guideBack = null;
+      this.renderModal();
+      return;
+    }
     if (e.key === 'Escape' && (this.showBoards || this.showHelp || this.showFeedback || this.showMods || this.showLesson || this.wireDialog || this.lamDialog)) {
       this.wireDialog = null;
       this.lamDialog = null;
@@ -4526,10 +4543,11 @@ export class PcbApp {
         return;
       }
       if (c.state.coating && c.state.coating !== 'removed') { this.toast(t('{ref} was coated again after the repair.', { ref: c.ref }), 'info'); return; }
-      const r = removeCoating(this.board, c, this.coatMethod, true);
+      const table = lessonMeta(this.activeScenario.id)?.coatTable ?? '06-3';
+      const r = removeCoating(this.board, c, this.coatMethod, true, table);
       if (r.ok) {
         this.pushUndo();
-        removeCoating(this.board, c, this.coatMethod);
+        removeCoating(this.board, c, this.coatMethod, false, table);
         sfxCut();
         this.toast(t('Coating off {ref}\'s leads and pads ({method}).', { ref: c.ref, method: t(methodName(this.coatMethod)) }), 'success');
         if (r.identifies) this.toast(t('This method identifies the coating positively: {coat}.', { coat: t(coatingName(this.board.coating.type)) }), 'info');
@@ -4537,7 +4555,7 @@ export class PcbApp {
         this.toast(r.why === 'already' ? t('The coating is already off {ref}.', { ref: c.ref })
           : r.why === 'thin-only' ? t('{method} is for thin coatings only: this coating is thick.', { method: t(methodName(this.coatMethod)) })
           : r.why === 'thick-only' ? t('{method} is for thick coatings only (0.025 in and thicker).', { method: t(methodName(this.coatMethod)) })
-          : t('{method} does nothing to this coating: Table 3-1 does not list it for this type.', { method: t(methodName(this.coatMethod)) }), 'info');
+          : t('{method} does nothing to this coating: Table {table} does not list it for this type.', { method: t(methodName(this.coatMethod)), table }), 'info');
       }
       this.renderUI();
       return;
@@ -6374,6 +6392,7 @@ export class PcbApp {
         <div class="bp-course-act">
           <button class="btn primary" data-bp-start="${open ? 'close' : idx}">${open ? '' : icon('play', 13)}<span>${label}</span></button>
           <button class="btn ghost" data-bp-act="course">${t('All lessons')}</button>
+          <button class="btn ghost" data-bp-act="guide">${icon('book', 13)}<span>${t('Course guide')}</span></button>
         </div>
       </section>`;
   }
@@ -6678,6 +6697,7 @@ export class PcbApp {
         case 'clear': this.boardSearch = ''; this.bpBand = 'all'; this.bpKind = 'all'; this.bpSkill = 'all'; this.bpHideSolved = false; break;
         case 'close-details': if (target !== el && el.classList.contains('bp-sheet-bg')) return; this.bpSel = null; break;
         case 'daily': closeModal(); void this.playDaily(); return;
+        case 'guide': this.openGuide('about', 'boards'); return;
         case 'course': this.bpTab = 'library'; this.bpKind = 'track'; this.bpBand = 'all'; this.bpSkill = 'all'; this.boardSearch = ''; this.bpSel = null; break;
         case 'new': closeModal(); this.createBlankBoard(); return;
         case 'import': closeModal(); this.fileInputEl.click(); return;
@@ -7464,6 +7484,10 @@ export class PcbApp {
   private renderModal() {
     this.mount.querySelector('#btn-boards')?.classList.toggle('active', this.showBoards);
     this.mount.querySelector('#btn-feedback')?.classList.toggle('active', this.showFeedback);
+    if (this.showGuide) {
+      this.renderGuideModal();
+      return;
+    }
     if (this.showBoards) {
       this.renderBoardsModal();
       return;
@@ -7592,7 +7616,7 @@ export class PcbApp {
     const nextId = ids[ids.indexOf(this.activeScenario.id) + 1];
     const nextIdx = nextId ? this.scenarios.findIndex((x) => x.id === nextId) : -1;
     const accepted = !brief && lessonAccepted(lesson, this.lastInspection!);
-    const body = brief ? lessonBriefHtml(lesson, (x) => this.esc(x), './', this.mobile) : debriefHtml(lesson, this.lastInspection!, (x) => this.esc(x));
+    const body = brief ? lessonBriefHtml(lesson, (x) => this.esc(x), './', this.mobile) : debriefHtml(lesson, this.lastInspection!, (x) => this.esc(x), this.quizState());
     this.modalRootEl.innerHTML = `
       <div class="modal-backdrop" id="lesson-close-bg">
         <div class="modal lesson-modal" role="dialog" aria-modal="true" aria-labelledby="lesson-h" style="transform: translate3d(${this.modalPos[0]}px, ${this.modalPos[1]}px, 0)">
@@ -7607,6 +7631,7 @@ export class PcbApp {
               : `${accepted && nextIdx >= 0 ? `<button class="btn primary" data-open-sc="${nextIdx}">${icon('play', 13)}<span>${t('Next lesson')}</span></button>` : ''}
                  <button class="btn${accepted && nextIdx >= 0 ? '' : ' primary'}" id="lesson-go">${accepted ? t('Close') : t('Back to the board')}</button>
                  <button class="btn ghost" id="lesson-brief">${icon('book', 13)}<span>${t('Lesson')}</span></button>`}
+            <button class="btn ghost lesson-guide-btn" data-guide="about">${t('Course guide')}</button>
           </div>
         </div>
       </div>`;
@@ -7614,6 +7639,7 @@ export class PcbApp {
     this.modalRootEl.querySelector('#lesson-close')?.addEventListener('click', close);
     this.modalRootEl.querySelector('#lesson-go')?.addEventListener('click', close);
     this.modalRootEl.querySelector('#lesson-brief')?.addEventListener('click', () => { this.showLesson = 'brief'; this.renderModal(); });
+    this.modalRootEl.querySelectorAll<HTMLButtonElement>('[data-guide]').forEach((b) => b.addEventListener('click', () => this.openGuide(b.dataset.guide as import('../lessons/guide').GuideTab, 'lesson')));
     this.modalRootEl.querySelectorAll<HTMLButtonElement>('[data-open-sc]').forEach((b) => b.addEventListener('click', () => {
       this.showLesson = null;
       if (this.scenarios[Number(b.dataset.openSc)]) void this.openScenario(Number(b.dataset.openSc));
@@ -7622,7 +7648,77 @@ export class PcbApp {
       if (this.suppressModalBgClose) { this.suppressModalBgClose = false; return; }
       if ((e.target as HTMLElement).id === 'lesson-close-bg') close();
     });
+    // review questions as a self-check: the answer is kept on this device only
+    this.modalRootEl.querySelectorAll<HTMLButtonElement>('[data-quiz]').forEach((b) => b.addEventListener('click', () => {
+      const key = b.dataset.quiz!, q = this.quizState();
+      q[key] = b.dataset.quizV === 'known' ? 'known' : 'again';
+      try { localStorage.setItem('pcbfix_track_quiz', JSON.stringify(q)); } catch { /* private mode: not kept */ }
+      const scroll = this.modalRootEl.querySelector('.inspection')?.scrollTop ?? 0;
+      this.renderModal();
+      this.modalRootEl.querySelector(`[data-quiz="${CSS.escape(key)}"]`)?.closest('details')?.setAttribute('open', '');
+      const box = this.modalRootEl.querySelector('.inspection');
+      if (box) box.scrollTop = scroll;
+      this.modalRootEl.querySelector<HTMLElement>(`[data-quiz="${CSS.escape(key)}"][data-quiz-v="${q[key]}"]`)?.focus({ preventScroll: true });
+    }));
     this.modalRootEl.querySelector<HTMLElement>('#lesson-go')?.focus({ preventScroll: true });
+  }
+
+  /** Opens the course guide on a tab; Close goes back to where it was opened from. */
+  private openGuide(tab: import('../lessons/guide').GuideTab, back: 'boards' | 'lesson') {
+    this.guideBack = back;
+    if (back === 'boards') this.showBoards = false;
+    this.showGuide = tab;
+    this.renderModal();
+  }
+
+  private renderGuideModal() {
+    if (!this.guideMod) {
+      void import('../lessons/guide').then((m) => { this.guideMod = m; if (this.showGuide) this.renderModal(); });
+      return;
+    }
+    const tab = this.showGuide!;
+    this.modalRootEl.innerHTML = `
+      <div class="modal-backdrop" id="guide-close-bg">
+        <div class="modal lesson-modal guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-h">
+          <div class="modal-head">
+            <h2 id="guide-h">${t('Course guide')} <span class="muted">${t('High-reliability soldering')}</span></h2>
+            <button class="btn ghost icon sm" id="guide-close" title="${t('Close')}" aria-label="${t('Close')}">${icon('x', 14)}</button>
+          </div>
+          ${guideHtml(this.guideMod, tab, (x) => this.esc(x), this.guideQuery)}
+          <div class="row lesson-actions"><button class="btn primary" id="guide-done">${this.guideBack === 'lesson' ? t('Back to the lesson') : t('Close')}</button></div>
+        </div>
+      </div>`;
+    const close = () => {
+      this.showGuide = null;
+      if (this.guideBack === 'boards') this.showBoards = true;
+      this.guideBack = null;
+      this.renderModal();
+    };
+    const q = <T extends HTMLElement>(sel: string) => this.modalRootEl.querySelector<T>(sel);
+    q('#guide-close')?.addEventListener('click', close);
+    q('#guide-done')?.addEventListener('click', close);
+    q('#guide-close-bg')?.addEventListener('click', (e) => { if ((e.target as HTMLElement).id === 'guide-close-bg') close(); });
+    this.modalRootEl.querySelectorAll<HTMLButtonElement>('[data-guide-tab]').forEach((b) => b.addEventListener('click', () => {
+      this.showGuide = b.dataset.guideTab as import('../lessons/guide').GuideTab;
+      this.renderModal();
+      this.modalRootEl.querySelector<HTMLElement>(`[data-guide-tab="${this.showGuide}"]`)?.focus({ preventScroll: true });
+    }));
+    // the glossary filters as you type, without rebuilding the dialog (the field keeps its focus)
+    const search = q<HTMLInputElement>('#gd-search');
+    search?.addEventListener('input', () => {
+      this.guideQuery = search.value;
+      const list = q('#gd-gloss');
+      if (list && this.guideMod) list.innerHTML = glossaryItemsHtml(this.guideMod, (x) => this.esc(x), this.guideQuery);
+    });
+    (search ?? q<HTMLElement>(`[data-guide-tab="${tab}"]`))?.focus({ preventScroll: true });
+  }
+
+  /** The learner's self-check answers to the course's review questions (lesson-ui quizKey → known / again). */
+  private quizState(): Record<string, 'known' | 'again'> {
+    try {
+      const v = JSON.parse(localStorage.getItem('pcbfix_track_quiz') ?? '{}');
+      return v && typeof v === 'object' ? v : {};
+    } catch { return {}; }
   }
 
   private esc(s: string): string {

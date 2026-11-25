@@ -376,7 +376,7 @@ Patch an entry by its address. Numbers are the datasheet quantities; see [Device
 | `official-solvers/devices/ntmfd4902nf` | NTMFD4902NF | nmos, nmos | yes |
 | `official-solvers/devices/bc846blp` | BC846BLP | npn | yes |
 | `official-solvers/devices/mmbt3904lp` | MMBT3904LP | npn | no |
-| `official-solvers/devices/4116r-2-331` | 4116R-2-331 | res, res, res, res, res, res, res, res | no |
+| `official-solvers/devices/4116r-1-331` | 4116R-1-331 | res, res, res, res, res, res, res, res | yes |
 | `official-solvers/devices/2n7000` | 2N7000 | nmos | no |
 | `official-solvers/devices/fp10-5r-331` | FP10-5R-331 | res, res, res, res, res | no |
 | `official-solvers/devices/2n2219a` | 2N2219A | npn | no |

@@ -197,6 +197,8 @@ export interface Board {
    */
   /** Burned laminate (src/laminate.ts): charred areas, their leak, and the surface patch repair. */
   burns?: import('./laminate').Burn[];
+  /** Work was done on this card while the technician was not grounded (Bench → ESD protection off). */
+  workUngrounded?: boolean;
   coating?: { type: import('./coating').CoatingType; thick: boolean; solventSoluble?: boolean; /** polyurethane: the soft kind (T.O. 06-4.2.4) */ soft?: boolean };
   /** The coating type the technician identified (before removing any): graded against `coating.type`. */
   coatingId?: import('./coating').CoatingType;

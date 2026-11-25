@@ -3,16 +3,17 @@
 // any other text (the app's `esc`).
 import { t } from '../i18n';
 import type { Lesson } from '../lessons/neets14';
-import type { LessonMeta } from '../lessons/track';
-import { BEST_JOINT_C, DWELL_LIMIT_S, NEETS14, RULES, type Inspection, type RuleSource } from '../workmanship';
+import { LESSON_META, type LessonMeta } from '../lessons/track';
+import { BEST_JOINT_C, DWELL_LIMIT_S, FIXES, NEETS14, RULES, type Inspection, type RuleSource } from '../workmanship';
+import { lessonDiagramHtml } from './lesson-diagrams';
 
 /** "NEETS 14, p. 3-19" or "T.O. 00-25-259, 05-6.1" */
 const cite = (s: RuleSource, esc: Esc) => (s.doc === NEETS14 ? t('NEETS 14, p. {page}', { page: esc(s.page) }) : t('T.O. 00-25-259, {para}', { para: esc(s.page) }));
 import { WIRE, terminalName, type Check } from '../terminals';
-import { COATINGS, COAT_TESTS, ID_TYPES, METHODS, TABLE_3_1, coatingName, observe } from '../coating';
+import { COATINGS, COAT_TESTS, ID_TYPES, coatingName, methodName, methodsFor, observe, tableFor, type Cell, type CoatTable } from '../coating';
 
 /** T.O. 00-25-259 Figure 06-1, as the three tests and what each coating shows (06-4.2). */
-function flow061Html(esc: Esc): string {
+export function flow061Html(esc: Esc): string {
   return `
     <div class="lesson-table">
       <div class="sub">${t('Figure 06-1. Conformal coating identification')}</div>
@@ -42,20 +43,26 @@ function table32Html(esc: Esc): string {
     </div>`;
 }
 
-/** NEETS 14 Table 3-1, from the data the bench uses: preferred order per coating, with the table's notes. */
-function table31Html(esc: Esc): string {
-  const mark = (c: NonNullable<(typeof TABLE_3_1)['epoxy']['hotair']>) => {
-    const notes = [c.some && 'A', c.thick && 'B', c.thin && 'C', c.noGrind && 'D', c.organic && 'E', c.drillTip && 'F'].filter(Boolean).join('');
+/** A coating removal table from the data the bench uses (NEETS 14 Table 3-1 or the 2M manual's Table 06-3), with its notes. */
+export function coatTableHtml(which: CoatTable, esc: Esc): string {
+  const rows = tableFor(which), cols = methodsFor(which), old = which === '3-1';
+  const mark = (c: Cell) => {
+    const notes = old
+      ? [c.some && 'A', c.thick && 'B', c.thin && 'C', c.noGrind && 'D', c.organic && 'E', c.drillTip && 'F'].filter(Boolean).join('')
+      : [c.thick && 'a', c.thin && 'b', c.noGrind && 'c'].filter(Boolean).join('&');
     return `${c.rank}${c.ids ? '*' : ''}${notes ? ` <small>${notes}</small>` : ''}`;
   };
+  const types = old ? COATINGS : COATINGS.filter((c) => c.id !== 'varnish').map((c) => ({ ...c, code: ID_TYPES.find((x) => x.id === c.id)?.code }));
   return `
     <div class="lesson-table">
-      <div class="sub">${t('Table 3-1. Conformal coating removal techniques')}</div>
+      <div class="sub">${old ? t('Table 3-1. Conformal coating removal techniques (NEETS 14, 1998)') : t('Table 06-3. Conformal coating removal methods (T.O. 00-25-259, 2013)')}</div>
       <div class="lt-scroll"><table>
-        <thead><tr><th></th>${METHODS.map((m) => `<th>${esc(t(m.name))}</th>`).join('')}</tr></thead>
-        <tbody>${COATINGS.map((c) => `<tr><th>${esc(t(c.name))}</th>${METHODS.map((m) => { const cell = TABLE_3_1[c.id][m.id]; return `<td class="mono">${cell ? mark(cell) : ''}</td>`; }).join('')}</tr>`).join('')}</tbody>
+        <thead><tr><th></th>${cols.map((m) => `<th>${esc(t(methodName(m)))}</th>`).join('')}</tr></thead>
+        <tbody>${types.map((c) => `<tr><th>${esc(t(c.name))}${'code' in c && c.code ? ` <span class="muted">${c.code}</span>` : ''}</th>${cols.map((m) => { const cell = rows[c.id][m]; return `<td class="mono">${cell ? mark(cell) : ''}</td>`; }).join('')}</tr>`).join('')}</tbody>
       </table></div>
-      <p class="muted">${t('1 = least damaging, try it first. * identifies the coating type. A: specific compositions only. B: thick coatings only (0.025 in and thicker). C: thin coatings only. D: do not grind to the board surface. E: organic solvents are best. F: modified drill bit for the tip, about 500° at the tip.')}</p>
+      <p class="muted">${old
+        ? t('1 = least damaging, try it first. * identifies the coating type. A: specific compositions only. B: thick coatings only (0.025 in and thicker). C: thin coatings only. D: do not grind to the board surface. E: organic solvents are best. F: modified drill bit for the tip, about 500 °F (260 °C) at the tip.')
+        : t('1 = least damaging, try it first. * identifies the coating type. a: thick coatings only (0.025 in and thicker). b: thin coatings only. c: do not attempt to remove to the board surface. The only solvent is isopropyl alcohol.')}</p>
     </div>`;
 }
 
@@ -66,18 +73,24 @@ const sourceLine = (l: Lesson, esc: Esc) =>
 
 /** Before the repair: the rules in short, the numbers, the figure, the task, and the original text folded. */
 export function lessonBriefHtml(l: Lesson, esc: Esc, base: string, phone: boolean): string {
+  // the first lesson points to the course guide (safety at the bench, how lessons work, glossary)
+  const intro = l.scenario === LESSON_META[0].scenario ? `<div class="lesson-intro"><span>${t('New to the course? Read the bench safety rules and how the lessons work first.')}</span><button class="btn sm" data-guide="safety">${t('Course guide')}</button></div>` : '';
+  const goals = l.objectives.length ? `<div class="lesson-goals"><b>${t('After this lesson you can')}</b><ul>${l.objectives.map((o) => `<li>${esc(t(o))}</li>`).join('')}</ul></div>` : '';
   const rules = `
       <ul class="lesson-points">${l.points.map((p) => `<li>${esc(t(p))}</li>`).join('')}</ul>
       ${l.numbers.length ? `<dl class="lesson-nums">${l.numbers.map((n) => `<div><dt>${esc(t(n.label))}</dt><dd class="mono">${esc(t(n.value))}</dd></div>`).join('')}</dl>` : ''}
-      ${l.table === 'table-3-1' ? table31Html(esc) : ''}
+      ${l.table === 'table-3-1' ? coatTableHtml('3-1', esc) : l.table === 'table-06-3' ? coatTableHtml('06-3', esc) : ''}
       ${l.table2 === 'table-3-2' ? table32Html(esc) : ''}
       ${l.flow === 'figure-06-1' ? flow061Html(esc) : ''}
+      ${l.diagram ? lessonDiagramHtml(l.diagram) : ''}
       ${l.figure ? `<figure class="lesson-fig">${l.figure.more?.length ? '<div class="lesson-fig-row">' : ''}${[l.figure.src, ...(l.figure.more ?? [])].map((src) => `<img src="${esc(base + src)}" alt="${esc(t(l.figure!.caption))}" loading="lazy" />`).join('')}${l.figure.more?.length ? '</div>' : ''}<figcaption>${esc(t(l.figure.caption))}</figcaption></figure>` : ''}`;
   const task = `<div class="lesson-task"><b>${t('On this board')}</b><span>${esc(t(l.task))}</span></div>`;
   // phones: the task first, the rules folded (the text keeps its size; it is folded, not shrunk)
   return `
     <div class="lesson">
       <p class="lesson-src muted">${sourceLine(l, esc)}</p>
+      ${intro}
+      ${goals}
       ${phone ? `${task}<details class="lesson-orig"><summary>${t('The rules')} (${l.points.length})</summary>${rules}</details>` : `${rules}${task}`}
       <details class="lesson-orig">
         <summary>${t('Read the original text (English)')}</summary>
@@ -88,7 +101,10 @@ export function lessonBriefHtml(l: Lesson, esc: Esc, base: string, phone: boolea
 }
 
 /** After the repair: the inspector's verdict, the measured joints, and the module's own review questions. */
-export function debriefHtml(l: Lesson | LessonMeta | undefined, ins: Inspection, esc: Esc): string {
+/** The key a review question's self-check answer is kept under (unique across the course). */
+export const quizKey = (scenario: string, q: Lesson['questions'][number]) => `${scenario}|${q.source ?? 'm' + (q.module ?? 14)}|${q.ref}|${q.page}`;
+
+export function debriefHtml(l: Lesson | LessonMeta | undefined, ins: Inspection, esc: Esc, quiz: Record<string, 'known' | 'again'> = {}): string {
   const rejects = ins.findings.filter((f) => fails(l, f.kind));
   // procedure rules only where the lesson teaches them
   const notes = ins.findings.filter((f) => !rejects.includes(f) && (!RULES[f.kind].procedural || (l?.grades.includes(f.kind) ?? false)));
@@ -101,6 +117,7 @@ export function debriefHtml(l: Lesson | LessonMeta | undefined, ins: Inspection,
       <li class="ins-f ${bad ? 'bad' : 'note'}">
         <div class="ins-h"><b>${esc(t(r.title))}</b> <span class="mono">${esc(where)}</span></div>
         <div class="ins-rule">${esc(t(r.rule))} <span class="muted">${[r.source, ...(r.also ?? [])].map((x) => cite(x, esc)).join(' · ')}</span></div>
+        ${bad ? `<div class="ins-fix"><b>${t('How to fix')}</b> ${esc(t(FIXES[kind]))}</div>` : ''}
       </li>`;
   }).join('');
   const joints = ins.joints.length ? `
@@ -133,14 +150,24 @@ export function debriefHtml(l: Lesson | LessonMeta | undefined, ins: Inspection,
     </table>
     <p class="muted ins-ref">${t('D = one wire diameter, insulation included ({d} mm). Target: 1 D of clearance, 180° round the post, the end cut flush, a full fillet. Red: a defect; amber: acceptable, not the target.', { d: WIRE.od.toFixed(2) })}</p>` : '';
   const questions = l && 'questions' in l ? l.questions : [];
+  const scenario = l?.scenario ?? '';
+  const known = questions.filter((q) => quiz[quizKey(scenario, q)] === 'known').length;
+  const where = (q: (typeof questions)[number]) => q.source === 'to' ? t('self-check · T.O. 00-25-259, {para}', { para: esc(q.page) }) : q.module === 4 ? t('NEETS 4, p. {page}', { page: esc(q.page) }) : t('NEETS 14, p. {page}', { page: esc(q.page) });
   const qs = questions.length ? `
     <div class="ins-qs">
-      <div class="card-title">${t('Review questions')} <span class="muted">${t('from the textbook')}</span></div>
-      ${questions.map((q) => `
-        <details class="ins-q">
+      <div class="card-title">${t('Review questions')} <span class="muted">${t('Answer in your head, then open the answer.')}</span> <span class="mono muted ins-qcount">${t('{n} of {total} known', { n: known, total: questions.length })}</span></div>
+      ${questions.map((q) => {
+        const key = quizKey(scenario, q), mark = quiz[key];
+        return `
+        <details class="ins-q${mark ? ` ${mark}` : ''}">
           <summary><span class="mono muted">${esc(q.ref)}</span> ${esc(t(q.q))}</summary>
-          <p>${esc(t(q.a))} <span class="muted">${q.module === 4 ? t('NEETS 4, p. {page}', { page: esc(q.page) }) : t('NEETS 14, p. {page}', { page: esc(q.page) })}</span></p>
-        </details>`).join('')}
+          <p>${esc(t(q.a))} <span class="muted">${where(q)}</span></p>
+          <div class="ins-qact" role="group" aria-label="${t('Did you know it?')}">
+            <button class="btn sm${mark === 'known' ? ' primary' : ''}" data-quiz="${esc(key)}" data-quiz-v="known" aria-pressed="${mark === 'known'}">${t('I knew it')}</button>
+            <button class="btn sm ghost${mark === 'again' ? ' active' : ''}" data-quiz="${esc(key)}" data-quiz-v="again" aria-pressed="${mark === 'again'}">${t('Not yet')}</button>
+          </div>
+        </details>`;
+      }).join('')}
     </div>` : '';
   return `
     <div class="inspection">

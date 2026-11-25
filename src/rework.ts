@@ -349,6 +349,7 @@ export class ReworkMonitor {
             const we = j.ends![end];
             if (we.soldered) continue;
             we.soldered = js.fed ? 'ok' : 'starved';
+            if (js.ep) we.heat = this.episodes.indexOf(js.ep);
             ev.push({ kind: js.fed ? 'wire-soldered' : 'wire-starved', ref: c.ref, pad: pi, detail: js.fed
               ? t('{ref}: wire soldered', { ref: c.ref })
               : t('{ref}: the wire is held only by the tinning — no solder was added, so the fillet is starved', { ref: c.ref }) });

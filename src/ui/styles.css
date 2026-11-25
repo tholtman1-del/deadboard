@@ -1870,6 +1870,55 @@ body.is-mobile .loadout-bar select { flex: 1 1 auto; width: auto; max-width: non
 .ins-ref { margin: 0; font-size: 11.5px; }
 .ins-qs { display: grid; gap: 6px; }
 .ins-q p { margin: 6px 0 0 18px; font-size: 12.5px; color: var(--text); }
+.lesson-intro { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius); font-size: 12.5px; color: var(--text-2); }
+.lesson-intro span { flex: 1; }
+.lesson-actions .lesson-guide-btn { margin-right: auto; order: -1; }
+.guide-modal { width: min(680px, 94vw); }
+.gd-tabs { display: flex; gap: 2px; padding: 8px 16px 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.gd-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 6px 10px; font: inherit; font-size: 12.5px; color: var(--text-2); cursor: pointer; white-space: nowrap; }
+.gd-tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+.gd-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.gd-search { width: 100%; padding: 7px 10px; border-radius: var(--radius); border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--text); font: inherit; font-size: 13px; }
+.gd-gloss { margin: 0; display: grid; gap: 8px; }
+.gd-term dt { font-size: 13px; color: var(--text); font-weight: 600; }
+.gd-term dd { margin: 2px 0 0; font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
+.lesson-nums dd.gd-src { font-size: 10.5px; color: var(--muted); }
+.ins-qcount { margin-left: auto; font-size: 11px; }
+.ins-qs .card-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.ins-qs .card-title .muted { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.ins-qact { display: flex; gap: 6px; margin: 8px 0 2px 18px; }
+.ins-q.known > summary::after { content: ' ✓'; color: var(--accent); }
+.ins-q.again > summary::after { content: ' ·'; color: var(--warn); }
+.ins-fix { font-size: 12px; color: var(--text); margin-top: 3px; }
+.ins-fix b { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); margin-right: 4px; }
+.lesson-goals { display: grid; gap: 4px; padding: 8px 12px; border-left: 2px solid var(--accent); background: var(--surface-2); border-radius: 0 var(--radius) var(--radius) 0; }
+.lesson-goals b { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 500; }
+.lesson-goals ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 13px; color: var(--text); }
+/* diagrams drawn from a lesson's numbers (lesson-diagrams.ts): app colours, both themes */
+.lesson-diagram { display: grid; gap: 6px; }
+.dg-svg { width: 100%; max-width: 470px; height: auto; justify-self: center; }
+.dg-note { margin: 0; font-size: 11.5px; }
+.dg-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; }
+.dg-fig { margin: 0; display: grid; gap: 4px; }
+.dg-fig figcaption { font-size: 11.5px; color: var(--muted); }
+.dg-lbl { font: 10.5px var(--mono); fill: var(--text-2); }
+.dg-strong { fill: var(--text); }
+.dg-ok { fill: var(--accent); }
+.dg-bad { fill: var(--danger-text); }
+.dg-axis { stroke: var(--border-strong); stroke-width: 1; }
+.dg-line { stroke: var(--text); stroke-width: 1.6; }
+.dg-ref { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3; }
+.dg-range { stroke: var(--supply-amber); stroke-width: 4; stroke-linecap: round; }
+.dg-dot { fill: var(--accent); }
+.dg-board { fill: var(--surface-2); stroke: var(--border-strong); }
+.dg-hole { fill: var(--surface); }
+.dg-cu { fill: #c8783c; }
+.dg-lead { fill: #b8bcc4; }
+.dg-solder { fill: #d9dce2; stroke: #8d939c; stroke-width: 0.8; }
+.dg-dull { fill: #8f949b; stroke: #6b7078; stroke-width: 0.8; }
+.dg-body { fill: #25272b; stroke: var(--border-strong); }
+.dg-notch { fill: var(--surface); stroke: var(--muted); stroke-width: 1.2; }
+.dg-pad { fill: var(--surface-2); stroke: #c8a24a; stroke-width: 1.6; }
 /* the held iron: which joint, how long, molten or not */
 .iron-hud { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 25; padding: 5px 10px; border-radius: var(--radius); background: var(--float); border: 1px solid var(--border-strong); font-size: 12px; color: var(--text-2); pointer-events: none; }
 .iron-lift { position: absolute; left: 50%; top: 48px; transform: translateX(-50%); z-index: 26; }

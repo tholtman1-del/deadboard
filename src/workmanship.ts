@@ -21,9 +21,9 @@ const to = (para: string): RuleSource => ({ doc: TO_2M, page: para });
 export type FindingKind =
   | 'pad-lifted' | 'part-overheated' | 'mlcc-cracked' | 'part-displaced' | 'dull-joint'
   | 'flux-residue' | 'loose-solder' | 'long-dwell' | 'wire-repair' | 'no-shunt' | 'skip-pattern' | 'nick'
-  | 'coating-charred' | 'coating-missing' | 'coating-mismatch' | 'coating-method' | 'esd-damage' | 'esd-handling'
+  | 'coating-charred' | 'coating-missing' | 'coating-mismatch' | 'coating-method' | 'esd-damage' | 'esd-handling' | 'esd-workarea'
   | 'overheated-joint' | 'slow-melt' | 'coating-id' | 'coating-id-order'
-  | 'wire-strip' | 'wire-tinning' | 'wire-clearance' | 'wire-forming' | 'wire-solder'
+  | 'wire-strip' | 'wire-tinning' | 'wire-clearance' | 'wire-forming' | 'wire-solder' | 'wire-heats'
   | 'clinch' | 'termination-style'
   | 'laminate-burn' | 'laminate-excavation' | 'epoxy-fill' | 'buttercoat'
   | 'solder-insufficient' | 'solder-excess' | 'mounting-style' | 'flatpack-leads' | 'solder-projection';
@@ -41,7 +41,7 @@ export const RULES: Record<FindingKind, Rule> = {
   'mlcc-cracked': { kind: 'mlcc-cracked', severity: 'reject', title: tk('Cracked part'), rule: tk('None of the remaining components should be cracked, broken, or show signs of overheating.'), source: src('3-19') },
   'part-displaced': { kind: 'part-displaced', severity: 'reject', title: tk('Part moved off its pads'), rule: tk('Parts should always be remounted in the same position and with the termination methods used by the original manufacturer.'), source: src('3-20') },
   'dull-joint': { kind: 'dull-joint', severity: 'reject', title: tk('Dull, unwetted joint'), rule: tk('The completed solder joint should be bright and shiny, with no cracks or pits, and the solder should cover the pad. Flux removes the oxides that stop solder wetting.'), source: src('2-20, 3-24'), also: [to('05-6.1')] },
-  'flux-residue': { kind: 'flux-residue', severity: 'reject', title: tk('Flux residue left'), rule: tk('When a solder joint is completed, solvent must be used to remove all flux residue: 99.5 % ethyl or isopropyl alcohol.'), source: src('3-25'), also: [to('05-6.2')] },
+  'flux-residue': { kind: 'flux-residue', severity: 'reject', title: tk('Flux residue left'), rule: tk('When a solder joint is completed, solvent must be used to remove all flux residue: 99.5 % isopropyl alcohol, after the joint has cooled (NEETS also names ethyl alcohol; the 2M manual allows isopropyl only).'), source: src('3-25'), also: [to('05-6.2')] },
   'loose-solder': { kind: 'loose-solder', severity: 'reject', title: tk('Loose or splattered solder'), rule: tk('The solder joints should not be covered by loose or splattered solder, which may cause shorts. A solder bridge across a cracked conductor is not a high-reliability repair.'), source: src('3-19, 3-32'), also: [to('05-6.1')] },
   'long-dwell': { kind: 'long-dwell', severity: 'note', title: tk('Long heating'), rule: tk('Bring the joint to about 550 °F (288 °C) rapidly and hold it there briefly: in most cases the soldering action is complete within 2 or 3 seconds.'), source: src('3-23'), also: [to('05-5')] },
   'no-shunt': { kind: 'no-shunt', severity: 'note', procedural: true, title: tk('No thermal shunt'), rule: tk('Before heat is applied to solder the joint, a thermal shunt is attached to sensitive component leads (diodes, transistors, and ICs) to conduct heat away from the component.'), source: src('3-23') },
@@ -51,6 +51,8 @@ export const RULES: Record<FindingKind, Rule> = {
   'coating-mismatch': { kind: 'coating-mismatch', severity: 'reject', title: tk('Wrong coating type'), rule: tk('To ensure the same protective characteristics, use the same type of replacement coating as that removed.'), source: src('3-6') },
   'coating-method': { kind: 'coating-method', severity: 'note', procedural: true, title: tk('Not the gentlest removal method'), rule: tk('Removal techniques are listed in ascending order of their damageability: always try the method which causes the least amount of damage first.'), source: src('3-3, Table 3-1') },
   'esd-damage': { kind: 'esd-damage', severity: 'reject', title: tk('Damaged by static'), rule: tk('A MOS device can be damaged by a static potential of as little as 35 volts, bipolar transistors and diodes by less than 3,000 volts. Damage does not always cause sudden failure: it can degrade the device so that it fails early.'), source: src('3-39') },
+  'wire-heats': { kind: 'wire-heats', severity: 'note', procedural: true, title: tk('Wires on one terminal soldered in separate heats'), rule: tk('When soldering multiple wires, complete all soldering before removing the soldering iron tip from its original position on the terminal: place every wire first, then solder them in one heat. A second heat reflows the first joint.'), source: to('08-5.7') },
+  'esd-workarea': { kind: 'esd-workarea', severity: 'note', procedural: true, title: tk('Worked without a ground strap'), rule: tk('Personnel are required to wear a properly grounded ESD wrist strap and cord while working in or around the Electrostatic Protected Area: put it on before the first touch, not just for the sensitive part.'), source: to('03-3'), also: [src('3-40')] },
   'esd-handling': { kind: 'esd-handling', severity: 'note', procedural: true, title: tk('Handled without a ground strap'), rule: tk('Before servicing equipment the technician is grounded to discharge any static charge built up on the body; ESD-sensitive devices are handled by their body, never by their leads.'), source: src('3-40 – 3-41') },
   'overheated-joint': { kind: 'overheated-joint', severity: 'reject', title: tk('Overheated, oxidized joint'), rule: tk('Excessively long dwell times or repeated reflow oxidize the solder: a dull, grainy or crusty joint. This is a defect: the solder must be removed and the joint resoldered.'), source: to('05-4.2.5, 05-4.2.6') },
   'slow-melt': { kind: 'slow-melt', severity: 'note', procedural: true, title: tk('Kept heating a joint that would not melt'), rule: tk('If solder melt does not occur in two to three seconds, remove the tip: make sure the tip and the joint are clean before increasing the tip temperature.'), source: to('03-5.4, 05-5.3.4') },
@@ -74,6 +76,50 @@ export const RULES: Record<FindingKind, Rule> = {
   'flatpack-leads': { kind: 'flatpack-leads', severity: 'reject', title: tk('Flat pack leads'), rule: tk('Replacement flat pack leads are tinned, formed with two distinct bends and cut to length: the lead on the land is 50–80 % of the land length, never shorter than the lead width, and its toe never overhangs the land.'), source: src('3-30'), also: [to('18-6.6, 18-5.7')] },
   'solder-projection': { kind: 'solder-projection', severity: 'reject', title: tk('Solder projection'), rule: tk('A solder projection (icicle) sticks out of the joint: it comes from reflowing a joint without flux, or lifting the iron before the solder. It is a defect and must be reflowed, with flux.'), source: to('05-4.2.12, 05-6.1') },
   'wire-repair': { kind: 'wire-repair', severity: 'note', title: tk('Wire repair'), rule: tk('A wire lap-soldered across a break is stronger than a solder bridge but not highly reliable; the clinched staple is the preferred repair of a broken conductor.'), source: src('3-32') },
+};
+
+/** How to put each finding right on the bench (ours): shown under a rejected rule in the debrief. */
+export const FIXES: Record<FindingKind, string> = {
+  'pad-lifted': tk('Replace the pad with Pad repair (E): a new pad and eyelet. Then solder the lead in it with fresh solder.'),
+  'part-overheated': tk('Replace the part (Parts bin, 8). Next time: a shunt on sensitive leads, 2–3 s per joint, no hotter tip than needed.'),
+  'mlcc-cracked': tk('Replace the part, and preheat the board before the tip touches a ceramic capacitor.'),
+  'part-displaced': tk('Reflow it and seat it back on its pads where the original sat.'),
+  'dull-joint': tk('Reflow it with flux ("+ flux" in Bench → Rework, or the Rosin tool, R) and hold until the solder flows.'),
+  'flux-residue': tk('Let the joint cool, then clean it with Isopropyl (0).'),
+  'loose-solder': tk('Take the splash off with Desolder wick (4). A bridge across a crack is replaced by a Clinched staple (K).'),
+  'long-dwell': tk('Lift the tip once the solder has flowed: 2–3 s. If it melts slowly, clean the tip, use flux or preheat rather than hold longer.'),
+  'wire-repair': tk('Repair a broken conductor with a Clinched staple (K) instead of a wire.'),
+  'no-shunt': tk('Clip a Thermal shunt (S) on the lead, between the joint and the body, before you heat it.'),
+  'skip-pattern': tk('Heat pins that are not next to each other: for pins 1–4, for example, 2, 4, 1, 3.'),
+  'nick': tk('Bridge the nick with a Clinched staple (K): click the conductor on one side of it, then the other.'),
+  'coating-charred': tk('Never put the iron on a coating: take it off with Coating removal (U) first.'),
+  'coating-missing': tk('Coat the part again with Conformal coating (J), the board\'s own type.'),
+  'coating-mismatch': tk('Take the wrong coating off and apply the board\'s own type (Bench → Conformal coating).'),
+  'coating-method': tk('Use the first method in the removal table that applies to this coating (Bench → Coating removal).'),
+  'esd-damage': tk('Replace the part with the wrist strap on (Bench → ESD protection).'),
+  'esd-handling': tk('Put the wrist strap on before you fit a sensitive part (Bench → ESD protection).'),
+  'esd-workarea': tk('Put the wrist strap on before the first touch (Bench → ESD protection). Work done without it stays on the record: undo it or restart the board.'),
+  'overheated-joint': tk('Take the old solder off (Solder extractor, X, or wick) and resolder with fresh solder and flux, in 2–3 s.'),
+  'slow-melt': tk('Solder should melt within 2 s: clean the tip and the joint, use flux, preheat the board, and only then turn the tip up.'),
+  'coating-id': tk('Test the coating (Coating test, Q), follow the flowchart and record the type in Bench → Identified as.'),
+  'coating-id-order': tk('Identify and record the coating before you take any of it off.'),
+  'wire-strip': tk('Strip AWG 22 and smaller with thermal strippers (the wire dialog\'s Stripper).'),
+  'wire-tinning': tk('Tin the stripped end in the wire dialog before you form it.'),
+  'wire-clearance': tk('Change the strip length or the clearance in the wire dialog: one wire diameter (1.3 mm) between the insulation and the terminal.'),
+  'wire-forming': tk('Undo and form the end again: 180° round the post and cut flush, in the arc of a hook, through the eye of a tab, and a second wire beside the first, never across it.'),
+  'wire-solder': tk('Solder the terminal with fresh solder ("+ flux"): the tinning alone leaves a starved fillet.'),
+  'wire-heats': tk('Place every wire the terminal takes, then solder them all in one heat.'),
+  'clinch': tk('Set the clinch in Bench → Lead termination: along the conductor, one pad diameter long; a semi-clinch on an isolated pad.'),
+  'termination-style': tk('Fit the part as the factory did (Bench → Lead termination): clinched if the original was.'),
+  'laminate-burn': tk('Repair it with Laminate repair (A): excavate, then fill and finish.'),
+  'laminate-excavation': tk('Excavate again (Laminate repair, A): 75 % deep, straight walls, a 50 % undercut with rounded corners, a bevel one thickness wide.'),
+  'epoxy-fill': tk('Fill again: bubble-free epoxy, about 5 % overfill, cured, then levelled.'),
+  'buttercoat': tk('Finish with a buttercoat over the exposed weave (Laminate repair, A).'),
+  'solder-insufficient': tk('Reflow the joint and feed more solder (hold "+ flux" a little longer) until the hole is full and the pad covered.'),
+  'solder-excess': tk('Take the extra off with Desolder wick (4) and reflow: the lead\'s outline should show.'),
+  'mounting-style': tk('Refit the part the way the factory mounted it (Bench → TO mounting).'),
+  'flatpack-leads': tk('Fit a new part with its leads formed and cut to 50–80 % of the land (Bench → Flat pack leads).'),
+  'solder-projection': tk('Reflow the joint with flux: the icicle pulls back into the fillet.'),
 };
 
 const mountName = (m?: 'flush' | 'spacer' | 'gap') => (m === 'spacer' ? t('on a spacer') : m === 'gap' ? t('air gap') : t('flush'));
@@ -157,6 +203,8 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
     if (c.state.esdDamaged && c.state.populated) add({ kind: 'esd-damage', where: c.ref });
     if (c.state.esdHandled && c.state.populated) add({ kind: 'esd-handling', where: c.ref });
   }
+  // the work area: any work on the card while the technician was not grounded (Appendix C grades it SAT/UNSAT)
+  if (board.workUngrounded) add({ kind: 'esd-workarea', where: t('bench') });
 
   // conformal coating: identified first, taken off where needed, never charred, put back with the same type
   if (board.coating && board.coatingId !== board.coating.type) add({ kind: 'coating-id', where: board.coatingId ? board.coatingId : '—', detail: board.coatingId ? undefined : 'not identified' });
@@ -225,6 +273,14 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
       const bad = new Map<FindingKind, string[]>();
       for (const ck of checks) if (ck.verdict === 'defect') bad.set(areaRule[ck.area], [...(bad.get(areaRule[ck.area]) ?? []), `${ck.what} (${ck.value})`]);
       for (const [kind, what] of bad) add({ kind, where, detail: what.join('; ') });
+    }
+  }
+  // several wires on one terminal: soldered in one heat (T.O. 08-5.7 step 19)
+  for (const ends of onTerm.values()) {
+    const heats = new Set(ends.map((e) => e.heat).filter((h): h is number => h !== undefined));
+    if (heats.size > 1) {
+      const c = board.components.find((x) => x.id === ends[0].comp);
+      add({ kind: 'wire-heats', where: c?.ref ?? '?', detail: String(heats.size) });
     }
   }
 

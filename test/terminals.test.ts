@@ -106,6 +106,28 @@ async function main() {
     const crossed = play(id, (type, nth) => ({ ...targetEnd({ id: 'x' } as Component, type, nth), seat: nth ? 'over' : 'close' }), true);
     assert(!lessonAccepted(lesson, crossed.ins) && crossed.ins.findings.some((f) => f.kind === 'wire-forming' && /\(2\)/.test(f.where)), `${id}: a second wire across the first fails (${JSON.stringify(crossed.ins.findings)})`);
   }
+  {
+    // two wires on turret E2 soldered in separate heats: the second heat reflows the first joint (T.O. 08-5.7 step 19)
+    const sc = scs.find((x) => x.id === 'hr-turret')!;
+    const b: Board = structuredClone(sc.board), m = new ThermalModel(b), rw = new ReworkMonitor(b, m, limitsFor('sn63'));
+    const term = (ref: string) => b.components.find((c) => c.ref === ref)!;
+    const heat = (c: Component) => {
+      rw.applyFlux(c.at[0], c.at[1], 3); rw.feedSolder(c, 0);
+      m.addSource({ kind: 'iron', x: 0, y: 0, temp: 316, g: IRON_G.flux, pmax: 60, until: m.time + 2, partId: c.id, pad: 0 });
+      for (let t = 0; t < 2; t += 0.05) { m.step(0.05); rw.update(0.05); }
+      for (let t = 0; t < 8; t += 0.1) { m.step(0.1); rw.update(0.1); }
+    };
+    const [e1, e2, e3] = ['E1', 'E2', 'E3'].map(term);
+    addWire(b, e1, targetEnd(e1, 'turret'), e2, targetEnd(e2, 'turret'));
+    heat(e1); heat(e2);
+    for (let t = 0; t < 40; t += 0.2) { m.step(0.2); rw.update(0.2); } // E2 freezes: the next heat is a separate one
+    assert(m.jointTemp(e2, 0) < 150, `E2 has cooled (${m.jointTemp(e2, 0).toFixed(0)} °C)`);
+    addWire(b, e2, targetEnd(e2, 'turret', 1), e3, targetEnd(e3, terminalType(e3)!));
+    heat(e2); heat(e3);
+    for (const c of b.components) c.state.fluxResidue = undefined;
+    const ins = inspect(b, referenceBoard(sc)!, rw.episodes, rw.log);
+    assert(ins.findings.some((f) => f.kind === 'wire-heats' && f.where === 'E2') && !lessonAccepted(lessonFor('hr-turret')!, ins), `E2's wires soldered in two heats: caught (${JSON.stringify(ins.findings)})`);
+  }
   // the lesson boards: terminals on both ends of every wire of the good board
   for (const id of ['hr-turret', 'hr-hook-tab', 'hr-solder-cup']) {
     const sc = scs.find((x) => x.id === id)!;
