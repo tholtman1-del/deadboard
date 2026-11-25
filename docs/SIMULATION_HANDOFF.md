@@ -7,6 +7,15 @@ No reference hardware is available, so realism is validated against *design inte
 
 ## Status (start here)
 
+- **Tool dock + course UI pass (2026-11-25, not committed yet).** With the course's 10 tools the dock
+  (24 tools) ran off a laptop screen and the course looked like one more challenge. Now: the dock pins
+  the 14 bench tools; the 2M tools (`HIREL_TOOLS`) are pinned only where a course lesson teaches them
+  (`BOARD_INFO.teaches`, new-to-the-course ones dotted), when in use, or once picked on that board
+  (`dockExtra`). A grid button opens the **tool palette** (every tool, grouped, labelled, key shown;
+  beginner lessons add "Keep every tool in the dock"). `updateToolDock` measures the dock and moves the
+  last unpinned tools into the palette when the window is short. The layout's middle row is now
+  `minmax(0, 1fr)` (it grew with the dock and pushed the side panel off-screen too). Gamepad previous /
+  next tool (X / Y) cycles every tool (beginner lessons: their dock). Today: course card; Library: "Lesson n" chips.
 - **2M SOLDERING COURSE — START HERE (written end of 2026-11-25).** Everything is pushed and live
   (`8d0a3b1`, Pages deploy green, checked on deadboard.org). The detailed build log follows in the next
   bullet; this one is the map.
@@ -103,7 +112,9 @@ No reference hardware is available, so realism is validated against *design inte
     in English, task, station, graded rules, review questions with the module's answers);
     figures `public/lessons/neets14/` (3-16 thermal shunt for Phase 2, 3-17 preferred joint).
     UI `src/ui/lesson-ui.ts`; app: lesson dialog on load, inspection dialog after a fix, Overview card,
-    Today strip "High-reliability soldering", Library type "Soldering track". Progress =
+    Today **course card** (`trackStrip`: lesson segments, next lesson, Start the course / Continue,
+    "All lessons" = Library filtered to the course in lesson order, rows chipped "Lesson n"), Library
+    type "Soldering course". Progress =
     `pcbfix_track_accepted` (works + passes inspection), separate from solved.
   - **Hold-to-solder** in realistic rework (mouse, touch, Enter): the tip stays while held, readout
     "R1.2 · 1.4 s · molten"; rosin tool also fluxes joints in realistic mode.

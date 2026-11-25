@@ -42,7 +42,7 @@ b { font-weight: 600; }
 /* ---------- Layout ---------- */
 .layout {
   display: grid;
-  grid-template-rows: 44px 1fr 26px;
+  grid-template-rows: 44px minmax(0, 1fr) 26px;
   grid-template-columns: 48px 1fr var(--sidepanel-w, 340px);
   width: 100%;
   height: 100%;
@@ -1019,6 +1019,29 @@ select:focus, input:focus, textarea:focus { border-color: var(--accent); }
 .bp-cal b { font: 700 15px var(--mono); }
 .bp-daily-main { display: grid; gap: 2px; min-width: 0; }
 .bp-daily-main .bp-s { color: var(--muted); }
+/* the soldering course on Today: a course (lessons in order, progress per lesson), not one more challenge */
+.bp-course { flex-shrink: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 14px 16px; border: 1px solid var(--border-strong); border-left: 3px solid var(--accent); border-radius: 10px; background: var(--surface-2); }
+.bp-course-ico { display: grid; place-items: center; width: 42px; height: 42px; align-self: start; border-radius: 8px; background: var(--accent-weak); color: var(--accent); }
+.bp-course-main { display: grid; gap: 4px; min-width: 0; }
+.bp-course-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--accent); }
+.bp-course-t { font-size: 16px; font-weight: 600; color: var(--text); }
+.bp-course-main .bp-s { color: var(--muted); }
+.bp-course-prog { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+.bp-course-prog .bp-muted { white-space: nowrap; font-size: 12px; }
+.bp-course-segs { display: flex; gap: 3px; flex: 1; max-width: 360px; }
+.bp-course-segs i { flex: 1; height: 6px; border-radius: 2px; background: var(--border-strong); }
+.bp-course-segs i.done { background: var(--accent); }
+.bp-course-segs i.next { background: transparent; box-shadow: inset 0 0 0 1px var(--accent); }
+.bp-course-next { font-size: 13px; color: var(--text-2); }
+.bp-course-next b { color: var(--text); font-weight: 600; }
+.bp-course-act { display: grid; gap: 6px; justify-items: stretch; }
+.bp-chip.course { gap: 5px; border-color: var(--accent-line); color: var(--accent); }
+.bp-band.course b { color: var(--accent); }
+.bp-lesson-n { font-weight: 600; color: var(--accent); }
+body.is-mobile .bp-course { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 12px; }
+body.is-mobile .bp-course-ico { display: none; }
+body.is-mobile .bp-course-act { grid-template-columns: 1fr auto; }
+body.is-mobile .bp-course-act .btn { height: 44px; font-size: 14px; }
 body.is-mobile .bp-daily { grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; padding: 10px 12px; }
 body.is-mobile .bp-daily-lv { display: none; }
 body.is-mobile .bp-daily .btn { height: 44px; padding: 0 16px; font-size: 14px; }
@@ -1749,6 +1772,47 @@ body.is-mobile .loadout-bar select { flex: 1 1 auto; width: auto; max-width: non
 .tool-btn.fresh::after { content: ''; position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--bg); }
 .tool-btn.fresh.active::after { display: none; }
 .tool-btn.more-tools { color: var(--muted); }
+
+/* the dock's groups and the tool palette (updateToolDock): every tool, labelled, one click away */
+.tooldock { position: relative; }
+.tooldock > .tool-btn { flex-shrink: 0; }
+.dock-group-sep { flex-shrink: 0; }
+.dock-group-sep[hidden] { display: none; }
+.tool-pal {
+  position: absolute; left: calc(100% + 8px); top: 8px; z-index: 40;
+  width: 460px; max-width: calc(100vw - 80px); max-height: calc(100% - 24px); overflow-y: auto;
+  display: grid; gap: 12px; padding: 12px;
+  background: var(--float); border: 1px solid var(--border-strong); border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+.tool-pal[hidden] { display: none; }
+.tool-btn.more-tools.active::after { display: none; } /* no tooltip over the open palette */
+.tp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.tp-head b { font-size: 13px; }
+.tp-head span { font-size: 12px; color: var(--muted); }
+.tp-group { display: grid; gap: 6px; }
+.tp-gt { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.tp-gt span { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--muted); }
+.tp-gt span::before { content: '· '; }
+.tp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; }
+.tp-tool {
+  position: relative; display: flex; align-items: center; gap: 9px; min-width: 0; height: 34px; padding: 0 8px;
+  background: transparent; border: 1px solid transparent; border-radius: var(--radius);
+  color: var(--text-2); font: 13px var(--sans); text-align: left; cursor: pointer;
+}
+.tp-tool svg { flex-shrink: 0; color: var(--muted); }
+.tp-tool:hover, .tp-tool:focus-visible { background: var(--surface-3); color: var(--text); }
+.tp-tool.active { background: var(--accent-weak); border-color: var(--accent-line); color: var(--accent); }
+.tp-tool.active svg { color: var(--accent); }
+.tp-l { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tp-tool kbd { font: 11px var(--mono); color: var(--muted); }
+.tp-tag { font-style: normal; font-size: 11px; font-weight: 600; color: var(--accent); }
+.tp-all { justify-self: start; }
+.layout.mobile .tool-pal { position: fixed; left: 8px; right: 8px; top: auto; bottom: calc(var(--m-dock) + 8px); width: auto; max-width: none; max-height: 60dvh; }
+.layout.mobile .tp-tool { height: 44px; font-size: 14px; }
+@media (orientation: landscape) {
+  .layout.mobile .tool-pal { left: 76px; right: auto; bottom: 8px; top: calc(var(--m-top) + 8px); width: min(420px, 60vw); max-height: none; }
+}
 
 /* the moment a board is fixed (celebrate): a short banner over the board, gone after ~3 s */
 .win-banner { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); z-index: 30; display: flex; align-items: center; gap: 14px; padding: 14px 22px 14px 16px; background: rgba(9, 12, 10, 0.92); border: 1px solid var(--accent); border-radius: 14px; box-shadow: 0 0 0 6px rgba(75, 227, 138, 0.12), 0 12px 40px rgba(0, 0, 0, 0.5); pointer-events: none; animation: win-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3) both; }

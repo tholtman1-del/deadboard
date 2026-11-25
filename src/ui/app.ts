@@ -124,10 +124,21 @@ const TOOLS: { id: ToolId; key: string; ico: string; lbl: string; tip: string }[
   { id: 'shunt', key: 's', ico: 'clip', lbl: tk('Thermal shunt'), tip: tk('Clip a heat sink on a through-hole lead (click its pad) so the part stays cool while you solder; click again to take it off') },
 ];
 
+/**
+ * The high-reliability (2M) rework tools. They work on every board, but the dock pins them only
+ * where a soldering-course lesson teaches them (or once picked); elsewhere they wait in the tool
+ * palette, so the dock stays short enough to fit a laptop screen. Keys always work.
+ */
+const HIREL_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>(['extract', 'staple', 'padfix', 'coatest', 'decoat', 'coat', 'hookup', 'pliers', 'laminate', 'shunt']);
+const TOOL_GROUPS: { label: string; ids: ToolId[] }[] = [
+  { label: tk('Bench'), ids: TOOLS.filter((x) => !HIREL_TOOLS.has(x.id)).map((x) => x.id) },
+  { label: tk('High-reliability rework (2M)'), ids: TOOLS.filter((x) => HIREL_TOOLS.has(x.id)).map((x) => x.id) },
+];
+
 /** Board kinds in the picker's Type filter. */
 type BoardKind = 'tutorial' | 'track' | 'handmade' | 'open' | 'mod' | 'custom';
 const KIND_LABEL: Record<BoardKind, string> = {
-  tutorial: tk('Tutorial'), track: tk('Soldering track'), handmade: tk('Hand-made'), open: tk('Open hardware'), mod: tk('Mod'), custom: tk('Imported or your own'),
+  tutorial: tk('Tutorial'), track: tk('Soldering course'), handmade: tk('Hand-made'), open: tk('Open hardware'), mod: tk('Mod'), custom: tk('Imported or your own'),
 };
 
 const LED_COLOR_NAMES: Record<LedColor, string> = {
@@ -525,6 +536,9 @@ export class PcbApp {
   private firstPlayDays = 0;
   private puzzleVersions = new WeakMap<Scenario, string>();
   /** "More tools" pressed once: the full dock from then on (also after all lessons are solved). */
+  /** Tools picked from the palette on this board: pinned to the dock until another board opens. */
+  private dockExtra = new Set<ToolId>();
+  private toolPalOpen = false;
   private allTools = (() => { try { return localStorage.getItem('pcbfix_all_tools') === '1'; } catch { return false; } })();
   /** The hidden difficulty estimate (src/scenarios/adaptive.ts): on this device only, never shown. */
   private skill: Skill = loadSkill();
@@ -1001,13 +1015,14 @@ export class PcbApp {
         </header>
 
         ${m ? this.mobileDockHtml() : `<aside class="tooldock" id="tooldock">
-          ${TOOLS.map((tl) => `
+          ${TOOLS.map((tl) => `${tl.id === TOOL_GROUPS[1].ids[0] ? '<div class="dock-sep dock-group-sep" id="dock-group-sep"></div>' : ''}
             <button class="tool-btn ${tl.id === this.activeTool ? 'active' : ''}" data-tool="${tl.id}" data-tip="${this.esc(t(tl.lbl))} · ${tl.key}" aria-label="${this.esc(t(tl.lbl))}" aria-description="${this.esc(t(tl.tip))}" aria-keyshortcuts="${tl.key.toUpperCase()}" aria-pressed="${tl.id === this.activeTool}">
               ${icon(tl.ico, 18)}
               <span class="key">${tl.key}</span>
             </button>
           `).join('')}
-          <button class="tool-btn more-tools" id="btn-more-tools" data-tip="${t('More tools')}" aria-label="${t('More tools')}" hidden>${icon('plus', 18)}</button>
+          <button class="tool-btn more-tools" id="btn-more-tools" data-tip="${t('All tools')}" aria-label="${t('All tools')}" aria-haspopup="dialog" aria-expanded="false" aria-controls="tool-pal">${icon('grid', 18)}</button>
+          <div class="tool-pal" id="tool-pal" role="dialog" aria-label="${t('All tools')}" hidden></div>
           <div class="dock-spacer"></div>
           <div class="dock-sep"></div>
           <button class="tool-btn" id="btn-undo" data-tip="${t('Undo')} · ⌘Z" aria-label="${t('Undo')}" aria-keyshortcuts="Control+Z Meta+Z">${icon('undo', 18)}</button>
@@ -1369,8 +1384,9 @@ export class PcbApp {
                 <span class="tool-lbl">${t(TOOL_SHORT[tl.id] ?? tl.lbl)}</span>
               </button>
             `).join('')}
-            <button class="tool-btn more-tools" id="btn-more-tools" aria-label="${t('More tools')}" hidden>${icon('plus', 20)}<span class="tool-lbl">${t('More')}</span></button>
+            <button class="tool-btn more-tools" id="btn-more-tools" aria-label="${t('All tools')}" aria-haspopup="dialog" aria-expanded="false" aria-controls="tool-pal">${icon('grid', 20)}<span class="tool-lbl">${t('All tools')}</span></button>
           </div>
+          <div class="tool-pal" id="tool-pal" role="dialog" aria-label="${t('All tools')}" hidden></div>
           <div class="tool-pinned">
             <button class="tool-btn" id="btn-undo" aria-label="${t('Undo')}">${icon('undo', 20)}<span class="tool-lbl">${t('Undo')}</span></button>
             <button class="tool-btn" id="btn-redo" aria-label="${t('Redo')}">${icon('redo', 20)}<span class="tool-lbl">${t('Redo')}</span></button>
@@ -2349,6 +2365,8 @@ export class PcbApp {
   }
 
   private loadScenario(sc: Scenario) {
+    if (sc !== this.activeScenario) this.dockExtra.clear(); // a reset keeps the tools picked here
+    if (this.toolPalOpen) this.toggleToolPalette(false);
     this.activeScenario = sc;
     this.beginAttempt(sc);
     this.board = cloneBoard(sc.board);
@@ -3318,11 +3336,19 @@ export class PcbApp {
         if (this.mobile && this.panelOpen) this.setPanel(false); // back to the board
       });
     });
-    this.mount.querySelector('#btn-more-tools')?.addEventListener('click', () => {
-      try { localStorage.setItem('pcbfix_all_tools', '1'); } catch { /* private mode: for this visit only */ }
-      this.allTools = true;
-      this.updateToolDock();
+    this.mount.querySelector('#btn-more-tools')?.addEventListener('click', (e) => { e.stopPropagation(); this.toggleToolPalette(); });
+    // the palette closes on a click anywhere else
+    document.addEventListener('pointerdown', (e) => {
+      if (!this.toolPalOpen) return;
+      const el = e.target as Element | null;
+      if (el?.closest('#tool-pal, #btn-more-tools')) return;
+      this.toggleToolPalette(false);
     });
+    const dockEl = this.mount.querySelector<HTMLElement>('#tooldock');
+    if (dockEl && !this.mobile && typeof ResizeObserver !== 'undefined') {
+      let lastH = 0;
+      new ResizeObserver(() => { if (dockEl.clientHeight !== lastH) { lastH = dockEl.clientHeight; this.updateToolDock(); } }).observe(dockEl);
+    }
     if (this.mobile) this.bindMobile();
 
     q('#btn-undo').addEventListener('click', () => this.undo());
@@ -3591,6 +3617,7 @@ export class PcbApp {
       b.classList.toggle('active', b.dataset.tool === t);
       b.setAttribute('aria-pressed', String(b.dataset.tool === t));
     });
+    this.updateToolDock(); // a tool in use is always on the dock
     this.renderDmm();
     this.renderTopHud();
     this.renderTutorial();
@@ -4012,6 +4039,11 @@ export class PcbApp {
   }
 
   private onKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Escape' && this.toolPalOpen) {
+      this.toggleToolPalette(false);
+      this.mount.querySelector<HTMLButtonElement>('#btn-more-tools')?.focus({ preventScroll: true });
+      return;
+    }
     if (e.key === 'Escape' && this.showBoards && (this.bpMenu || this.bpFilters || this.bpSel)) {
       // the picker's menu, filters or details close first, then the picker
       if (this.bpMenu) this.bpMenu = false; else if (this.bpFilters) this.bpFilters = false; else this.bpSel = null;
@@ -4602,21 +4634,127 @@ export class PcbApp {
   }
 
   /**
-   * Tools appear as they are needed: on a beginner lesson, while the lessons are not all solved, the
-   * dock shows Select and the tools of this lesson and the ones before it (its new ones marked), plus
-   * a "More tools" button. Every other board, and every player who finished the lessons or pressed
-   * "More tools", gets the full dock. Keyboard shortcuts always work; a tool in use is always shown.
+   * Which tools the dock pins on this board.
+   * - A beginner lesson (while the lessons are not all solved and the player has not asked for every
+   *   tool): Select and the tools of this lesson and the ones before it, its new ones marked.
+   * - Every other board: the bench tools, plus the high-reliability tools a soldering-course lesson
+   *   teaches (the ones new to the course marked). The rest are in the tool palette.
+   * The tool in use and any tool picked from the palette on this board are always pinned.
+   * `keep` are never dropped when the dock is short on height.
+   */
+  private dockPlan(): { tools: Set<string>; fresh: Set<string>; keep: Set<string>; beginner: boolean } {
+    const id = this.activeScenario.id;
+    const lessonsDone = TUTORIAL_SCENARIO_IDS.every((x) => this.solvedIds.has(x));
+    const tut = this.allTools || lessonsDone ? null : lessonDock(id);
+    const extra = [this.activeTool, ...this.dockExtra];
+    if (tut) return { tools: new Set([...tut.tools, ...extra]), fresh: tut.fresh, keep: new Set([...tut.tools, ...extra]), beginner: true };
+    const hirel = (sid: string) => (BOARD_INFO[sid]?.teaches ?? []).filter((k) => k.startsWith('tool:')).map((k) => k.slice(5) as ToolId).filter((x) => HIREL_TOOLS.has(x));
+    const lesson = hirel(id);
+    const course = SOLDERING_TRACK_IDS as readonly string[];
+    const at = course.indexOf(id);
+    const before = new Set(at > 0 ? course.slice(0, at).flatMap(hirel) : []);
+    const tools = new Set<string>([...TOOL_GROUPS[0].ids, ...lesson, ...extra]);
+    return { tools, fresh: new Set(at >= 0 ? lesson.filter((x) => !before.has(x)) : []), keep: new Set(['inspect', ...lesson, ...extra]), beginner: false };
+  }
+
+  /**
+   * Shows the dock's tools (dockPlan), then, on the desktop, drops the last ones that would not fit
+   * the window's height into the palette, so a tool is never cut off below the screen edge. The
+   * grid button opens the palette with every tool, labelled.
    */
   private updateToolDock() {
-    const lessonsDone = TUTORIAL_SCENARIO_IDS.every((id) => this.solvedIds.has(id));
-    const dock = this.allTools || lessonsDone ? null : lessonDock(this.activeScenario.id);
-    this.mount.querySelectorAll<HTMLButtonElement>('.tool-btn[data-tool]').forEach((b) => {
+    const plan = this.dockPlan();
+    const btns = Array.from(this.mount.querySelectorAll<HTMLButtonElement>('.tool-btn[data-tool]'));
+    for (const b of btns) {
       const id = b.dataset.tool!;
-      b.hidden = !!dock && !dock.tools.has(id) && id !== this.activeTool;
-      b.classList.toggle('fresh', !!dock?.fresh.has(id));
-    });
+      b.hidden = !plan.tools.has(id);
+      b.classList.toggle('fresh', plan.fresh.has(id));
+    }
+    const dock = this.mount.querySelector<HTMLElement>('#tooldock');
+    const sep = this.mount.querySelector<HTMLElement>('#dock-group-sep');
+    const hirelShown = () => btns.some((b) => !b.hidden && HIREL_TOOLS.has(b.dataset.tool as ToolId));
+    if (sep) sep.hidden = !hirelShown();
+    if (dock && !this.mobile && dock.clientHeight > 0) {
+      // the space the tools may take: the dock minus its padding and everything that is not a tool
+      const cs = getComputedStyle(dock);
+      const gap = parseFloat(cs.rowGap) || 0;
+      let room = dock.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      for (const el of Array.from(dock.children) as HTMLElement[]) {
+        if (el.dataset.tool || el.classList.contains('dock-spacer') || el.classList.contains('dock-group-sep') || el.id === 'tool-pal') continue;
+        const m = getComputedStyle(el);
+        room -= el.offsetHeight + parseFloat(m.marginTop) + parseFloat(m.marginBottom) + gap;
+      }
+      const slot = (btns[0]?.offsetHeight || 34) + gap;
+      const shown = () => btns.filter((b) => !b.hidden);
+      const sepH = () => (sep && hirelShown() ? 13 + gap : 0);
+      while (shown().length * slot + sepH() > room) {
+        const drop = shown().reverse().find((b) => !plan.keep.has(b.dataset.tool!));
+        if (!drop) break;
+        drop.hidden = true;
+        if (sep) sep.hidden = !hirelShown();
+      }
+    }
+    const hiddenN = btns.filter((b) => b.hidden).length;
     const more = this.mount.querySelector<HTMLButtonElement>('#btn-more-tools');
-    if (more) more.hidden = !dock;
+    if (more && !this.mobile) more.dataset.tip = hiddenN ? t('All tools ({n} more)', { n: hiddenN }) : t('All tools');
+    if (this.toolPalOpen) this.renderToolPalette();
+  }
+
+  /** Opens or closes the tool palette: every tool, grouped and labelled, with its key. */
+  private toggleToolPalette(open = !this.toolPalOpen) {
+    this.toolPalOpen = open;
+    if (open && this.mobile && this.panelOpen) this.setPanel(false); // the phone's panel sheet would cover it
+    const pal = this.mount.querySelector<HTMLElement>('#tool-pal');
+    const more = this.mount.querySelector<HTMLButtonElement>('#btn-more-tools');
+    more?.setAttribute('aria-expanded', String(open));
+    more?.classList.toggle('active', open);
+    if (!pal) return;
+    pal.hidden = !open;
+    if (open) {
+      this.renderToolPalette();
+      if (!this.mobile && more) {
+        // beside the grid button, kept inside the dock's height
+        const dockH = (pal.offsetParent as HTMLElement | null)?.clientHeight ?? window.innerHeight;
+        const top = more.offsetTop + more.offsetHeight - pal.offsetHeight;
+        pal.style.top = `${Math.max(8, Math.min(top, dockH - pal.offsetHeight - 8))}px`;
+      }
+      pal.querySelector<HTMLButtonElement>('.tp-tool.active, .tp-tool')?.focus({ preventScroll: true });
+    }
+  }
+
+  private renderToolPalette() {
+    const pal = this.mount.querySelector<HTMLElement>('#tool-pal');
+    if (!pal) return;
+    const plan = this.dockPlan();
+    const lesson = (BOARD_INFO[this.activeScenario.id]?.teaches ?? []).filter((k) => k.startsWith('tool:')).map((k) => k.slice(5));
+    const inCourse = (SOLDERING_TRACK_IDS as readonly string[]).includes(this.activeScenario.id);
+    pal.innerHTML = `
+      <div class="tp-head"><b>${t('All tools')}</b><span>${this.mobile ? '' : t('Press a tool\'s key to pick it anytime')}</span></div>
+      ${TOOL_GROUPS.map((g) => `
+        <div class="tp-group">
+          <div class="tp-gt">${t(g.label)}${g.ids.some((x) => HIREL_TOOLS.has(x)) && !inCourse ? `<span>${t('Soldering course')}</span>` : ''}</div>
+          <div class="tp-grid">${g.ids.map((id) => {
+            const tl = TOOLS.find((x) => x.id === id)!;
+            const tags = lesson.includes(id) && inCourse ? `<i class="tp-tag">${plan.fresh.has(id) ? t('New') : t('Lesson')}</i>` : '';
+            return `<button class="tp-tool ${id === this.activeTool ? 'active' : ''}" data-pal-tool="${id}" title="${this.esc(t(tl.tip))}" aria-pressed="${id === this.activeTool}">
+              ${icon(tl.ico, 16)}<span class="tp-l">${this.esc(t(this.mobile ? (TOOL_SHORT[id] ?? tl.lbl) : tl.lbl))}</span>${tags}${this.mobile ? '' : `<kbd>${tl.key.toUpperCase()}</kbd>`}
+            </button>`;
+          }).join('')}</div>
+        </div>`).join('')}
+      ${plan.beginner ? `<button class="bp-link tp-all" data-pal-act="all">${t('Keep every tool in the dock')}</button>` : ''}`;
+    pal.querySelectorAll<HTMLButtonElement>('[data-pal-tool]').forEach((b) => b.addEventListener('click', () => {
+      const id = b.dataset.palTool as ToolId;
+      this.dockExtra.add(id);
+      this.toggleToolPalette(false);
+      this.setTool(id);
+      if (this.mobile && this.panelOpen) this.setPanel(false);
+    }));
+    pal.querySelector('[data-pal-act="all"]')?.addEventListener('click', () => {
+      try { localStorage.setItem('pcbfix_all_tools', '1'); } catch { /* private mode: for this visit only */ }
+      this.allTools = true;
+      this.toggleToolPalette(false);
+      this.updateToolDock();
+    });
   }
 
   private updateTopButtons() {
@@ -6202,23 +6340,37 @@ export class PcbApp {
   }
 
   /**
-   * The high-reliability soldering track: its own path beside the main one (lesson, repair,
-   * inspection per board). Shows progress and the next board to do.
+   * The high-reliability soldering course: its own card beside the main path, so it reads as a
+   * course (19 lessons in order, each a lesson, a repair and an inspection) and not as one more
+   * challenge. Progress per lesson, the next lesson, and the way to the whole list.
    */
   private trackStrip(): string {
     const ids = SOLDERING_TRACK_IDS as readonly string[];
     const nextId = ids.find((id) => !this.trackAccepted.has(id)) ?? ids[0];
     const idx = this.scenarios.findIndex((x) => x.id === nextId);
     if (idx < 0) return '';
+    const sc = this.scenarios[idx];
     const n = ids.filter((id) => this.trackAccepted.has(id)).length;
-    const sub = this.mobile ? t('Based on public-domain US Navy training') : t('Soldering, rework and inspection after the US Navy\'s public-domain 2M training material');
+    const lessonN = ids.indexOf(nextId) + 1;
+    const open = sc === this.activeScenario;
+    const label = open ? t('Back to the bench') : n === 0 && !ids.includes(this.activeScenario.id) ? t('Start the course') : t('Continue');
+    const sub = this.mobile ? t('After the US Navy\'s public-domain 2M training') : t('Soldering, rework and inspection, after the US Navy\'s public-domain 2M training (NEETS Module 14)');
+    const segs = ids.map((id) => `<i class="${this.trackAccepted.has(id) ? 'done' : id === nextId ? 'next' : ''}"></i>`).join('');
     return `
-      <div class="bp-daily bp-solder-track">
-        <div class="bp-cal"><small>${t('Track')}</small><b>${n}/${ids.length}</b></div>
-        <span class="bp-daily-lv">${this.levelPill(this.scenarios[idx])}</span>
-        <div class="bp-daily-main"><span class="bp-t">${t('High-reliability soldering: {board}', { board: this.esc(t(this.scenarios[idx].meta.title)) })}</span><span class="bp-s">${this.esc(sub)}</span></div>
-        ${this.startButton(this.scenarios[idx], idx, '')}
-      </div>`;
+      <section class="bp-course" aria-label="${t('Course')}">
+        <div class="bp-course-ico">${icon('book', 20)}</div>
+        <div class="bp-course-main">
+          <div class="bp-course-eyebrow">${t('Course')} · ${t('{n} lesson|{n} lessons', { n: ids.length })}</div>
+          <div class="bp-course-t">${t('High-reliability soldering')}</div>
+          <div class="bp-s">${this.esc(sub)}</div>
+          <div class="bp-course-prog" role="img" aria-label="${t('{n} of {total} lessons passed', { n, total: ids.length })}"><span class="bp-course-segs">${segs}</span><span class="bp-muted">${t('{n} of {total} passed', { n, total: ids.length })}</span></div>
+          <div class="bp-course-next">${n === ids.length ? t('Every lesson passed. Play any of them again from the list.') : `<b>${t('Lesson {n}', { n: lessonN })}</b> · ${this.esc(t(sc.meta.title))}`}</div>
+        </div>
+        <div class="bp-course-act">
+          <button class="btn primary" data-bp-start="${open ? 'close' : idx}">${open ? '' : icon('play', 13)}<span>${label}</span></button>
+          <button class="btn ghost" data-bp-act="course">${t('All lessons')}</button>
+        </div>
+      </section>`;
   }
 
   /** Builds today's daily (or reopens it) and puts it on the bench. */
@@ -6309,7 +6461,13 @@ export class PcbApp {
         if (this.bpHideSolved && this.solvedIds.has(s.id)) return false;
         return !q || this.pickerSearchText(s).includes(q);
       })
-      .sort((a, b) => shownLevel(a.s) - shownLevel(b.s) || order(a.s.id) - order(b.s.id) || a.s.meta.title.localeCompare(b.s.meta.title));
+      .sort((a, b) => (this.bpKind === 'track' ? this.courseLesson(a.s.id) - this.courseLesson(b.s.id) : 0)
+        || shownLevel(a.s) - shownLevel(b.s) || order(a.s.id) - order(b.s.id) || a.s.meta.title.localeCompare(b.s.meta.title));
+  }
+
+  /** The lesson number (1-based) of a soldering-course board, 0 off the course. */
+  private courseLesson(id: string): number {
+    return (SOLDERING_TRACK_IDS as readonly string[]).indexOf(id) + 1;
   }
 
   private pickerLibrary(): string {
@@ -6329,17 +6487,22 @@ export class PcbApp {
         <label>${t('Type')}<select id="bp-kind"><option value="all">${t('All types')}</option>${kinds.map((k) => `<option value="${k}" ${this.bpKind === k ? 'selected' : ''}>${t(KIND_LABEL[k])}</option>`).join('')}</select></label>
         <label>${t('Uses a tool or part')}<select id="bp-skill"><option value="all">${t('Any')}</option>${SKILL_GROUPS.filter((g) => g.kind !== 'fault').map((g) => `<optgroup label="${this.esc(t(g.label))}">${skillKeys.filter((k) => k.startsWith(`${g.kind}:`)).map((k) => `<option value="${k}" ${this.bpSkill === k ? 'selected' : ''}>${this.esc(t(skillLabel(k)))}</option>`).join('')}</optgroup>`).join('')}</select></label>
       </div>` : '';
-    const groups = LEVEL_BANDS.map((b) => ({ b, items: list.filter(({ s }) => levelBand(shownLevel(s)).id === b.id) })).filter((g) => g.items.length);
+    // the course filter lists the lessons in their order, under one heading; otherwise by level band
+    const course = this.bpKind === 'track';
+    const groups = course ? (list.length ? [{ b: null, items: list }] as const : [])
+      : LEVEL_BANDS.map((b) => ({ b, items: list.filter(({ s }) => levelBand(shownLevel(s)).id === b.id) })).filter((g) => g.items.length);
     const body = groups.map(({ b, items }) => {
       const solved = items.filter(({ s }) => this.solvedIds.has(s.id)).length;
-      const head = `<div class="bp-band ${b.id}"><b>${t(b.name)}</b><span>${this.fmtLevel(b.from)}–${this.fmtLevel(b.to)} · ${t('{n} board|{n} boards', { n: items.length })}${solved ? ` · ${t('{n} solved', { n: solved })}` : ''}</span></div>`;
+      const passed = items.filter(({ s }) => this.trackAccepted.has(s.id)).length;
+      const head = b ? `<div class="bp-band ${b.id}"><b>${t(b.name)}</b><span>${this.fmtLevel(b.from)}–${this.fmtLevel(b.to)} · ${t('{n} board|{n} boards', { n: items.length })}${solved ? ` · ${t('{n} solved', { n: solved })}` : ''}</span></div>`
+        : `<div class="bp-band course"><b>${t('High-reliability soldering')}</b><span>${t('Course')} · ${t('{n} lesson|{n} lessons', { n: items.length })}${passed ? ` · ${t('{n} of {total} passed', { n: passed, total: items.length })}` : ''}</span></div>`;
       if (this.mobile) {
         return head + items.map(({ s, idx }) => {
           const n = this.boardNames(s);
           return `
             <button class="bp-rowi ${s === this.activeScenario ? 'active' : ''}" data-bp-show="${idx}">
               ${this.boardThumb(s, { pill: false, done: false })}
-              <span class="bp-rowi-main"><span class="bp-t">${this.esc(n.name)}</span><span class="bp-s">${this.esc(n.symptom)}</span></span>
+              <span class="bp-rowi-main"><span class="bp-t">${this.esc(n.name)}</span><span class="bp-s">${this.courseLesson(s.id) ? `<b class="bp-lesson-n">${t('Lesson {n}', { n: this.courseLesson(s.id) })}</b> · ` : ''}${this.esc(n.symptom)}</span></span>
               <span class="bp-rowi-end">${this.levelPill(s)}${this.solvedIds.has(s.id) ? `<span class="bp-ok">${icon('check', 15)}</span>` : ''}</span>
             </button>`;
         }).join('');
@@ -6349,7 +6512,9 @@ export class PcbApp {
         const n = this.boardNames(s);
         const nw = newSkillsFor(s.id, learned)[0];
         const tut = TUTORIAL_SCENARIO_IDS.indexOf(s.id as (typeof TUTORIAL_SCENARIO_IDS)[number]);
+        const lessonN = this.courseLesson(s.id);
         const note = s === this.activeScenario ? `<span class="bp-chip on">${t('Open now')}</span>`
+          : lessonN ? `<span class="bp-chip course">${icon('book', 11)}${t('Lesson {n}', { n: lessonN })}</span>`
           : nw ? `<span class="bp-chip new">${t('New: {skill}', { skill: t(skillLabel(nw)) })}</span>`
           : tut >= 0 ? `<span class="bp-chip">${t('Tutorial {n}', { n: tut + 1 })}</span>`
           : this.modBoards.has(s) ? `<span class="bp-chip">${this.esc(this.modBoards.get(s)!.mod.name)}</span>` : '';
@@ -6363,7 +6528,7 @@ export class PcbApp {
           </button>`;
       };
       const kindsHere = [...new Set(items.map(({ s }) => this.boardKind(s)))];
-      if (kindsHere.length < 2) return head + `<div class="bp-rows">${items.map(row).join('')}</div>`;
+      if (kindsHere.length < 2 || course) return head + `<div class="bp-rows">${items.map(row).join('')}</div>`;
       return head + kindsHere.map((k) => `<div class="bp-kind">${t(KIND_LABEL[k])}</div><div class="bp-rows">${items.filter(({ s }) => this.boardKind(s) === k).map(row).join('')}</div>`).join('');
     }).join('') || `<div class="bp-empty"><div>${t('No matching boards found.')}</div><button class="btn sm" data-bp-act="clear">${t('Clear filters')}</button></div>`;
 
@@ -6508,6 +6673,7 @@ export class PcbApp {
         case 'clear': this.boardSearch = ''; this.bpBand = 'all'; this.bpKind = 'all'; this.bpSkill = 'all'; this.bpHideSolved = false; break;
         case 'close-details': if (target !== el && el.classList.contains('bp-sheet-bg')) return; this.bpSel = null; break;
         case 'daily': closeModal(); void this.playDaily(); return;
+        case 'course': this.bpTab = 'library'; this.bpKind = 'track'; this.bpBand = 'all'; this.bpSkill = 'all'; this.boardSearch = ''; this.bpSel = null; break;
         case 'new': closeModal(); this.createBlankBoard(); return;
         case 'import': closeModal(); this.fileInputEl.click(); return;
         case 'mods': this.showBoards = false; this.bpMenu = false; this.showMods = true; this.renderModal(); return;
@@ -7391,8 +7557,8 @@ export class PcbApp {
     return `
       <div class="card">
         <div class="card-title">
-          <span>${t('High-reliability soldering')}</span>
-          <span class="badge info">${ids.filter((id) => this.trackAccepted.has(id)).length}/${ids.length}</span>
+          <span>${t('Course')} · ${t('High-reliability soldering')}</span>
+          <span class="badge info" title="${t('{n} of {total} passed', { n: ids.filter((id) => this.trackAccepted.has(id)).length, total: ids.length })}">${t('Lesson {n} of {total}', { n: ids.indexOf(this.activeScenario.id) + 1, total: ids.length })}</span>
         </div>
         <div class="row wrap">
           <button class="btn sm" data-lesson="brief">${icon('book', 12)}<span>${t('Lesson: {title}', { title: this.esc(t(title)) })}</span></button>
@@ -7674,8 +7840,9 @@ export class PcbApp {
   }
 
   private gpCycleTool(dir: number) {
-    const btns = Array.from(this.mount.querySelectorAll<HTMLButtonElement>('.tool-btn[data-tool]')).filter((b) => !b.disabled && b.offsetParent !== null);
-    const ids = [...new Set(btns.map((b) => b.dataset.tool as ToolId))];
+    // every tool (the ones in the palette too), or only the beginner lesson's dock
+    const plan = this.dockPlan();
+    const ids = TOOLS.map((x) => x.id).filter((x) => !plan.beginner || plan.tools.has(x));
     if (!ids.length) return;
     const i = ids.indexOf(this.activeTool);
     const next = ids[(i + dir + ids.length) % ids.length];
