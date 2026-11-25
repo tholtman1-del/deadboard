@@ -977,6 +977,10 @@ export class Renderer {
             // Cold joint: dull matte grainy grey ball
             if (hasB) op.sphere.pushTRS(padPos[0], padPos[1], -ht - 0.22, d * 1.05, d * 1.05, 0.68, 0, 0.48, 0.49, 0.50, 1, 0, 0.2, 0.9, 1.0);
             if (hasF) op.sphere.pushTRS(padPos[0], padPos[1], ht + 0.18, d * 0.85, d * 0.85, 0.5, 0, 0.48, 0.49, 0.50, 1, 0, 0.2, 0.9, 1.0);
+          } else if (c.state.oxidized?.includes(pi)) {
+            // overheated / oxidized solder: a dull, grainy, darker fillet (T.O. 05-4.2.5, 05-4.2.6)
+            if (hasB) op.dome.pushTRS(padPos[0], padPos[1], -ht - 0.04, d, d, -0.58, 0, 0.52, 0.5, 0.46, 1, 0, 0.35, 0.85);
+            if (hasF) op.dome.pushTRS(padPos[0], padPos[1], ht + 0.04, d * 0.85, d * 0.85, 0.42, 0, 0.52, 0.5, 0.46, 1, 0, 0.35, 0.85);
           } else {
             if (hasB) op.dome.pushTRS(padPos[0], padPos[1], -ht - 0.04, d, d, -0.58, 0, 0.85, 0.87, 0.91, 1, 0, 0.94, 0.14);
             if (hasF) op.dome.pushTRS(padPos[0], padPos[1], ht + 0.04, d * 0.85, d * 0.85, 0.42, 0, 0.85, 0.87, 0.91, 1, 0, 0.94, 0.14);

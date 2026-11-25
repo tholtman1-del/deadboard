@@ -1620,7 +1620,6 @@ const ru: Catalog = {
   "A staple spans 2–15 mm of conductor: pick a point the other side of the damage.": "Скоба перекрывает 2–15 мм проводника: выберите точку по другую сторону повреждения.",
   "Clinched staple in: two holes, sleeved wire underneath, ends clinched against the conductor and soldered.": "Скоба установлена: два отверстия, провод в изоляции снизу, концы загнуты к проводнику и пропаяны.",
   "Nicked conductor": "Надрезанный проводник",
-  "Nicks or scratches in a conductor must be repaired if over one-tenth of its cross-sectional area is affected, as its current-carrying capability is reduced.": "Надрезы и царапины проводника нужно ремонтировать, если затронуто больше одной десятой его сечения: снижается допустимый ток.",
   "Conductor Repair": "Ремонт проводников",
   "D1 is dark: its track is cracked through. D2 lights, but its track has a deep nick. Repair both conductors so the board works and passes a high-reliability inspection.": "D1 не светится: его дорожка треснула насквозь. D2 светится, но на его дорожке глубокий надрез. Отремонтируйте оба проводника так, чтобы плата работала и прошла высоконадёжный контроль.",
   "Look closely at the tracks between R1 and D1, and between R2 and D2, on the top side.": "Внимательно осмотрите дорожки между R1 и D1 и между R2 и D2 на верхней стороне.",
@@ -1788,6 +1787,17 @@ const ru: Catalog = {
   "Last: acrylic coating back on Q1 (and on any other part you uncoated), then run the tests.": "Напоследок: снова нанесите акриловое покрытие на Q1 (и на любые другие детали, с которых снимали покрытие), затем запустите проверки.",
   "New pad": "Нов. площ.",
   "Tap a lifted pad to replace it with a new pad and eyelet.": "Нажмите отслоившуюся площадку, чтобы заменить её новой с пистоном.",
+  // ---- Soldering track: T.O. 00-25-259 solder acceptability
+  "{ref} pad {pad}: no melt after {s} s. Stop: clean the tip and the joint (flux), then raise the tip temperature.": "{ref}, площадка {pad}: припой не расплавился за {s} с. Остановитесь: очистите жало и соединение (флюс), затем поднимите температуру жала.",
+  "{ref} pad {pad}: molten for {s} s — the solder is oxidizing (dull, grainy). It must be removed and the joint resoldered.": "{ref}, площадка {pad}: расплав держится {s} с — припой окисляется (тусклый, зернистый). Его нужно удалить и перепаять соединение.",
+  "{ref} pad {pad}: reflowed {n} times — the solder is oxidized. Remove it and resolder the joint with fresh solder.": "{ref}, площадка {pad}: перепаяна {n} раза — припой окислился. Удалите его и перепаяйте соединение свежим припоем.",
+  "Iron 316 °C (600 °F) + flux": "Паяльник 316 °C (600 °F) + флюс",
+  "T.O. 00-25-259, {para}": "T.O. 00-25-259, {para}",
+  "Overheated, oxidized joint": "Перегретое, окисленное соединение",
+  "Excessively long dwell times or repeated reflow oxidize the solder: a dull, grainy or crusty joint. This is a defect: the solder must be removed and the joint resoldered.": "Слишком долгий нагрев или повторная перепайка окисляют припой: соединение тусклое, зернистое или покрыто коркой. Это дефект: припой нужно удалить, а соединение перепаять.",
+  "Kept heating a joint that would not melt": "Продолжали греть нерасплавляющееся соединение",
+  "If solder melt does not occur in two to three seconds, remove the tip: make sure the tip and the joint are clean before increasing the tip temperature.": "Если припой не расплавился за две-три секунды, уберите жало: прежде чем повышать температуру жала, убедитесь, что жало и соединение чистые.",
+  "Damage that reduces a conductor's cross-sectional area must be repaired, as its current-carrying capability is reduced: over one tenth in NEETS (1998), over 20 % in the current 2M manual, which is the limit used here.": "Повреждение, уменьшающее сечение проводника, нужно ремонтировать, потому что снижается допустимый ток: по NEETS (1998) — больше одной десятой, по действующему руководству 2M — больше 20 %; здесь используется этот предел.",
 };
 
 export default ru;

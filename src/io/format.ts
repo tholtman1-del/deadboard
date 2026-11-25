@@ -49,6 +49,7 @@ function normalizeComponent(c: Component): Component {
       ...(typeof c.state?.coating === 'string' && ['removed', 'parylene', 'epoxy', 'acrylic', 'polyurethane', 'varnish', 'rtv'].includes(c.state.coating) && { coating: c.state.coating }),
       ...(c.state?.coatCharred === true && { coatCharred: true }),
       ...(c.state?.esdHandled === true && { esdHandled: true }),
+      ...(Array.isArray(c.state?.oxidized) && { oxidized: c.state.oxidized.filter((x) => Number.isInteger(x)) }),
       ...(Array.isArray(c.state?.padRepaired) && { padRepaired: c.state.padRepaired.filter((x) => Number.isInteger(x)) }),
       ...(c.state?.esdDamaged === true && { esdDamaged: true }),
       ...(Array.isArray(c.state?.shunts) && { shunts: c.state.shunts.filter((x) => Number.isInteger(x)) }),

@@ -52,7 +52,7 @@ import { cleanFluxWithIpa, cleanWithIpa, fluxResidueNear, residueNear } from '..
 import { discoverPowerTree, railVoltage, type PowerTree } from '../spice/powertree';
 import { fmtHz, sampleSignal, signalOn, type ScopeSignal } from '../scope';
 import type { PowerStateName } from '../spice/sequencer';
-import { HOTAIR_H, IRON_G, PREHEAT_H, ReworkMonitor, VACUUM_SECONDS, heldPads, isThroughHole, limitsFor, type ExtractMode, type ReworkEvent, type ReworkHistory } from '../rework';
+import { HOTAIR_H, IRON_G, MELT_WITHIN_S, PREHEAT_H, ReworkMonitor, VACUUM_SECONDS, heldPads, isThroughHole, limitsFor, type ExtractMode, type ReworkEvent, type ReworkHistory } from '../rework';
 import { inspect, type Inspection } from '../workmanship';
 import { lessonMeta } from '../lessons/track';
 import { handle as handleEsd, type Humidity } from '../esd';
@@ -243,7 +243,7 @@ export class PcbApp {
   /** Everything rework did on this board (kept across undo, which swaps the board object). */
   private workHistory: ReworkHistory = { episodes: [], log: [] };
   /** The iron held on a joint (realistic rework): released on pointer / key up. */
-  private ironHold: { src: { until: number }; start: number; where: string; el: HTMLElement | null; comp: Component; pad: number; vacuum: boolean; done: boolean } | null = null;
+  private ironHold: { src: { until: number }; start: number; where: string; el: HTMLElement | null; comp: Component; pad: number; vacuum: boolean; done: boolean; melted?: boolean; slow?: boolean } | null = null;
   /** The lesson text module, once loaded (src/lessons/neets14.ts is its own chunk). */
   private neets: typeof import('../lessons/neets14') | null = null;
   /** Soldering-track lesson dialog: before the repair, or the inspection after it. */
@@ -858,6 +858,7 @@ export class PcbApp {
               <div class="bench-pop" id="bench-pop" hidden>
             <label class="bench-row"><span>${t('Rework')}</span><select id="rework-mode" title="${t('Rework: instant (puzzle) or physical process')}">
               <option value="instant">${t('Rework: instant')}</option>
+              <option value="r316f">${t('Iron 316 °C (600 °F) + flux')}</option>
               <option value="r350f">${t('Iron 350 °C + flux')}</option>
               <option value="r350">${t('Iron 350 °C, dry')}</option>
               <option value="r400f">${t('Iron 400 °C + flux')}</option>
@@ -2328,7 +2329,7 @@ export class PcbApp {
 
   /** Rework setting from its select value ('instant', 'r350', 'r350f', 'r400f'). */
   private setRework(v: string) {
-    this.reworkMode = v === 'instant' ? { ...this.reworkMode, realistic: false } : { realistic: true, ironTemp: v.startsWith('r400') ? 400 : 350, flux: v.endsWith('f') };
+    this.reworkMode = v === 'instant' ? { ...this.reworkMode, realistic: false } : { realistic: true, ironTemp: v.startsWith('r400') ? 400 : v.startsWith('r316') ? 316 : 350, flux: v.endsWith('f') };
     const sel = this.mount.querySelector<HTMLSelectElement>('#rework-mode');
     if (sel) sel.value = this.reworkValue();
   }
@@ -2489,7 +2490,7 @@ export class PcbApp {
     for (const e of evs) {
       if (e.kind === 'molten') continue;
       changed = true;
-      const bad = e.kind === 'pad-lifted' || e.kind === 'part-overheated' || e.kind === 'mlcc-cracked' || e.kind === 'part-displaced' || e.kind === 'dull-joint';
+      const bad = e.kind === 'pad-lifted' || e.kind === 'part-overheated' || e.kind === 'mlcc-cracked' || e.kind === 'part-displaced' || e.kind === 'dull-joint' || e.kind === 'overheated-joint';
       this.toast(e.detail, bad ? 'danger' : e.kind === 'no-solder' ? 'warn' : 'success');
       if (e.kind === 'reflowed') sfxSolder();
     }
@@ -3716,6 +3717,9 @@ export class PcbApp {
       h.done = true;
       this.showExtract(h.comp, h.pad, this.rework.extract(h.comp, h.pad, 'vacuum'));
     }
+    if (molten) h.melted = true;
+    // no melt within 2–3 s: the manual says stop, clean, then raise the tip temperature
+    if (!h.melted && !h.slow && sec > MELT_WITHIN_S && this.rework) { h.slow = true; this.toast(this.rework.noteSlowMelt(h.comp, h.pad).detail, 'warn'); }
     h.el.textContent = `${h.where} · ${sec.toFixed(1)} s${molten ? ` · ${t('molten')}` : ''}${h.vacuum ? ` · ${h.done ? t('hole clear') : t('vacuum')}` : ''}`;
     h.el.classList.toggle('molten', molten);
   }

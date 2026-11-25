@@ -9,29 +9,33 @@ import { isHeatSensitive, type JointEpisode, type ReworkEvent } from './rework';
 /** Where a rule comes from (public-domain source, page as printed). */
 export interface RuleSource { doc: string; page: string }
 export const NEETS14 = 'NEETS Module 14 (NAVEDTRA 14186)';
+/** The 2M workmanship manual: NAVAIR 01-1A-23 / NAVSEA SE004-AK-TRS-010/2M / T.O. 00-25-259 (Rev 4, 2013; Distribution A). */
+export const TO_2M = 'T.O. 00-25-259 (NAVAIR 01-1A-23)';
 const src = (page: string): RuleSource => ({ doc: NEETS14, page });
+const to = (para: string): RuleSource => ({ doc: TO_2M, page: para });
 
 export type FindingKind =
   | 'pad-lifted' | 'part-overheated' | 'mlcc-cracked' | 'part-displaced' | 'dull-joint'
   | 'flux-residue' | 'loose-solder' | 'long-dwell' | 'wire-repair' | 'no-shunt' | 'skip-pattern' | 'nick'
-  | 'coating-charred' | 'coating-missing' | 'coating-mismatch' | 'coating-method' | 'esd-damage' | 'esd-handling';
+  | 'coating-charred' | 'coating-missing' | 'coating-mismatch' | 'coating-method' | 'esd-damage' | 'esd-handling'
+  | 'overheated-joint' | 'slow-melt';
 
 /**
  * `procedural`: about how the work was done, which the finished board does not show; listed only
  * where a lesson teaches it.
  */
-export interface Rule { kind: FindingKind; severity: 'reject' | 'note'; title: string; rule: string; source: RuleSource; procedural?: boolean }
+export interface Rule { kind: FindingKind; severity: 'reject' | 'note'; title: string; rule: string; source: RuleSource; procedural?: boolean; /** The same rule in the other manual. */ also?: RuleSource[] }
 
 /** The rules, as the source states them (English keys, translated where shown). */
 export const RULES: Record<FindingKind, Rule> = {
-  'pad-lifted': { kind: 'pad-lifted', severity: 'reject', title: tk('Lifted pad'), rule: tk('Examine the board for nicked, cracked, lifted, or delaminated conductors and lifted or delaminated pads.'), source: src('3-19') },
+  'pad-lifted': { kind: 'pad-lifted', severity: 'reject', title: tk('Lifted pad'), rule: tk('Examine the board for nicked, cracked, lifted, or delaminated conductors and lifted or delaminated pads.'), source: src('3-19'), also: [to('12-6.1')] },
   'part-overheated': { kind: 'part-overheated', severity: 'reject', title: tk('Overheated part'), rule: tk('None of the remaining components should be cracked, broken, or show signs of overheating.'), source: src('3-19') },
   'mlcc-cracked': { kind: 'mlcc-cracked', severity: 'reject', title: tk('Cracked part'), rule: tk('None of the remaining components should be cracked, broken, or show signs of overheating.'), source: src('3-19') },
   'part-displaced': { kind: 'part-displaced', severity: 'reject', title: tk('Part moved off its pads'), rule: tk('Parts should always be remounted in the same position and with the termination methods used by the original manufacturer.'), source: src('3-20') },
-  'dull-joint': { kind: 'dull-joint', severity: 'reject', title: tk('Dull, unwetted joint'), rule: tk('The completed solder joint should be bright and shiny, with no cracks or pits, and the solder should cover the pad. Flux removes the oxides that stop solder wetting.'), source: src('2-20, 3-24') },
-  'flux-residue': { kind: 'flux-residue', severity: 'reject', title: tk('Flux residue left'), rule: tk('When a solder joint is completed, solvent must be used to remove all flux residue: 99.5 % ethyl or isopropyl alcohol.'), source: src('3-25') },
-  'loose-solder': { kind: 'loose-solder', severity: 'reject', title: tk('Loose or splattered solder'), rule: tk('The solder joints should not be covered by loose or splattered solder, which may cause shorts. A solder bridge across a cracked conductor is not a high-reliability repair.'), source: src('3-19, 3-32') },
-  'long-dwell': { kind: 'long-dwell', severity: 'note', title: tk('Long heating'), rule: tk('Bring the joint to about 550 °F (288 °C) rapidly and hold it there briefly: in most cases the soldering action is complete within 2 or 3 seconds.'), source: src('3-23') },
+  'dull-joint': { kind: 'dull-joint', severity: 'reject', title: tk('Dull, unwetted joint'), rule: tk('The completed solder joint should be bright and shiny, with no cracks or pits, and the solder should cover the pad. Flux removes the oxides that stop solder wetting.'), source: src('2-20, 3-24'), also: [to('05-6.1')] },
+  'flux-residue': { kind: 'flux-residue', severity: 'reject', title: tk('Flux residue left'), rule: tk('When a solder joint is completed, solvent must be used to remove all flux residue: 99.5 % ethyl or isopropyl alcohol.'), source: src('3-25'), also: [to('05-6.2')] },
+  'loose-solder': { kind: 'loose-solder', severity: 'reject', title: tk('Loose or splattered solder'), rule: tk('The solder joints should not be covered by loose or splattered solder, which may cause shorts. A solder bridge across a cracked conductor is not a high-reliability repair.'), source: src('3-19, 3-32'), also: [to('05-6.1')] },
+  'long-dwell': { kind: 'long-dwell', severity: 'note', title: tk('Long heating'), rule: tk('Bring the joint to about 550 °F (288 °C) rapidly and hold it there briefly: in most cases the soldering action is complete within 2 or 3 seconds.'), source: src('3-23'), also: [to('05-5')] },
   'no-shunt': { kind: 'no-shunt', severity: 'note', procedural: true, title: tk('No thermal shunt'), rule: tk('Before heat is applied to solder the joint, a thermal shunt is attached to sensitive component leads (diodes, transistors, and ICs) to conduct heat away from the component.'), source: src('3-23') },
   'skip-pattern': { kind: 'skip-pattern', severity: 'note', procedural: true, title: tk('Neighbouring pins heated in a row'), rule: tk('When multilead components such as ICs are soldered or desoldered, a skipping pattern is used: never heat two pads next to each other, to prevent heat build-up in one area.'), source: src('3-26, 3-30') },
   'coating-charred': { kind: 'coating-charred', severity: 'reject', title: tk('Charred coating'), rule: tk('Soldering irons should never be used for coating removal: the high temperatures char the coating, possibly damaging the board materials.'), source: src('3-4') },
@@ -40,10 +44,14 @@ export const RULES: Record<FindingKind, Rule> = {
   'coating-method': { kind: 'coating-method', severity: 'note', procedural: true, title: tk('Not the gentlest removal method'), rule: tk('Removal techniques are listed in ascending order of their damageability: always try the method which causes the least amount of damage first.'), source: src('3-3, Table 3-1') },
   'esd-damage': { kind: 'esd-damage', severity: 'reject', title: tk('Damaged by static'), rule: tk('A MOS device can be damaged by a static potential of as little as 35 volts, bipolar transistors and diodes by less than 3,000 volts. Damage does not always cause sudden failure: it can degrade the device so that it fails early.'), source: src('3-39') },
   'esd-handling': { kind: 'esd-handling', severity: 'note', procedural: true, title: tk('Handled without a ground strap'), rule: tk('Before servicing equipment the technician is grounded to discharge any static charge built up on the body; ESD-sensitive devices are handled by their body, never by their leads.'), source: src('3-40 – 3-41') },
-  'nick': { kind: 'nick', severity: 'reject', title: tk('Nicked conductor'), rule: tk('Nicks or scratches in a conductor must be repaired if over one-tenth of its cross-sectional area is affected, as its current-carrying capability is reduced.'), source: src('3-31') },
+  'overheated-joint': { kind: 'overheated-joint', severity: 'reject', title: tk('Overheated, oxidized joint'), rule: tk('Excessively long dwell times or repeated reflow oxidize the solder: a dull, grainy or crusty joint. This is a defect: the solder must be removed and the joint resoldered.'), source: to('05-4.2.5, 05-4.2.6') },
+  'slow-melt': { kind: 'slow-melt', severity: 'note', procedural: true, title: tk('Kept heating a joint that would not melt'), rule: tk('If solder melt does not occur in two to three seconds, remove the tip: make sure the tip and the joint are clean before increasing the tip temperature.'), source: to('03-5.4, 05-5.3.4') },
+  'nick': { kind: 'nick', severity: 'reject', title: tk('Nicked conductor'), rule: tk('Damage that reduces a conductor\'s cross-sectional area must be repaired, as its current-carrying capability is reduced: over one tenth in NEETS (1998), over 20 % in the current 2M manual, which is the limit used here.'), source: src('3-31'), also: [to('12-6.1')] },
   'wire-repair': { kind: 'wire-repair', severity: 'note', title: tk('Wire repair'), rule: tk('A wire lap-soldered across a break is stronger than a solder bridge but not highly reliable; the clinched staple is the preferred repair of a broken conductor.'), source: src('3-32') },
 };
 
+/** A nick deeper than this share of the conductor is a defect (T.O. 00-25-259 12-6.1: 20 %; NEETS 14 p. 3-31 had one tenth). */
+export const NICK_LIMIT = 0.2;
 /** Molten longer than this counts as a long heating (the source: "within 2 or 3 seconds"). */
 export const DWELL_LIMIT_S = 3;
 /** The joint temperature the source names as most efficient (550 °F). */
@@ -82,6 +90,10 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
   }
   // a lifted pad still on the board, however it got there (an inspector sees it)
   for (const c of board.components) if (c.state.populated) for (const pi of c.state.lifted ?? []) add({ kind: 'pad-lifted', where: padName(c.ref, pi) });
+  // overheated / heavily oxidized solder still on a joint (it has to be removed and the joint resoldered)
+  for (const c of board.components) if (c.state.populated) for (const pi of c.state.oxidized ?? []) add({ kind: 'overheated-joint', where: padName(c.ref, pi) });
+  // a tip kept on a joint that did not melt within 3 s
+  for (const e of events) if (e.kind === 'slow-melt') add({ kind: 'slow-melt', where: padName(e.ref, e.pad) });
   // a dull joint that was never made good afterwards (its last episode had no flux and it is still marked)
   for (const e of events) {
     if (e.kind !== 'dull-joint') continue;
@@ -105,7 +117,7 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
     return Math.hypot(p[0] - a[0] - u * dx, p[1] - a[1] - u * dy);
   };
   for (const n of board.nicks ?? []) {
-    if (n.depth <= 0.1) continue;
+    if (n.depth <= NICK_LIMIT) continue;
     const bridged = staples.some((j) => j.la === n.layer && distToSeg(n.at, j.a, j.b) < 1 && Math.hypot(j.a[0] - n.at[0], j.a[1] - n.at[1]) > 0.8 && Math.hypot(j.b[0] - n.at[0], j.b[1] - n.at[1]) > 0.8);
     if (!bridged) add({ kind: 'nick', where: `${n.at[0].toFixed(1)}, ${n.at[1].toFixed(1)} mm`, detail: `${Math.round(n.depth * 100)} %` });
   }

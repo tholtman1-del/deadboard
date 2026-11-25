@@ -4,7 +4,10 @@
 import { t } from '../i18n';
 import type { Lesson } from '../lessons/neets14';
 import type { LessonMeta } from '../lessons/track';
-import { BEST_JOINT_C, DWELL_LIMIT_S, RULES, type Inspection } from '../workmanship';
+import { BEST_JOINT_C, DWELL_LIMIT_S, NEETS14, RULES, type Inspection, type RuleSource } from '../workmanship';
+
+/** "NEETS 14, p. 3-19" or "T.O. 00-25-259, 05-6.1" */
+const cite = (s: RuleSource, esc: Esc) => (s.doc === NEETS14 ? t('NEETS 14, p. {page}', { page: esc(s.page) }) : t('T.O. 00-25-259, {para}', { para: esc(s.page) }));
 import { COATINGS, METHODS, TABLE_3_1 } from '../coating';
 import { TABLE_3_2 } from '../esd';
 
@@ -78,7 +81,7 @@ export function debriefHtml(l: Lesson | LessonMeta | undefined, ins: Inspection,
     return `
       <li class="ins-f ${bad ? 'bad' : 'note'}">
         <div class="ins-h"><b>${esc(t(r.title))}</b> <span class="mono">${esc(where)}</span></div>
-        <div class="ins-rule">${esc(t(r.rule))} <span class="muted">${t('NEETS 14, p. {page}', { page: esc(r.source.page) })}</span></div>
+        <div class="ins-rule">${esc(t(r.rule))} <span class="muted">${[r.source, ...(r.also ?? [])].map((x) => cite(x, esc)).join(' · ')}</span></div>
       </li>`;
   }).join('');
   const joints = ins.joints.length ? `

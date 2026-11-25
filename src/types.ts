@@ -90,6 +90,11 @@ export interface ComponentState {
    * eyelet set through it, lap-soldered to the run. Drawn with the eyelet.
    */
   padRepaired?: number[];
+  /**
+   * Joints whose solder was overheated (molten too long) or reflowed too often: dull, grainy,
+   * oxidized (T.O. 00-25-259 05-4.2.5/6). Only removing the solder and resoldering clears it.
+   */
+  oxidized?: number[];
   /** Handled (fitted) by an ungrounded technician, and whether the discharge damaged it (src/esd.ts). */
   esdHandled?: true;
   esdDamaged?: true;

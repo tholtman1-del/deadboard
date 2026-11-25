@@ -8,14 +8,15 @@ import { rng, seedOf, sampleSeverity } from './faults';
 
 /**
  * A solder alloy: solid below `solidus`, liquid above `liquidus` (°C); between them a pasty
- * ("plastic") range. Values: NEETS Module 14 p. 2-19 for tin-lead (63/37 melts at 361 °F with no
- * plastic state; 60/40 is plastic between 361 and 370 °F); SAC305 maker datasheets (217–220 °C).
+ * ("plastic") range. Tin-lead: NAVAIR 01-1A-23 / T.O. 00-25-259 (2013) para. 05-7.1.1 — 63/37 melts
+ * at 361 °F [183 °C], 60/40 between 361 and 375 °F [183–191 °C] (NEETS 14, 1998, printed 370 °F; the
+ * newer manual matches the tin-lead phase diagram). SAC305: maker datasheets (217–220 °C).
  */
 export interface Alloy { id: AlloyId; name: string; solidus: number; liquidus: number }
 export type AlloyId = 'sac305' | 'sn63' | 'sn60';
 export const SAC305: Alloy = { id: 'sac305', name: 'SAC305 (lead-free)', solidus: 217, liquidus: 220 };
 export const SN63: Alloy = { id: 'sn63', name: 'Sn63Pb37', solidus: 183, liquidus: 183 };
-export const SN60: Alloy = { id: 'sn60', name: 'Sn60Pb40', solidus: 183, liquidus: 188 };
+export const SN60: Alloy = { id: 'sn60', name: 'Sn60Pb40', solidus: 183, liquidus: 191 };
 export const ALLOYS: Record<AlloyId, Alloy> = { sac305: SAC305, sn63: SN63, sn60: SN60 };
 /** The process limits for a board's alloy (lead-free unless the board says otherwise). */
 export function limitsFor(alloy?: AlloyId): ProcessLimits {
@@ -58,7 +59,8 @@ export const DEFAULT_LIMITS: ProcessLimits = {
 };
 
 export type ReworkEventKind = 'molten' | 'reflowed' | 'wetted' | 'dull-joint' | 'pad-lifted' | 'part-overheated' | 'mlcc-cracked' | 'part-displaced'
-  | 'filled' | 'no-solder' | 'extracted' | 'sweat' | 'wick-surface' | 'not-molten';
+  | 'filled' | 'no-solder' | 'extracted' | 'sweat' | 'wick-surface' | 'not-molten'
+  | 'overheated-joint' | 'slow-melt';
 export interface ReworkEvent { kind: ReworkEventKind; ref: string; pad?: number; detail: string }
 
 /**
@@ -109,7 +111,17 @@ export const VACUUM_SECONDS = 0.6;
 
 export type ExtractMode = 'wick' | 'plunger' | 'vacuum';
 
-interface JointState { above: number; melted: boolean; hot: number; ep?: JointEpisode; fed: boolean }
+/**
+ * Solder oxidizes when it stays molten too long, or is reflowed again and again (T.O. 00-25-259
+ * 05-4.2.5/6). The manual gives no numbers: these are estimates — twice the 3 s soldering action,
+ * and a third reflow of the same solder.
+ */
+export const OXIDIZE_MOLTEN_S = 6;
+export const OXIDIZE_REFLOWS = 3;
+/** Solder should melt within 2–3 s of heat (T.O. 00-25-259 03-5.4, 05-5.3.4). */
+export const MELT_WITHIN_S = 3;
+
+interface JointState { above: number; melted: boolean; hot: number; ep?: JointEpisode; fed: boolean; /** heatings of the same solder */ reflows: number }
 
 /** What was done on a board, kept by the caller across monitors. */
 export interface ReworkHistory { episodes: JointEpisode[]; log: (ReworkEvent & { t: number })[] }
@@ -157,7 +169,17 @@ export class ReworkMonitor {
     const key = `${c.id}#${pi}`;
     const js = this.joints.get(key);
     if (js) { js.fed = true; if (js.melted && c.state.holes?.[pi] === 'clear') js.melted = false; } // a molten empty hole fills on the next step
-    else this.joints.set(key, { above: 0, melted: false, hot: 0, fed: true });
+    else this.joints.set(key, { above: 0, melted: false, hot: 0, fed: true, reflows: 0 });
+  }
+
+  /**
+   * The tip has been on a joint for `MELT_WITHIN_S` without melting it: the manual says stop, clean
+   * the tip and the joint, then raise the tip temperature. Logged once per contact.
+   */
+  noteSlowMelt(c: Component, pi: number): ReworkEvent {
+    const e: ReworkEvent = { kind: 'slow-melt', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: no melt after {s} s. Stop: clean the tip and the joint (flux), then raise the tip temperature.', { ref: c.ref, pad: c.pads[pi].name, s: MELT_WITHIN_S }) };
+    this.log.push({ ...e, t: this.thermal.time });
+    return e;
   }
 
   /** Seconds the joint has been molten in its current heating (0 when solid). */
@@ -180,6 +202,10 @@ export class ReworkMonitor {
     let e: ReworkEvent;
     const clear = () => {
       c.state.holes = { ...(c.state.holes ?? {}), [pi]: 'clear' };
+      // the old (perhaps oxidized) solder is gone: the next joint starts fresh
+      const js = this.joints.get(`${c.id}#${pi}`);
+      if (js) js.reflows = 0;
+      if (c.state.oxidized?.includes(pi)) { const left = c.state.oxidized.filter((x) => x !== pi); c.state.oxidized = left.length ? left : undefined; }
       if (!c.state.cold.includes(pi)) c.state.cold = [...c.state.cold, pi].sort((a, b) => a - b);
     };
     if (!molten) e = { kind: 'not-molten', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: the solder is not molten — nothing came out', where) };
@@ -227,11 +253,23 @@ export class ReworkMonitor {
       c.pads.forEach((p, pi) => {
         const key = `${c.id}#${pi}`;
         let js = this.joints.get(key);
-        if (!js) this.joints.set(key, (js = { above: 0, melted: false, hot: 0, fed: false }));
+        if (!js) this.joints.set(key, (js = { above: 0, melted: false, hot: 0, fed: false, reflows: 0 }));
         const tj = this.thermal.jointTemp(c, pi);
         if (tj >= L.alloy.liquidus) {
-          if (!js.ep) { js.ep = { ref: c.ref, pad: pi, molten: 0, peak: tj, flux: ps.flux > 0, t: this.thermal.time, open: true, shunt: !!c.state.shunts?.includes(pi), bodyPeak: T, ...(c.state.burnt && { dead: true }) }; this.episodes.push(js.ep); }
+          if (!js.ep) {
+            js.ep = { ref: c.ref, pad: pi, molten: 0, peak: tj, flux: ps.flux > 0, t: this.thermal.time, open: true, shunt: !!c.state.shunts?.includes(pi), bodyPeak: T, ...(c.state.burnt && { dead: true }) };
+            this.episodes.push(js.ep);
+            if (c.state.holes?.[pi] !== 'clear') js.reflows++;
+          }
           js.ep.molten += dt;
+          // too long molten, or the same solder reflowed again and again: it oxidizes (dull, grainy)
+          const why = js.ep.molten >= OXIDIZE_MOLTEN_S ? 'long' : js.reflows >= OXIDIZE_REFLOWS ? 'repeated' : null;
+          if (why && !c.state.burnt && c.state.holes?.[pi] !== 'clear' && !c.state.oxidized?.includes(pi)) {
+            c.state.oxidized = [...(c.state.oxidized ?? []), pi].sort((a, b) => a - b);
+            ev.push({ kind: 'overheated-joint', ref: c.ref, pad: pi, detail: why === 'long'
+              ? t('{ref} pad {pad}: molten for {s} s — the solder is oxidizing (dull, grainy). It must be removed and the joint resoldered.', { ref: c.ref, pad: p.name, s: OXIDIZE_MOLTEN_S })
+              : t('{ref} pad {pad}: reflowed {n} times — the solder is oxidized. Remove it and resolder the joint with fresh solder.', { ref: c.ref, pad: p.name, n: js.reflows }) });
+          }
           js.ep.peak = Math.max(js.ep.peak, tj);
           js.ep.bodyPeak = Math.max(js.ep.bodyPeak, T);
           if (c.state.shunts?.includes(pi)) js.ep.shunt = true;
@@ -254,6 +292,8 @@ export class ReworkMonitor {
               const { [pi]: _done, ...rest } = c.state.holes!; void _done;
               c.state.holes = Object.keys(rest).length ? rest : undefined;
               c.state.cold = c.state.cold.filter((x) => x !== pi);
+              js.reflows = 0; // fresh solder
+              if (c.state.oxidized?.includes(pi)) { const left = c.state.oxidized.filter((x) => x !== pi); c.state.oxidized = left.length ? left : undefined; }
               if (ps.flux > 0 && !c.state.fluxResidue?.includes(pi)) c.state.fluxResidue = [...(c.state.fluxResidue ?? []), pi].sort((a, b) => a - b);
               ev.push({ kind: 'filled', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: soldered, the hole filled', { ref: c.ref, pad: p.name }) });
             } else if (!js.fed) ev.push({ kind: 'no-solder', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: the hole is empty — feed fresh solder (Bench → Rework "+ flux": flux-cored solder)', { ref: c.ref, pad: p.name }) });

@@ -84,6 +84,21 @@ No reference hardware is available, so realism is validated against *design inte
     station, bench, grades: what the bench needs at once) and `src/lessons/neets14.ts` (the text,
     its own 15 KB-gz chunk loaded with the first lesson dialog). App chunk 249 KB gz (was 226 before
     the track, 263 with the text inline).
+  - **2M manuals read (2026-11-25):** the user saved both to `ideas/manuals/` (git-excluded); both
+    are **Distribution A**. Certification manual Appendix C = the miniature recertification
+    practical (coating ID 4 of 5 + removal, wires on pierced tab / turret-hook / solder cup, surface
+    patch laminate, full-clinch axial part, pad + flat-set eyelet, 14/16-pin DIP; all graded to the
+    T.O. incl. 05-6.1 solder acceptability and 05-6.2 cleanliness). Applied: SN60 liquidus 188 →
+    191 °C (T.O. 05-7.1.1); every rule can cite the T.O. too (`Rule.also`, shown as "NEETS 14, p. …
+    · T.O. 00-25-259, …"); nick limit 10 % → 20 % (T.O. 12-6.1, NEETS said 1/10); new rules
+    `overheated-joint` (reject: molten ≥ 6 s or a 3rd reflow of the same solder → `state.oxidized`,
+    dull fillet; cleared only by extracting and fresh solder; thresholds are estimates, the T.O.
+    05-4.2.5/6 gives none) and `slow-melt` (procedural: no melt in 3 s, T.O. 03-5.4); station option
+    316 °C (600 °F, the T.O.'s starting point for tin-lead).
+  - **Next from the manuals:** coating identification (Appendix C: identify 4 of 5) instead of being
+    told the type; DIP removal + replacement in the final practical; a wire-terminal mini-track
+    (turret, hook, pierced tab, solder cup — a third of the real practical); remaining 05-6.1
+    defects need a solder-volume model (convex fillet, icicles, solder balls).
   - **Follow-ups:** flat packs (3-29)
     and TO-5 cans (3-27) need new footprints; read the 2M certification manual + T.O. 00-25-259
     (the user downloads them) and compare the practical's grading with ours.

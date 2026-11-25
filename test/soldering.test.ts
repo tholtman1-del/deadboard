@@ -46,7 +46,7 @@ function solder(b: Board, ref: string, pad: string, opts: { hold: number; temp?:
 async function main() {
   // ---- alloys (NEETS 14 p. 2-19; SAC305 datasheets) ----
   assert(ALLOYS.sn63.solidus === 183 && ALLOYS.sn63.liquidus === 183, '63/37 is eutectic at 183 °C (361 °F)');
-  assert(ALLOYS.sn60.solidus === 183 && ALLOYS.sn60.liquidus === 188, '60/40 is plastic from 183 to 188 °C (361–370 °F)');
+  assert(ALLOYS.sn60.solidus === 183 && ALLOYS.sn60.liquidus === 191, '60/40 is plastic from 183 to 191 °C (361–375 °F, T.O. 00-25-259 05-7.1.1)');
   assert(ALLOYS.sac305.solidus === 217 && ALLOYS.sac305.liquidus === 220, 'SAC305 melts 217–220 °C');
   assert(limitsFor().alloy.id === 'sac305', 'boards are lead-free unless they say otherwise');
 
@@ -130,7 +130,42 @@ async function main() {
     const l1 = lessonFor('hr-solder-flux')!;
     assert(lessonAccepted(l1, i2), 'lesson 1 (before cleaning is taught) does not grade flux residue');
     assert(!lessonAccepted(lessonFor('hr-clean-inspect'), i2), 'lesson 3 does');
-    for (const r of Object.values(RULES)) assert(/^\d-\d+/.test(r.source.page), `${r.kind} cites a page`);
+    for (const r of Object.values(RULES)) assert(/^\d{1,2}-\d+/.test(r.source.page), `${r.kind} cites a page or paragraph`);
+  }
+
+  // ---- overheated / oxidized joints and slow melt (T.O. 00-25-259 05-4.2.5/6, 03-5.4) ----
+  {
+    const ref = lone();
+    const long = solder(lone(), 'R1', '1', { hold: 8, temp: 316 });
+    assert(long.c.state.oxidized?.includes(long.pi) && !long.c.state.lifted, `8 s molten at a 316 °C tip: the solder oxidizes (pad still on, peak ${long.peak.toFixed(0)} °C)`);
+    assert(inspect(long.m.board, ref, long.rw.episodes, long.rw.log).findings.some((f) => f.kind === 'overheated-joint'), 'an oxidized joint is a defect');
+    // the same solder reflowed three times
+    const b = lone(), m = new ThermalModel(b), rw = new ReworkMonitor(b, m, limitsFor('sn63')), c = b.components[0];
+    const ox = (): number[] => c.state.oxidized ?? [];
+    const touch = (feed = false) => {
+      rw.applyFlux(c.at[0], c.at[1], 12);
+      if (feed) rw.feedSolder(c, 0);
+      m.addSource({ kind: 'iron', x: 0, y: 0, temp: 350, g: IRON_G.flux, pmax: 60, until: m.time + 1.5, partId: c.id, pad: 0 });
+      for (let t = 0; t < 1.5; t += 0.05) { m.step(0.05); rw.update(0.05); }
+      for (let t = 0; t < 15; t += 0.1) { m.step(0.1); rw.update(0.1); }
+    };
+    touch(); touch();
+    assert(!ox().length, 'two short reflows are fine');
+    touch();
+    assert(ox().includes(0), 'a third reflow of the same solder oxidizes it');
+    touch();
+    assert(ox().includes(0), 'reflowing again does not fix it');
+    m.addSource({ kind: 'iron', x: 0, y: 0, temp: 350, g: IRON_G.flux, pmax: 60, until: m.time + 1.5, partId: c.id, pad: 0 });
+    for (let t = 0; t < 1.5; t += 0.05) { m.step(0.05); rw.update(0.05); }
+    rw.extract(c, 0, 'vacuum');
+    for (let t = 0; t < 15; t += 0.1) { m.step(0.1); rw.update(0.1); }
+    assert(!ox().length, 'removing the solder clears it');
+    touch(true);
+    assert(!c.state.holes && !ox().length && !c.state.cold.includes(0), 'fresh solder makes a new joint');
+    const slow = solder(lone(), 'R1', '1', { hold: 1 });
+    slow.rw.noteSlowMelt(slow.c, slow.pi);
+    const sf = inspect(slow.m.board, ref, slow.rw.episodes, slow.rw.log).findings;
+    assert(sf.some((f) => f.kind === 'slow-melt') && RULES['slow-melt'].procedural, 'a tip kept on a joint that did not melt is noted (a procedure, graded where taught)');
   }
 
   // ---- the track's boards ----
@@ -397,7 +432,7 @@ async function main() {
     assert(l.original.every((p) => p.length > 80 && !/-\s$/.test(p)), `${l.scenario}: whole quoted paragraphs`);
     assert(l.grades.every((g) => g in RULES), `${l.scenario}: grades known rules`);
     if (l.bench) assert(['low', 'high'].includes(l.bench.humidity), `${l.scenario}: bench humidity`);
-    assert(['r350', 'r350f', 'r400f'].includes(l.station), `${l.scenario}: a station the bench offers`);
+    assert(['r350', 'r316f', 'r350f', 'r400f'].includes(l.station), `${l.scenario}: a station the bench offers`);
     if (l.figure) assert(existsSync(`${root}public/${l.figure.src}`), `${l.scenario}: figure ${l.figure.src} is in public/`);
     for (const q of l.questions) assert(/^Q\d+$/.test(q.ref) && /^\d-\d+$/.test(q.page) && q.a.length > 2, `${l.scenario} ${q.ref}: numbered, with page and answer`);
   }

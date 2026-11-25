@@ -9,7 +9,7 @@ export interface LessonMeta {
   scenario: string;
   title: string;
   /** Station setting the board starts with (Bench → Rework). */
-  station: 'r350' | 'r350f' | 'r400f';
+  station: 'r350' | 'r316f' | 'r350f' | 'r400f';
   /** Bench conditions the board starts with: wrist strap on or off, and the air's humidity. */
   bench?: { grounded: boolean; humidity: 'low' | 'high' };
   /** Inspection rules graded on this board (the others are shown as notes). */
@@ -17,17 +17,17 @@ export interface LessonMeta {
 }
 
 export const LESSON_META: LessonMeta[] = [
-  { scenario: 'hr-solder-flux', title: tk('Solder and flux'), station: 'r350', grades: ['dull-joint', 'pad-lifted', 'part-overheated'] },
-  { scenario: 'hr-heat-time', title: tk('Heat and time'), station: 'r350f', grades: ['dull-joint', 'pad-lifted', 'part-overheated'] },
-  { scenario: 'hr-clean-inspect', title: tk('Clean and inspect'), station: 'r350f', grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'loose-solder'] },
-  { scenario: 'hr-desoldering', title: tk('Desoldering'), station: 'r350f', grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'loose-solder'] },
-  { scenario: 'hr-thermal-shunt', title: tk('Thermal shunt'), station: 'r350f', grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'no-shunt'] },
-  { scenario: 'hr-skipping-pattern', title: tk('Skipping pattern'), station: 'r350f', grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'skip-pattern'] },
-  { scenario: 'hr-conductor-repair', title: tk('Conductor repair'), station: 'r350f', grades: ['loose-solder', 'wire-repair', 'nick', 'pad-lifted', 'part-overheated'] },
-  { scenario: 'hr-conformal-coating', title: tk('Conformal coating'), station: 'r350f', grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'coating-charred', 'coating-missing', 'coating-mismatch', 'coating-method'] },
-  { scenario: 'hr-esd', title: tk('Electrostatic discharge'), station: 'r350f', bench: { grounded: false, humidity: 'low' }, grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'esd-damage', 'esd-handling'] },
-  { scenario: 'hr-pad-repair', title: tk('Pad repair'), station: 'r350f', grades: ['pad-lifted', 'wire-repair', 'loose-solder', 'dull-joint', 'flux-residue', 'part-overheated'] },
-  { scenario: 'hr-final-practical', title: tk('Final practical'), station: 'r350f', bench: { grounded: false, humidity: 'low' }, grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'mlcc-cracked', 'flux-residue', 'loose-solder', 'wire-repair', 'nick', 'no-shunt', 'coating-charred', 'coating-missing', 'coating-mismatch', 'coating-method', 'esd-damage', 'esd-handling'] },
+  { scenario: 'hr-solder-flux', title: tk('Solder and flux'), station: 'r350', grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'overheated-joint'] },
+  { scenario: 'hr-heat-time', title: tk('Heat and time'), station: 'r350f', grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'overheated-joint', 'slow-melt'] },
+  { scenario: 'hr-clean-inspect', title: tk('Clean and inspect'), station: 'r350f', grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'loose-solder', 'overheated-joint'] },
+  { scenario: 'hr-desoldering', title: tk('Desoldering'), station: 'r350f', grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'loose-solder', 'overheated-joint'] },
+  { scenario: 'hr-thermal-shunt', title: tk('Thermal shunt'), station: 'r350f', grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'no-shunt', 'overheated-joint'] },
+  { scenario: 'hr-skipping-pattern', title: tk('Skipping pattern'), station: 'r350f', grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'skip-pattern', 'overheated-joint'] },
+  { scenario: 'hr-conductor-repair', title: tk('Conductor repair'), station: 'r350f', grades: ['loose-solder', 'wire-repair', 'nick', 'pad-lifted', 'part-overheated', 'overheated-joint'] },
+  { scenario: 'hr-conformal-coating', title: tk('Conformal coating'), station: 'r350f', grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'coating-charred', 'coating-missing', 'coating-mismatch', 'coating-method', 'overheated-joint'] },
+  { scenario: 'hr-esd', title: tk('Electrostatic discharge'), station: 'r350f', bench: { grounded: false, humidity: 'low' }, grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'esd-damage', 'esd-handling', 'overheated-joint'] },
+  { scenario: 'hr-pad-repair', title: tk('Pad repair'), station: 'r350f', grades: ['pad-lifted', 'wire-repair', 'loose-solder', 'dull-joint', 'flux-residue', 'part-overheated', 'overheated-joint'] },
+  { scenario: 'hr-final-practical', title: tk('Final practical'), station: 'r350f', bench: { grounded: false, humidity: 'low' }, grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'mlcc-cracked', 'flux-residue', 'loose-solder', 'wire-repair', 'nick', 'no-shunt', 'coating-charred', 'coating-missing', 'coating-mismatch', 'coating-method', 'esd-damage', 'esd-handling', 'overheated-joint', 'slow-melt'] },
 ];
 
 export function lessonMeta(scenarioId: string): LessonMeta | undefined {
