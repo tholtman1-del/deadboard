@@ -7,6 +7,13 @@ No reference hardware is available, so realism is validated against *design inte
 
 ## Status (start here)
 
+- **Late 2026-11-25 (live at `2d1634d`):** review follow-ups (`f82fe14`: stale hints / tooltips /
+  nick wording, board-notes 1.23.0) and a second AI's guide work, checked and committed (`2d1634d`):
+  **Inspection drill** tab (`INSPECTION_DRILL` in guide.ts, `drillSvg`; answers in `pcbfix_track_drill`),
+  **Review** tab (all course questions, filters Not yet / unanswered / all), pin-1 + polarity chart and
+  a print button (print-only CSS) on Quick reference, Guide / Review buttons on the Overview card.
+  Checked: drill verdicts against T.O. (07-6.17 semi-clinch target confirmed), print view, TO-39 chart
+  (tab moved to 45° from E). Next: play-through notes.
 - **NEXT SESSION — START HERE (evening of 2026-11-25): the course audit, all fixed, live at `88b3f36`.**
   The user dropped `docs/NEETS_AUDIT_AND_IMPROVEMENTS.md` (untracked, by another tool; it names local
   manual paths: ask before committing it), asked for a check (claims verified against the T.O., the
