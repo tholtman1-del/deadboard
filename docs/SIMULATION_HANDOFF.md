@@ -1,4 +1,4 @@
-# DEADBOARD — handoff (evening of 2026-11-25: course audit fixed, live at 88b3f36 — see the first Status bullet; dock + two-wire rules live at 341b030; tool dock + course UI live at b632b87; 2M course map below; analytics: read the data from 11-27)
+# DEADBOARD — handoff (end of 2026-11-25: start at the first Status bullet; course audit + guide live at 2d1634d; 2M course map below; analytics: read the data from 11-27)
 
 Goal: make DEADBOARD (formerly PCB//FIX) a realistic board-repair trainer, as close to a real bench as possible,
 **universal** (any board, not just the MacBook), with honest provenance for every value.
@@ -7,14 +7,55 @@ No reference hardware is available, so realism is validated against *design inte
 
 ## Status (start here)
 
-- **Late 2026-11-25 (live at `2d1634d`):** review follow-ups (`f82fe14`: stale hints / tooltips /
+- **NEXT SESSION — START HERE (end of 2026-11-25).** Everything is committed, pushed and live on
+  deadboard.org (last code `2d1634d`, Pages deploy green, checked live). Working tree clean apart from
+  `.claude/` and `docs/NEETS_AUDIT_AND_IMPROVEMENTS.md` (an external audit the user dropped in; untracked
+  on purpose, it names local manual paths: ask before committing it; every point in it is now dealt with).
+  - **First:** ask the user for **play-through notes** on the 2M course (they have not played it yet) and
+    on the new course guide (drill, review, print). Build from those before adding depth.
+  - **What the course is now:** 19 lessons (map in the "2M SOLDERING COURSE" bullet below), each with
+    objectives, rules, numbers, figures / diagrams, the original text, a graded board, a debrief with
+    "How to fix" per rejected rule and self-check review questions. The **course guide** (Today course
+    card, every lesson dialog, Overview card) has About, Safety, Glossary (search), Quick reference
+    (pin-1 / polarity chart, numbers, Table 06-3, ID flowchart, Print), Inspection drill, Review.
+  - **Standards used:** the current 2M manual (T.O. 00-25-259, 2013) is graded wherever it differs from
+    NEETS 14 (1998), and the lesson says so: 60/40 183–191 °C, nick > 20 %, isopropyl only, Table 06-3
+    (lesson 8 alone grades NEETS Table 3-1), every station starts at 316 °C (600 °F).
+  - **Where the new things are:** `src/lessons/guide.ts` (guide data, glossary, reference, drill) ·
+    `src/ui/guide-ui.ts` · `src/ui/lesson-diagrams.ts` (phase, fillets, shotgun, patch, polarity, drill
+    drawings) · `FIXES` in `src/workmanship.ts` · `TABLE_06_3` in `src/coating.ts` · `LessonMeta.coatTable`
+    / `dock` in `src/lessons/track.ts` · `objectives` + `source: 'to'` questions in `src/lessons/neets14.ts`.
+    Device-only storage: `pcbfix_track_accepted`, `pcbfix_track_quiz`, `pcbfix_track_drill`.
+  - **New rules / model fields:** `esd-workarea` (`Board.workUngrounded`, set in `pushUndo` when the
+    strap is off), `wire-heats` (`WireEnd.heat`), `wire-forming` checks for a second wire (`WirePrep.dir`,
+    `seat`). Final practical has solder cup E4 (E2 → E4 feeds R5).
+  - **Open items (none urgent):** 2N2219A datasheet still unread (ST / Central / Mouser refuse
+    automated fetches: ask the user to download it, then verify the devicelib entry); 2N7000 / 2N3904
+    models are estimates inside onsemi limits (no typicals published); junction heat damage is not
+    simulated (shunt graded as procedure, said in lesson 5); pinholes / blowholes, bifurcated
+    terminals, resistive tweezers, clipping dead leads, embedded TOs taught but not playable; Pages
+    actions on Node 20; analytics: read the data from 11-27 (baselines in the 11-24 entry; no new
+    events were added for the course or guide).
+  - **Caveats:** RN1 was renamed 4116R-2-331 → 4116R-1-331 (the -2 is Bourns' bussed network): a board
+    saved with the old name has no network model. The TO-39 footprint changed (base pad mirrored) and
+    the hr-heat-time test now checks the 316 °C + preheat teaching instead of "turn the station up".
+  - **Sources:** the T.O. and cert manual PDFs are in `ideas/manuals/` (git-excluded). NEETS 14 is not
+    on disk: `curl -L "https://archive.org/download/NEETSModules/NEETS%20Module%2014%20-%20Introduction%20to%20Microelectronics.pdf"`
+    into the scratchpad (175 pages; `pdftotext -layout`; a page's number is the footer *after* the
+    text; figures with `pdfimages -png -f N -l N`, PDF page 104 = fig 3-8, 113 = 3-13/3-14, 128 = 3-28).
+    Datasheets: onsemi `https://www.onsemi.com/download/data-sheet/pdf/2n7000-d.pdf`,
+    `…/pdf/datasheet/2n3903-d.pdf`, Bourns `https://www.bourns.com/docs/Product-Datasheets/4100r.pdf`.
+  - **How it was checked:** `npm test`, `npm run build`, Chrome via playwright-core (`?automation=1`,
+    `window.deadboard.open/pad/part/focus/toScreen`), dev server `npx vite --port 5199`; debrief HTML can
+    be rendered in the page by importing `/src/ui/lesson-ui.ts` through Vite.
+- **Late 2026-11-25 log (`f82fe14`, `2d1634d`): review follow-ups (`f82fe14`: stale hints / tooltips /
   nick wording, board-notes 1.23.0) and a second AI's guide work, checked and committed (`2d1634d`):
   **Inspection drill** tab (`INSPECTION_DRILL` in guide.ts, `drillSvg`; answers in `pcbfix_track_drill`),
   **Review** tab (all course questions, filters Not yet / unanswered / all), pin-1 + polarity chart and
   a print button (print-only CSS) on Quick reference, Guide / Review buttons on the Overview card.
   Checked: drill verdicts against T.O. (07-6.17 semi-clinch target confirmed), print view, TO-39 chart
   (tab moved to 45° from E). Next: play-through notes.
-- **NEXT SESSION — START HERE (evening of 2026-11-25): the course audit, all fixed, live at `88b3f36`.**
+- **Course audit log (evening of 2026-11-25, live at `88b3f36`).**
   The user dropped `docs/NEETS_AUDIT_AND_IMPROVEMENTS.md` (untracked, by another tool; it names local
   manual paths: ask before committing it), asked for a check (claims verified against the T.O., the
   cert manual and NEETS 14 from archive.org; almost all held) and then "fix all issues". Done, tests +
@@ -51,7 +92,6 @@ No reference hardware is available, so realism is validated against *design inte
     glossary with search, quick reference + Table 06-3 + flowchart) from the course card, every
     lesson dialog and lesson 1's pointer; lead forming taught in lesson 4 (figs 3-13, 3-14).
   - Levels 15–19 monotonic (4.8 → 5.2). Board-notes 1.22.0, example zips, community, docs regenerated.
-  To do next: ask for play-through notes; Pages actions on Node 20; analytics from 11-27.
 - **Earlier on 2026-11-25 (pushed, live at 341b030):** final-practical dock list, silkscreen numbers,
   two-wire rules (see the build log below).
 - **Tool dock + course UI pass (2026-11-25, live at `b632b87`).** With the course's 10 tools the dock
@@ -107,8 +147,9 @@ No reference hardware is available, so realism is validated against *design inte
   - **How to add a lesson (the checklist every lesson so far followed):** builder + `finalize()` in
     soldering.ts (reference board = the fixed one; sabotage after) → `SOLDERING_TRACK_IDS` +
     `solderingScenarios()` → `BOARD_INFO` entry (level, symptom, teaches) → `LESSON_META` (station,
-    grades) → `CONTENT.push` (source, points, numbers, figure, verbatim `original` with page, task,
-    questions with page `\d-\d+`, `module: 4` for NEETS 4) → a playthrough test (good passes, the
+    grades) → `CONTENT.push` (source, `objectives` (≥ 2), points, numbers, figure / `diagram`, verbatim `original` with page, task,
+    questions with page `\d-\d+`, `module: 4` for NEETS 4, `source: 'to'` + `S1…` for T.O. self-checks; each
+    textbook question once in the course: a test checks) → a playthrough test (good passes, the
     shortcut fails) → `test/generate.test.ts` FIXES entry → counts in `solve.test.ts` (boards),
     `modcode.test.ts` (boards + the "differs" title list), `community.test.ts` (packs) → a
     board-notes knowledge pack in `examples/mods/board-notes/mod.json` (readings from a SPICE run;
