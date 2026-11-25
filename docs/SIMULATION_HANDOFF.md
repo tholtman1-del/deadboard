@@ -1,4 +1,4 @@
-# DEADBOARD — handoff (updated later on 2026-11-25: final-practical dock, silkscreen numbers, two-wire rules — live at 341b030, see the first Status bullet; tool dock + course UI live at b632b87; 2M course map below; analytics: read the data from 11-27)
+# DEADBOARD — handoff (evening of 2026-11-25: course audit fixed, UNCOMMITTED — see the first Status bullet; dock + two-wire rules live at 341b030; tool dock + course UI live at b632b87; 2M course map below; analytics: read the data from 11-27)
 
 Goal: make DEADBOARD (formerly PCB//FIX) a realistic board-repair trainer, as close to a real bench as possible,
 **universal** (any board, not just the MacBook), with honest provenance for every value.
@@ -7,36 +7,46 @@ No reference hardware is available, so realism is validated against *design inte
 
 ## Status (start here)
 
-- **NEXT SESSION — START HERE (updated later on 2026-11-25).** Previous code `b632b87`. On top of
-  it, pushed and live as `341b030` (tests + build green, checked in Chrome, Pages deploy green;
-  approved with "commit and publish"):
-  - **Final practical dock:** `LessonMeta.dock` (track.ts) = a lesson's whole dock, most needed first,
-    in place of the 14 bench tools; its `teaches` tools never fold, the rest fold from the list's end
-    when the window is short (`dockPlan().rank`). The practical lists inspect, iron, the ten 2M tools,
-    parts bin, IPA, wick, then rosin and meter: at 1440×800 all ten 2M tools show (15 slots), at
-    1366×640 the taught four + iron, parts bin, IPA, pad repair, coating test. `teaches` untouched
-    (user chose "pin all ten", 2026-11-25; widening the bench set could not fit: ~15 slots at 800 px).
-  - **Silkscreen numbers fixed:** coating ID 9, ESD 10, pad repair 11, final practical 19; thumbs
-    re-rendered.
-  - **Two-wire rules (T.O. 08-6.5 – 08-6.7):** `WirePrep.dir` (cw / ccw) and `WirePrep.seat`
-    (close / apart / over); `judge(e, before)` gets the ends installed earlier on that terminal
-    (workmanship.ts passes them in board order). Turret: close = target, apart = acceptable, over =
-    defect. Hook / tab: over = defect, alternating direction = target, same = acceptable. Cup: none.
-    Dialog shows "Bend direction" on hooks / tabs and "Next to the wire already on {ref}" when the
-    terminal has a wire (`wirePrepHtml(..., already)`); ccw is drawn mirrored. `targetEnd(c, type, nth)`
-    alternates for reference boards. Lesson 12 got the turret point + T.O. text, tasks 12 / 13 mention
-    it. Tests: `test/terminals.test.ts` (unit + a crossed second wire fails all three wire lessons).
-  To do, in order:
-  1. Ask the user for **play-through notes** on the 2M course and the dock / palette (the user has
-     not played the course yet).
-  2. Known nit: Pages actions on Node 20.
-  3. Analytics: read the data from 11-27 (baselines in the 11-24 entry). No new events were added.
-  4. Still open from the manuals: see the course map's "Open from the manuals" below (two-wire rules
-     now done; the T.O.'s "complete all soldering before the tip leaves" caution is not graded).
-  - How the UI was checked: dev server `npx vite --port 5199`, a throwaway playwright-core script
-    (Chrome, `?automation=1`, `window.deadboard.open(id)`, close `#lesson-close` / `#tut-close`,
-    click `#btn-more-tools` for the palette, `[data-bp-act="course"]` for the course list) at
-    1440×800, 1366×640, 1280×720, phone 390×844 + 844×390 (`isMobile`, `hasTouch`).
+- **NEXT SESSION — START HERE (evening of 2026-11-25): the course audit, all fixed, UNCOMMITTED.**
+  The user dropped `docs/NEETS_AUDIT_AND_IMPROVEMENTS.md` (untracked, by another tool; it names local
+  manual paths: ask before committing it), asked for a check (claims verified against the T.O., the
+  cert manual and NEETS 14 from archive.org; almost all held) and then "fix all issues". Done, tests +
+  build green, checked in Chrome; waiting for the user's OK to commit / push. What changed:
+  - **Facts:** 60/40 = 183–191 °C (T.O. 05-7.1.1) in lesson 1; nick limit 20 % taught in lesson 7
+    (+ T.O. 12-6.3 staple rules, multilayer out of scope); solvents: isopropyl only (T.O. 05-5.4),
+    TCA/xylene marked as 1998 (Q3 moved to lesson 8 with a note); footnote F = 500 °F (260 °C);
+    tip vs joint temperature (T.O. 05-5.3.4) and **every lesson now starts at 316 °C** (`r316` dry
+    preset added for lesson 1); clinched-lead refill step + cautions (07-5.4); solder cup: no external
+    flux, double-tinning, insert into molten solder, resistive tweezers (09-5.3/5.4); flat pack: ≥ 1
+    lead width before the bend, no reuse (18-6.6, 18-5.4.3); laminate: rounded undercut, no knife
+    edge, void limits, fig 3-28 (+ 3-29 relabelled); pad repair: 2× overlap, flat-set eyelets only,
+    interfacial connections; ESD: strap resistance 0.8–2 MΩ / 5 mA, dead equipment only, NEETS
+    precautions 2–10; safety points (lead, fumes, IPA, eyewear) quoted from T.O. 03-3.
+  - **Coating tables:** `TABLE_06_3` (T.O. 2013) + method `manual`; `removeCoating(…, table)`;
+    lesson 8 grades NEETS 3-1 (`LessonMeta.coatTable: '3-1'`), everything else 06-3.
+  - **Final practical:** solder cup E4 (wire E2 → E4, R5 fed from it; Appendix C's cup project),
+    quote restored in Appendix order, catalog symptom/teaches fixed; ESD work area graded:
+    `Board.workUngrounded` set in `pushUndo` when the strap is off → rule `esd-workarea` (lessons 10, 19).
+  - **New rule `wire-heats`:** wires on one terminal soldered in separate heats (T.O. 08-5.7 step 19),
+    `WireEnd.heat` = rework episode index.
+  - **TO-39:** the footprint was mirrored (B on the wrong side): pad 2 now at −y, tab back at 135°;
+    viewed from the bottom E, B, C run clockwise from the tab (test checks the handedness).
+  - **Parts:** RN1 is **4116R-1-331** (Bourns: -1 isolated, -2 bussed), verified against the
+    datasheet; 2N7000 / 2N3904 notes now cite onsemi datasheets (limits only, still unverified);
+    2N2219A datasheet could not be downloaded (stays unverified). Old saves naming 4116R-2-331 lose the model.
+  - **Questions:** duplicates removed, untaught ones now taught (interfacial, bifurcated / above-the-
+    board, embedded TO, causes of damage), TO-5 question is ch. 1 Q35, lesson 9 has T.O. self-checks
+    (`source: 'to'`), lesson 18 pin-1 questions (ch. 1 Q32/Q33) and Q9; Q16/Q17 lead forming in lesson 4.
+  - **Learning UI:** `objectives` per lesson; diagrams (`src/ui/lesson-diagrams.ts`: phase diagram,
+    joint cross-sections, DIP-16 shotgun order, surface patch from the laminate model); `FIXES`
+    ("How to fix") under rejected rules; review questions are self-checks (`pcbfix_track_quiz`,
+    device only); **course guide** (`src/lessons/guide.ts` + `src/ui/guide-ui.ts`: about, safety,
+    glossary with search, quick reference + Table 06-3 + flowchart) from the course card, every
+    lesson dialog and lesson 1's pointer; lead forming taught in lesson 4 (figs 3-13, 3-14).
+  - Levels 15–19 monotonic (4.8 → 5.2). Board-notes 1.22.0, example zips, community, docs regenerated.
+  To do next: ask for the commit OK and play-through notes; Pages actions on Node 20; analytics from 11-27.
+- **Earlier on 2026-11-25 (pushed, live at 341b030):** final-practical dock list, silkscreen numbers,
+  two-wire rules (see the build log below).
 - **Tool dock + course UI pass (2026-11-25, live at `b632b87`).** With the course's 10 tools the dock
   (24 tools) ran off a laptop screen and the course looked like one more challenge. Now: the dock pins
   the 14 bench tools; the 2M tools (`HIREL_TOOLS`) are pinned only where a course lesson teaches them
