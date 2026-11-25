@@ -3,9 +3,11 @@
  * is unit-tested (test/gamepad.test.ts). The bench (app.ts) polls `navigator.getGamepads()` once
  * per animation frame, feeds the snapshot to `GamepadMapper.update` and acts on the result.
  *
- * Gamepad mod by sergioSHKLR. Single cursor: DEADBOARD uses one tool at a time, so the left stick
- * drives the tool cursor and the right stick pans the board (see CONTROL_HINTS below).
+ * Contributed by Sergio (sergioSHKLR, PR #7). Single cursor: DEADBOARD uses one tool at a time, so
+ * the left stick drives the tool cursor and the right stick pans the board (see controlHints below).
+ * Labels in tables are tk() keys, translated where they are shown.
  */
+import { t, tk } from '../i18n';
 
 /** W3C standard-mapping button indices (Xbox names). */
 export const BTN = {
@@ -35,29 +37,33 @@ export const DEFAULT_KEYMAP: Readonly<Keymap> = {
 
 /** Keymap rows in display order: [action, label, how it's used]. */
 export const KEYMAP_ROWS: readonly [BindAction, string, string][] = [
-  ['fineToggle', 'Fine cursor (toggle)', 'press'],
-  ['fineHold', 'Fine cursor (hold)', 'hold'],
-  ['heat', 'Iron on the joint', 'hold'],
-  ['feed', 'Feed solder (iron)', 'press'],
-  ['act', 'Use tool / select · red probe (meter)', 'press'],
-  ['blackProbe', 'Black probe (meter)', 'press'],
-  ['cancel', 'Cancel / lift / close', 'press'],
-  ['toolPrev', 'Previous tool', 'press'],
-  ['toolNext', 'Next tool', 'press'],
-  ['flip', 'Flip board', 'press'],
-  ['zoomIn', 'Zoom in', 'hold'],
-  ['zoomOut', 'Zoom out', 'hold'],
-  ['panLeft', 'Pan left', 'hold'],
-  ['panRight', 'Pan right', 'hold'],
-  ['menu', 'Boards menu', 'press'],
-  ['help', 'Controls help', 'tap'],
-  ['calibrate', 'Calibrate sticks', 'hold 0.8 s'],
-  ['settings', 'Controller settings', 'press'],
+  ['fineToggle', tk('Fine cursor (toggle)'), 'press'],
+  ['fineHold', tk('Fine cursor (hold)'), 'hold'],
+  ['heat', tk('Iron on the joint'), 'hold'],
+  ['feed', tk('Feed solder (iron)'), 'press'],
+  ['act', tk('Use tool / select · red probe (meter)'), 'press'],
+  ['blackProbe', tk('Black probe (meter)'), 'press'],
+  ['cancel', tk('Cancel / lift / close'), 'press'],
+  ['toolPrev', tk('Previous tool'), 'press'],
+  ['toolNext', tk('Next tool'), 'press'],
+  ['flip', tk('Flip board'), 'press'],
+  ['zoomIn', tk('Zoom in'), 'hold'],
+  ['zoomOut', tk('Zoom out'), 'hold'],
+  ['panLeft', tk('Pan left'), 'hold'],
+  ['panRight', tk('Pan right'), 'hold'],
+  ['menu', tk('Boards menu'), 'press'],
+  ['help', tk('Controls help'), 'tap'],
+  ['calibrate', tk('Calibrate sticks'), 'hold 0.8 s'],
+  ['settings', tk('Controller settings'), 'press'],
 ];
 
 /** Xbox names for the standard-mapping button indices. */
 export const BUTTON_NAMES: readonly string[] = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'View', 'Menu', 'L3', 'R3', 'D-pad ↑', 'D-pad ↓', 'D-pad ←', 'D-pad →', 'Guide'];
-export const buttonName = (i: number) => BUTTON_NAMES[i] ?? `Button ${i}`;
+const DPAD_DIR = ['↑', '↓', '←', '→'];
+const isDpad = (i: number) => i >= BTN.UP && i <= BTN.RIGHT;
+/** A button's name as shown (the face / shoulder labels are printed on the pad and stay as they are). */
+export const buttonName = (i: number): string =>
+  isDpad(i) ? t('D-pad {dir}', { dir: DPAD_DIR[i - BTN.UP] }) : i === BTN.GUIDE ? t('Guide') : BUTTON_NAMES[i] ?? t('Button {i}', { i });
 
 /**
  * Buttons bound to more than one action. Help (tap) and calibrate (hold) may share a button, and so
@@ -77,10 +83,11 @@ export function keymapConflicts(km: Keymap): { button: number; actions: BindActi
   return out;
 }
 
-export type HeatMode = 'keep' | 'instant' | 'r350f' | 'r350' | 'r400f';
+/** Bench → Rework modes (the same values and labels as the bench's own list), or keep the bench's. */
+export type HeatMode = 'keep' | 'instant' | 'r316f' | 'r350f' | 'r350' | 'r400f';
 export const HEAT_MODES: readonly [HeatMode, string][] = [
-  ['keep', 'Keep the bench setting'], ['instant', 'Instant (puzzle click)'], ['r350f', 'Realistic: iron 350 °C + flux'],
-  ['r350', 'Realistic: iron 350 °C, dry'], ['r400f', 'Realistic: iron 400 °C + flux'],
+  ['keep', tk('Keep the bench setting')], ['instant', tk('Rework: instant')], ['r316f', tk('Iron 316 °C (600 °F) + flux')],
+  ['r350f', tk('Iron 350 °C + flux')], ['r350', tk('Iron 350 °C, dry')], ['r400f', tk('Iron 400 °C + flux')],
 ];
 
 export interface GamepadSettings {
@@ -313,29 +320,33 @@ export function hapticPulse(
   return 'none';
 }
 
-/** The control mapping shown in the on-screen hint overlay (English; the mod is not translated). */
+/** The control mapping shown in the on-screen hint overlay, for the current button map. */
 export function controlHints(s: GamepadSettings = DEFAULT_SETTINGS): [string, string][] {
   const k = s.keymap, n = buttonName;
-  const cur = s.cursorStick === 'right' ? 'Right stick' : 'Left stick', pan = s.cursorStick === 'right' ? 'Left stick' : 'Right stick';
-  const help = k.help === k.calibrate ? [[n(k.help), 'This help · hold: calibrate sticks']] : [[n(k.help), 'This help'], [`Hold ${n(k.calibrate)}`, 'Calibrate sticks']];
-  const pair = (a: number, b: number) => n(a).startsWith('D-pad ') && n(b).startsWith('D-pad ') ? `D-pad ${n(a).slice(6)} ${n(b).slice(6)}` : `${n(a)} / ${n(b)}`;
+  const right = s.cursorStick === 'right';
+  const cur = right ? t('Right stick') : t('Left stick'), pan = right ? t('Left stick') : t('Right stick');
+  const pair = (a: number, b: number) => isDpad(a) && isDpad(b) ? t('D-pad {a} {b}', { a: DPAD_DIR[a - BTN.UP], b: DPAD_DIR[b - BTN.UP] }) : `${n(a)} / ${n(b)}`;
+  const probe: [string, string][] = k.blackProbe === k.cancel
+    ? [[n(k.cancel), t('Cancel · lift · close · meter: black probe (hold: cancel)')]]
+    : [[n(k.blackProbe), t('Black probe (meter)')], [n(k.cancel), t('Cancel · lift · close')]];
+  const help: [string, string][] = k.help === k.calibrate
+    ? [[n(k.help), t('This help · hold: calibrate sticks')]]
+    : [[n(k.help), t('This help')], [t('Hold {btn}', { btn: n(k.calibrate) }), t('Calibrate sticks')]];
   return [
-    [cur, 'Move the tool cursor'],
-    [`${n(k.fineToggle)} / hold ${n(k.fineHold)}`, 'Fine cursor (toggle / hold)'],
-    [pan, 'Pan the board'],
-    [`${n(k.heat)} (hold)`, 'Iron on the joint: heat while held, pressure = contact'],
-    [n(k.feed), 'Feed solder (iron) · use tool'],
-    [n(k.act), 'Use tool / select · red probe (meter)'],
-    ...(k.blackProbe === k.cancel
-      ? [[n(k.cancel), 'Cancel · lift · close · meter: black probe (hold: cancel)']]
-      : [[n(k.blackProbe), 'Black probe (meter)'], [n(k.cancel), 'Cancel · lift · close']]) as [string, string][],
-    [pair(k.toolPrev, k.toolNext), 'Previous / next tool'],
-    [n(k.flip), 'Flip board (top / bottom)'],
-    [pair(k.zoomIn, k.zoomOut), 'Zoom in / out (menus: move)'],
-    [pair(k.panLeft, k.panRight), 'Pan (menus: move)'],
-    [n(k.menu), 'Boards menu (open / close)'],
-    ...(help as [string, string][]),
-    [n(k.settings), 'Controller settings'],
+    [cur, t('Move the tool cursor')],
+    [t('{toggle} / hold {hold}', { toggle: n(k.fineToggle), hold: n(k.fineHold) }), t('Fine cursor (toggle / hold)')],
+    [pan, t('Pan the board')],
+    [t('{btn} (hold)', { btn: n(k.heat) }), t('Iron on the joint while held; a deeper pull = firmer contact')],
+    [n(k.feed), t('Feed solder into the joint under the iron · other tools: use')],
+    [n(k.act), t('Use tool / select · red probe (meter) · iron held on a flat-pack lead: lift it')],
+    ...probe,
+    [pair(k.toolPrev, k.toolNext), t('Previous / next tool')],
+    [n(k.flip), t('Flip board (top / bottom)')],
+    [pair(k.zoomIn, k.zoomOut), t('Zoom in / out (menus: move)')],
+    [pair(k.panLeft, k.panRight), t('Pan (menus: move)')],
+    [n(k.menu), t('Boards menu (open / close)')],
+    ...help,
+    [n(k.settings), t('Controller settings')],
   ];
 }
 export const CONTROL_HINTS: readonly [string, string][] = controlHints();
@@ -395,11 +406,11 @@ export function exportSettings(s: GamepadSettings): string {
 /** Parses an export file (or a bare settings object). Throws with a readable message when unusable. */
 export function importSettings(text: string): Partial<GamepadSettings> {
   let v: unknown;
-  try { v = JSON.parse(text); } catch { throw new Error('That file is not valid JSON.'); }
+  try { v = JSON.parse(text); } catch { throw new Error(t('That file is not valid JSON.')); }
   const o = v as { format?: unknown; settings?: unknown };
   const body = o && typeof o === 'object' && o.format === EXPORT_FORMAT ? o.settings : v;
   const out = sanitizeSettings(body);
-  if (!Object.keys(out).length) throw new Error('No controller settings found in that file.');
+  if (!Object.keys(out).length) throw new Error(t('No controller settings found in that file.'));
   return out;
 }
 

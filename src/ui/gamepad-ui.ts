@@ -1,39 +1,40 @@
 /**
- * Gamepad mod (by sergioSHKLR): on-screen parts. The controller cursor, the control-hint overlay
- * and the stick calibration screen. Plain DOM, English only (the mod is not translated yet).
+ * Gamepad support (by Sergio, sergioSHKLR): on-screen parts. The controller cursor, the control-hint
+ * overlay and the stick calibration screen. Plain DOM; colours and type from tokens.css.
  */
+import { t } from '../i18n';
 import { buttonName, controlHints, deadzonesFromRest, type GamepadMapper, type PadFrame, type PadSnapshot } from './gamepad';
 
 const CSS = `
 .gp-cursor{position:fixed;left:0;top:0;width:34px;height:34px;margin:-17px 0 0 -17px;pointer-events:none;z-index:60;display:none}
 .gp-cursor svg{width:100%;height:100%;overflow:visible}
-.gp-cursor .ring{fill:none;stroke:#7ee2a8;stroke-width:2}
-.gp-cursor.fine .ring{stroke:#6cb8ff;stroke-dasharray:3 3}
-.gp-cursor.hot .ring{stroke:#ff8a1f;stroke-width:3}
-.gp-cursor .tick{stroke:#fff;stroke-width:1.5}
-.gp-cursor .lbl{position:absolute;left:24px;top:22px;white-space:nowrap;font:600 11px/1.2 system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.7);padding:2px 6px;border-radius:6px}
+.gp-cursor .ring{fill:none;stroke:var(--accent);stroke-width:2}
+.gp-cursor.fine .ring{stroke:var(--text-2);stroke-dasharray:3 3}
+.gp-cursor.hot .ring{stroke:var(--level-high);stroke-width:3}
+.gp-cursor .tick{stroke:var(--text);stroke-width:1.5}
+.gp-cursor .lbl{position:absolute;left:24px;top:22px;white-space:nowrap;font:600 11px/1.2 var(--sans);color:var(--text);background:var(--float);border:1px solid var(--border-strong);padding:2px 6px;border-radius:var(--radius)}
 .gp-cursor .lbl:empty{display:none}
-.gp-panel{position:fixed;z-index:70;background:rgba(18,20,22,.94);color:#e8e8e8;border:1px solid #3a3d41;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.45);font:13px/1.4 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
-.gp-hint{left:12px;bottom:40px;padding:10px 12px;max-width:min(420px,calc(100vw - 24px))}
-.gp-hint h4,.gp-cal h4{margin:0 0 6px;font:700 12px/1.2 system-ui,sans-serif;letter-spacing:.06em;color:#7ee2a8;text-transform:uppercase}
+.gp-panel{position:fixed;z-index:70;background:var(--float);color:var(--text);border:1px solid var(--border-strong);border-radius:var(--radius);box-shadow:0 8px 30px rgba(0,0,0,.45);font:13px/1.4 var(--sans)}
+.gp-hint{left:12px;bottom:40px;padding:10px 12px;max-width:min(420px,calc(100vw - 24px));max-height:calc(100vh - 60px);overflow:auto}
+.gp-hint h4,.gp-cal h4{margin:0 0 6px;font:700 11px/1.2 var(--mono);letter-spacing:.08em;color:var(--accent);text-transform:uppercase}
 .gp-hint table{border-collapse:collapse}
 .gp-hint td{padding:2px 8px 2px 0;vertical-align:top}
-.gp-hint td:first-child{font-weight:700;color:#fff;white-space:nowrap}
-.gp-hint .gp-foot{margin-top:6px;color:#9aa0a6;font-size:12px}
-.gp-hint button,.gp-cal button{font:inherit;color:#fff;background:#2b2e32;border:1px solid #4a4e53;border-radius:8px;padding:4px 10px;margin:6px 6px 0 0;cursor:pointer}
+.gp-hint td:first-child{font:600 12px/1.4 var(--mono);color:var(--text);white-space:nowrap}
+.gp-hint .gp-foot{margin-top:6px;color:var(--text-2);font-size:12px}
+.gp-hint .btn,.gp-cal .btn{margin:6px 6px 0 0}
 .gp-cal{z-index:90;left:50%;top:50%;transform:translate(-50%,-50%);padding:14px 16px;width:min(460px,calc(100vw - 24px))}
 .gp-cal .sticks{display:flex;gap:18px;justify-content:center;margin:8px 0}
 .gp-cal svg{width:120px;height:120px}
 .gp-cal .row{display:flex;justify-content:space-between;gap:10px;margin:3px 0}
-.gp-cal .val{font-family:ui-monospace,monospace;color:#fff}
-.gp-cal .msg{min-height:1.4em;color:#ffd27a;margin-top:6px}
+.gp-cal .val{font-family:var(--mono);color:var(--text)}
+.gp-cal .msg{min-height:1.4em;color:var(--warn);margin-top:6px}
 `;
 
-function stickSvg(id: string): string {
-  return `<svg viewBox="-60 -60 120 120" aria-label="${id} stick"><circle r="56" fill="#1d1f21" stroke="#4a4e53" stroke-width="2"/>
-  <circle class="dz" r="7" fill="rgba(255,210,122,.18)" stroke="#ffd27a" stroke-width="1"/>
-  <line x1="-56" y1="0" x2="56" y2="0" stroke="#33363a"/><line x1="0" y1="-56" x2="0" y2="56" stroke="#33363a"/>
-  <circle class="dot" r="6" fill="#7ee2a8"/></svg>`;
+function stickSvg(left: boolean): string {
+  return `<svg viewBox="-60 -60 120 120" role="img" aria-label="${left ? t('Left stick') : t('Right stick')}"><circle r="56" fill="var(--surface-3)" stroke="var(--border-strong)" stroke-width="2"/>
+  <circle class="dz" r="7" fill="var(--warn-weak)" stroke="var(--warn)" stroke-width="1"/>
+  <line x1="-56" y1="0" x2="56" y2="0" stroke="var(--border-strong)"/><line x1="0" y1="-56" x2="0" y2="56" stroke="var(--border-strong)"/>
+  <circle class="dot" r="6" fill="var(--accent)"/></svg>`;
 }
 
 export class GamepadOverlay {
@@ -76,9 +77,9 @@ export class GamepadOverlay {
 
   /** Rebuilds the help overlay from the current button map. */
   renderHints() {
-    this.hintEl.innerHTML = `<h4>Controller</h4><table>${controlHints(this.mapper.settings).map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</table>
-      <div class="gp-foot">Realistic heat: Bench → Rework → Iron 350 °C (or set a default heat mode in Settings → Controller). In instant mode the iron trigger does the classic click.</div>
-      <button type="button" data-gp="settings">Controller settings</button><button type="button" data-gp="cal">Calibrate sticks</button><button type="button" data-gp="close">Close</button>`;
+    this.hintEl.innerHTML = `<h4>${t('Controller')}</h4><table>${controlHints(this.mapper.settings).map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</table>
+      <div class="gp-foot">${t('Held heat needs a realistic rework mode (Bench → Rework, or a default in Settings → Controller). In instant mode the iron trigger does the classic click.')}</div>
+      <button type="button" class="btn sm" data-gp="settings">${t('Controller settings')}</button><button type="button" class="btn sm" data-gp="cal">${t('Calibrate sticks')}</button><button type="button" class="btn sm" data-gp="close">${t('Close')}</button>`;
   }
 
   showCursor(x: number, y: number, hot: boolean, fine: boolean) {
@@ -108,14 +109,15 @@ export class GamepadOverlay {
     el.className = 'gp-panel gp-cal';
     el.setAttribute('role', 'dialog');
     const k = this.mapper.settings.keymap, n = buttonName;
-    el.innerHTML = `<h4>Calibrate controller</h4>
-      <div>Let go of both sticks and press <b>${n(k.act)}</b> to measure their resting drift (2 s). The yellow ring is the dead zone.</div>
-      <div class="sticks">${stickSvg('left')}${stickSvg('right')}</div>
-      <div class="row"><span>Dead zone (${n(k.panLeft)} / ${n(k.panRight)})</span><span class="val" data-v="dz"></span></div>
-      <div class="row"><span>Cursor speed (${n(k.zoomIn)} / ${n(k.zoomOut)})</span><span class="val" data-v="sp"></span></div>
-      <div class="row"><span>Triggers LT / RT</span><span class="val" data-v="tr"></span></div>
-      <div class="msg"></div>
-      <button type="button" data-c="measure">Measure rest (${n(k.act)})</button><button type="button" data-c="rumble">Test rumble (${n(k.toolPrev)})</button><button type="button" data-c="done">Done (${n(k.cancel)})</button>`;
+    el.setAttribute('aria-label', t('Calibrate controller'));
+    el.innerHTML = `<h4>${t('Calibrate controller')}</h4>
+      <div>${t('Let go of both sticks and press <b>{btn}</b> to measure their resting drift (2 s). The amber ring is the dead zone.', { btn: n(k.act) })}</div>
+      <div class="sticks">${stickSvg(true)}${stickSvg(false)}</div>
+      <div class="row"><span>${t('Dead zone ({a} / {b})', { a: n(k.panLeft), b: n(k.panRight) })}</span><span class="val" data-v="dz"></span></div>
+      <div class="row"><span>${t('Cursor speed ({a} / {b})', { a: n(k.zoomIn), b: n(k.zoomOut) })}</span><span class="val" data-v="sp"></span></div>
+      <div class="row"><span>${t('Triggers')} LT / RT</span><span class="val" data-v="tr"></span></div>
+      <div class="msg" role="status"></div>
+      <button type="button" class="btn sm" data-c="measure">${t('Measure rest ({btn})', { btn: n(k.act) })}</button><button type="button" class="btn sm" data-c="rumble">${t('Test rumble ({btn})', { btn: n(k.toolPrev) })}</button><button type="button" class="btn sm" data-c="done">${t('Done ({btn})', { btn: n(k.cancel) })}</button>`;
     el.addEventListener('click', (e) => {
       const c = (e.target as HTMLElement).closest<HTMLElement>('[data-c]')?.dataset.c;
       if (c === 'measure') this.startMeasure();
@@ -138,12 +140,12 @@ export class GamepadOverlay {
   }
 
   private rumbleText(ch: string) {
-    return ch === 'pad' ? 'Rumble sent to the controller.' : ch === 'device' ? 'No controller rumble here; the device vibrated instead.' : 'No rumble available in this browser / connection (common over Bluetooth on Android). Visual and sound cues still work.';
+    return ch === 'pad' ? t('Rumble sent to the controller.') : ch === 'device' ? t('No controller rumble here; the device vibrated instead.') : ch === 'off' ? t('Rumble is off.') : t('No rumble available in this browser or connection (common over Bluetooth on Android). Visual and sound cues still work.');
   }
 
   private msg(s: string) { const m = this.calEl?.querySelector('.msg'); if (m) m.textContent = s; }
 
-  private startMeasure() { this.measuring = { left: 2, samples: [] }; this.msg('Measuring… hands off the sticks.'); }
+  private startMeasure() { this.measuring = { left: 2, samples: [] }; this.msg(t('Measuring… hands off the sticks.')); }
 
   private renderValues(lastTrig?: [number, number]) {
     const el = this.calEl;
@@ -169,7 +171,7 @@ export class GamepadOverlay {
       this.measuring.left -= dt;
       if (this.measuring.left <= 0) {
         [s.deadzone, s.rightDeadzone] = deadzonesFromRest(this.measuring.samples);
-        this.msg(`Done: dead zones set to L ${s.deadzone.toFixed(2)} / R ${s.rightDeadzone.toFixed(2)} from ${this.measuring.samples.length} samples.`);
+        this.msg(t('Done: dead zones set to L {l} / R {r} from {count} samples.', { l: s.deadzone.toFixed(2), r: s.rightDeadzone.toFixed(2), count: this.measuring.samples.length }));
         this.measuring = null;
         this.hooks.save();
       }

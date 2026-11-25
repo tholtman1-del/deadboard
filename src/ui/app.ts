@@ -45,7 +45,7 @@ import { Builder } from '../scenarios/builder';
 import { dailyKey, dailyPlan, dailyLevel, makeDaily, msToNextDaily } from '../scenarios/daily';
 import { BOARD_INFO, LEVEL_BANDS, PATH_ORDER, SKILLS, SKILL_GROUPS, boardLevel, levelFromPlayers, shownLevel, learnedSkills, levelBand, newSkillsFor, skillLabel, splitTitle, todayPicks, type BandId, type PickReason, type SkillKey } from '../scenarios/catalog';
 import { BOTH_GAP, Camera } from '../render/camera';
-import { EMISSIVITY, ThermalModel, apparentTemp, type HeatSource } from '../thermal';
+import { EMISSIVITY, ThermalModel, apparentTemp } from '../thermal';
 import { GamepadMapper, buttonName, hapticPulse, heatScale, loadGamepadSettings, saveGamepadSettings, type HeatMode, type PadFrame } from './gamepad';
 import { GamepadOverlay } from './gamepad-ui';
 import { GamepadSettingsPanel } from './gamepad-settings';
@@ -265,7 +265,7 @@ export class PcbApp {
   /** Everything rework did on this board (kept across undo, which swaps the board object). */
   private workHistory: ReworkHistory = { episodes: [], log: [] };
   /** The iron held on a joint (realistic rework): released on pointer / key up. */
-  private ironHold: { src: { until: number }; start: number; where: string; el: HTMLElement | null; lift?: HTMLButtonElement; comp: Component; pad: number; vacuum: boolean; done: boolean; melted?: boolean; slow?: boolean } | null = null;
+  private ironHold: { src: { until: number; g: number }; start: number; where: string; el: HTMLElement | null; lift?: HTMLButtonElement; comp: Component; pad: number; vacuum: boolean; done: boolean; melted?: boolean; slow?: boolean } | null = null;
   /** The lesson text module, once loaded (src/lessons/neets14.ts is its own chunk). */
   private neets: typeof import('../lessons/neets14') | null = null;
   /** Soldering-track lesson dialog: before the repair, or the inspection after it. */
@@ -428,7 +428,7 @@ export class PcbApp {
   private announceTimer: ReturnType<typeof setTimeout> | undefined;
   /** Single-character keyboard shortcuts (1–9, F, C, P, V…); Settings can turn them off. */
   private keyShortcuts = (() => { try { return localStorage.getItem('pcbfix_key_shortcuts') !== '0'; } catch { return true; } })();
-  // ---- gamepad mod (sergioSHKLR): one controller cursor over the board ----
+  // ---- gamepad (contributed by Sergio, sergioSHKLR): one controller cursor over the board ----
   private gp = new GamepadMapper(loadGamepadSettings(PcbApp.storage()));
   private gpIndex: number | null = null;
   private gpOverlay: GamepadOverlay | null = null;
@@ -439,7 +439,8 @@ export class PcbApp {
   private gpCursor: [number, number] | null = null;
   private gpUsed = false;
   private gpHudClock = 0;
-  private gpHeat: { src: HeatSource | null; smoke: number; pulse: number } | null = null;
+  /** The pad's trigger holds the bench's iron (this.ironHold): its full-pull conductance, the rumble clock. */
+  private gpIron: { base: number; pulse: number } | null = null;
 
   // Floating window & sidepanel drag state
   private tutPos: V2 = [0, 0];
@@ -990,8 +991,8 @@ export class PcbApp {
                 ${this.statsAvailable ? `<div class="bench-row"><span>${t('Puzzle stats')}</span><button class="btn sm" id="btn-stats"></button></div>` : ''}
                 <div class="bench-row"><span>${t('Key shortcuts')}</span><button class="btn sm" id="btn-keys"></button></div>
                 <label class="bench-row"><span>${lang() === 'en' ? 'Language' : `${t('Language')} · Language`}</span>${this.langPickerHtml('full')}</label>
-                <div class="bench-row gp-settings-row"><span>Controller</span><button class="btn sm" id="btn-gp-settings" title="Controller settings: buttons, sticks, iron trigger, rumble">Buttons, sticks, rumble…</button></div>
-                <div class="bench-row gp-settings-row"><span></span><span id="gp-status" class="gp-status">No controller connected</span></div>
+                ${PcbApp.hasGamepadApi() ? `<div class="bench-row gp-settings-row"><span>${t('Controller')}</span><button class="btn sm" id="btn-gp-settings" title="${t('Controller settings: buttons, sticks, iron trigger, rumble')}">${t('Buttons, sticks…')}</button></div>
+                <div class="bench-row gp-settings-row"><span></span><span id="gp-status" class="gp-status">${t('No controller connected')}</span></div>` : ''}
               </div>
             </div>
             <button class="btn ghost icon" id="btn-panel-toggle" title="${m ? t('Mission, inspector and author') : t('Toggle panel')}">${icon(m ? 'flag' : 'sidebar')}</button>
@@ -1399,7 +1400,7 @@ export class PcbApp {
               ${this.langPickerHtml('row')}
               <button class="m-row" data-proxy="#btn-sound"><span id="m-sound-ico"></span><span id="m-sound-lbl"></span></button>
               ${this.statsAvailable ? '<button class="m-row" data-proxy="#btn-stats"><span id="m-stats-ico"></span><span id="m-stats-lbl"></span></button>' : ''}
-              ${row('#btn-gp-settings', 'settings', 'Controller settings')}
+              ${PcbApp.hasGamepadApi() ? row('#btn-gp-settings', 'settings', t('Controller settings')) : ''}
               ${row('#btn-feedback', 'message', t('Feedback'))}
               ${row('#btn-help', 'help', t('Help'))}
             </div>
@@ -1555,7 +1556,7 @@ export class PcbApp {
         if (!c || pi < 0) return null;
         return { temp: this.thermal?.jointTemp(c, pi) ?? null, time: this.thermal?.time ?? null, cold: c.state.cold.includes(pi), residue: !!c.state.fluxResidue?.includes(pi), lifted: !!c.state.lifted?.includes(pi), sameBoard: this.thermalBoard === this.board };
       },
-      /** Gamepad mod: hottest temperature of a part (°C), the active tool, live iron sources, pad cursor. */
+      /** Gamepad checks: hottest temperature of a part (°C), the active tool, live iron sources, pad cursor. */
       partTemp: (ref: string) => { const c = find(ref); return c && this.thermal ? this.thermal.partTemp(c.id) ?? null : null; },
       tool: () => this.activeTool,
       ironSources: () => (this.thermal?.sources ?? []).filter((x) => x.kind === 'iron').map((x) => ({ ...x })),
@@ -1563,7 +1564,7 @@ export class PcbApp {
       gamepadPanelOpen: () => !!this.gpPanel?.isOpen,
       gamepadTestOpen: () => !!this.gpPanel?.test.isOpen,
       cameraState: () => ({ tx: this.camera.tx, ty: this.camera.ty, dist: this.camera.dist, orthoHalfH: this.camera.orthoHalfH, yaw: this.camera.yaw, pitch: this.camera.pitch }),
-      gamepad: () => ({ index: this.gpIndex, used: this.gpUsed, cursor: this.gpCursor, world: this.cursorWorld, hovered: this.hovered ? { kind: this.hovered.kind, ref: 'comp' in this.hovered ? this.hovered.comp.ref : null } : null, heating: !!this.gpHeat?.src, fine: this.gp.fine }),
+      gamepad: () => ({ index: this.gpIndex, used: this.gpUsed, cursor: this.gpCursor, world: this.cursorWorld, hovered: this.hovered ? { kind: this.hovered.kind, ref: 'comp' in this.hovered ? this.hovered.comp.ref : null } : null, heating: !!this.gpIron, fine: this.gp.fine }),
       /** Board point (mm) → page pixel (CSS px), on the given side's copper surface. */
       toScreen: (x: number, y: number, side: Side = this.camera.side) => {
         const r = this.canvas.getBoundingClientRect();
@@ -3275,7 +3276,7 @@ export class PcbApp {
         this.startTutorial();
       }
     });
-    q('#btn-gp-settings').addEventListener('click', () => {
+    this.mount.querySelector('#btn-gp-settings')?.addEventListener('click', () => {
       (q('#settings-pop') as HTMLElement).hidden = true;
       q('#btn-settings').classList.remove('active');
       this.openGpSettings();
@@ -3736,7 +3737,7 @@ export class PcbApp {
     }
 
     if (e.target !== this.canvas) return;
-    if (this.gpUsed && e.pointerType === 'mouse' && !this.gpHeat) { this.gpUsed = false; this.gpOverlay?.hideCursor(); }
+    if (this.gpUsed && e.pointerType === 'mouse' && !this.gpIron) { this.gpUsed = false; this.gpOverlay?.hideCursor(); }
     const { sx, sy, w, h } = this.canvasPt(e);
     const resolved = this.resolveBoardPt(this.camera.screenToBoard(sx, sy, w, h, this.board.thickness));
     this.cursorWorld = resolved?.pt ?? null;
@@ -7543,17 +7544,19 @@ export class PcbApp {
     this.rafId = requestAnimationFrame(this.loop);
   };
 
-  // ======================= gamepad mod (sergioSHKLR) =======================
+  // ============== gamepad (contributed by Sergio, sergioSHKLR, PR #7) ==============
   private static storage(): Storage | null { try { return window.localStorage; } catch { return null; } }
+  /** The browser can read controllers (Settings → Controller is shown only then). */
+  private static hasGamepadApi(): boolean { return typeof navigator !== 'undefined' && typeof navigator.getGamepads === 'function'; }
 
   private initGamepad() {
-    if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') return;
+    if (!PcbApp.hasGamepadApi()) return;
     window.addEventListener('gamepadconnected', (e) => {
       const g = (e as GamepadEvent).gamepad;
       if (this.gpIndex === null) this.gpIndex = g.index;
-      const name = g.id.replace(/\s*\(.*$/, '').slice(0, 40) || 'Controller';
+      const name = g.id.replace(/\s*\(.*$/, '').slice(0, 40) || t('Controller');
       const km = this.gp.settings.keymap;
-      this.toast(`${name} connected. Press ${buttonName(km.help)} for the controls, ${buttonName(km.settings)} for controller settings.`, 'success');
+      this.toast(t('{name} connected. Press {help} for the controls, {settings} for controller settings.', { name, help: buttonName(km.help), settings: buttonName(km.settings) }), 'success');
       if (this.gp.settings.hintOnConnect) this.ensureGpOverlay().toggleHint(true, 9000);
       this.gpApplyHeatMode(this.gp.settings.heatMode);
       this.gpStatus();
@@ -7566,7 +7569,7 @@ export class PcbApp {
       this.gpIndex = null;
       this.gpUsed = false;
       this.gpOverlay?.hideCursor();
-      this.toast('Controller disconnected.', 'warn');
+      this.toast(t('Controller disconnected.'), 'warn');
       this.gpStatus();
     });
   }
@@ -7591,7 +7594,7 @@ export class PcbApp {
         changed: () => this.gpOverlay?.renderHints(),
         rumbleTest: () => {
           const ch = this.gpRumble(0.8, 0.5, 250);
-          return ch === 'pad' ? 'Rumble sent to the controller.' : ch === 'device' ? 'No controller rumble here; the device vibrated instead.' : ch === 'off' ? 'Rumble is off.' : 'No rumble available (no controller, Bluetooth on Android, or the page needs a tap first).';
+          return ch === 'pad' ? t('Rumble sent to the controller.') : ch === 'device' ? t('No controller rumble here; the device vibrated instead.') : ch === 'off' ? t('Rumble is off.') : t('No rumble available (no controller, Bluetooth on Android, or the page needs a tap first).');
         },
         openCalibration: () => { this.gpEndHeat(); this.ensureGpOverlay().openCalibration(); },
         applyHeatMode: (m) => this.gpApplyHeatMode(m),
@@ -7627,7 +7630,7 @@ export class PcbApp {
     const el = this.mount.querySelector('#gp-status');
     if (!el) return;
     const p = this.gpPad();
-    el.textContent = p ? `Connected: ${p.id.replace(/\s*\(.*$/, '').slice(0, 36) || 'controller'}` : 'No controller connected';
+    el.textContent = p ? t('Connected: {name}', { name: p.id.replace(/\s*\(.*$/, '').slice(0, 36) || t('Controller') }) : t('No controller connected');
   }
 
   private gpPad(): Gamepad | null {
@@ -7651,7 +7654,8 @@ export class PcbApp {
     return hapticPulse(act, vib, strong, weak, ms);
   }
 
-  private gpModalOpen(): boolean { return this.showBoards || this.showHelp || this.showFeedback || this.showMods; }
+  /** A dialog is open (boards, help, lesson, wire prep, laminate…: whatever Escape would close). */
+  private gpModalOpen(): boolean { return !!this.modalRootEl.firstElementChild; }
 
   /** Menus: D-pad moves focus through the dialog's controls, A presses, B / Menu close. */
   private gpModalNav(f: PadFrame) {
@@ -7682,24 +7686,24 @@ export class PcbApp {
 
   /** Poll the controller once per frame and drive the bench. */
   private pollGamepad(dt: number) {
-    if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') return;
+    if (!PcbApp.hasGamepadApi()) return;
     const p = this.gpPad();
     // B = black probe only on the bench with the meter selected (menus, help and panels: B cancels)
     this.gp.meterContext = this.activeTool === 'dmm' && !this.gpPanel?.isOpen && !this.gpModalOpen() && !this.gpOverlay?.hintVisible;
     if (this.gpPanel?.isOpen) {
       const f0 = p ? this.gp.update(p, dt) : null;
-      if (this.gpHeat) this.gpEndHeat();
+      this.gpEndHeat();
       if (p && f0 && this.gpOverlay?.calOpen) { this.gpOverlay.calFrame(p, f0, dt); return; }
       this.gpPanel.frame(p, dt);
       return;
     }
-    if (!p) { if (this.gpHeat) this.gpEndHeat(); return; }
+    if (!p) { this.gpEndHeat(); return; }
     const f = this.gp.update(p, dt);
     if (this.gpSuppress) { if (f.active) return; this.gpSuppress = false; }
     if (!this.gpUsed && !f.active) return;
     const ov = this.ensureGpOverlay();
     if (ov.calOpen) { ov.calFrame(p, f, dt); return; }
-    if (!this.gpUsed) { this.gpUsed = true; this.toast('Controller active. Press View for the controls.', 'info'); }
+    if (!this.gpUsed) { this.gpUsed = true; this.toast(t('Controller active. Press {btn} for the controls.', { btn: buttonName(this.gp.settings.keymap.help) }), 'info'); }
     if (this.gpModalOpen()) { this.gpEndHeat(); ov.hideCursor(); this.gpModalNav(f); return; }
 
     const r = this.canvas.getBoundingClientRect();
@@ -7733,8 +7737,10 @@ export class PcbApp {
       else if (a === 'toolPrev') this.gpCycleTool(-1);
       else if (a === 'toolNext') this.gpCycleTool(1);
       else if (a === 'flip') this.flipSide();
-      else if (a === 'toggleFine') ov.flash(f.fine ? 'FINE' : 'COARSE');
+      else if (a === 'toggleFine') ov.flash(f.fine ? t('Fine cursor') : t('Normal cursor'));
       else if (a === 'cancel') this.gpCancel();
+      // the iron held on a flat-pack lead: A lifts it, like L (the on-screen Lift lead button)
+      else if (a === 'act' && this.ironHold && isFlatPack(this.ironHold.comp)) this.liftHeldLead();
       else if (a === 'act' && resolved) {
         // meter: A always places the red probe (B places black)
         if (this.activeTool === 'dmm') this.placeProbe('red', resolved.pt, resolved.side);
@@ -7744,11 +7750,11 @@ export class PcbApp {
       else if (a === 'feed' && resolved) this.gpFeed(resolved.pt, resolved.side);
     }
     this.gpHeatFrame(f, resolved, dt);
-    ov.showCursor(r.left + c[0], r.top + c[1], !!this.gpHeat?.src, f.fine);
+    ov.showCursor(r.left + c[0], r.top + c[1], !!this.gpIron, f.fine);
   }
 
   private gpCancel() {
-    if (this.gpHeat) { this.gpEndHeat(); return; }
+    if (this.gpIron) { this.gpEndHeat(); return; }
     if (this.gpOverlay?.hintVisible) { this.gpOverlay.toggleHint(false); return; }
     if (this.activeTool === 'dmm' && (this.probeRed || this.probeBlack)) { this.clearProbes(); return; }
     if (this.jumperStart) { this.jumperStart = null; return; }
@@ -7758,81 +7764,63 @@ export class PcbApp {
   }
 
   /**
-   * RT held with the iron: tip contact for as long as the trigger is pulled (replaces the fixed
-   * 1.5 s click). Trigger depth scales tip-to-joint conductance (default 35 % to 100 %, Settings → Controller) of the bench's
-   * wetted / dry values (an estimate of contact pressure). Instant (puzzle) rework also does the
-   * classic one-click action when contact starts.
+   * RT held: the bench's own held iron (beginIronHold, so coating, clinched leads, the flat-pack
+   * lift, the readout and the rework monitor all apply) stays on the joint while the trigger is
+   * pulled. Trigger depth scales the tip-to-joint conductance over the Settings → Controller range
+   * (default 35–100 % of the bench's wetted / dry value): an estimate of contact pressure, not a
+   * measured one. Sliding the cursor off the joint lifts the tip. Instant (puzzle) rework: the
+   * trigger does the iron's one click.
    */
   private gpHeatFrame(f: PadFrame, at: { pt: V2; side: Side } | null, dt: number) {
-    const starting = f.actions.includes('heatStart');
-    if (this.gpHeat && (f.actions.includes('heatEnd') || this.activeTool !== 'iron' || !at || f.heat <= 0)) { this.gpEndHeat(); return; }
-    if (!this.gpHeat) {
-      if (!starting || this.activeTool !== 'iron' || !at) return;
-      if (!this.thermal) this.updateThermalPower();
-      if (this.reworkMode.realistic) this.pushUndo(); else this.applyToolAt(at.pt, at.side);
-      this.gpHeat = { src: null, smoke: 0, pulse: 0 };
-      this.gpRumble(0, 0.35, 70);
-    }
-    const th = this.thermal;
-    const h = this.gpHeat;
-    if (!th || !h || !at) return;
-    const hit = pickAt(this.board, at.pt, at.side, this.vizMode === 'xray');
-    if (hit?.kind === 'pad' && hit.comp.state.populated) {
-      const g = (this.reworkMode.flux ? IRON_G.flux : IRON_G.dry) * heatScale(f.heat, this.gp.settings);
-      const s = h.src;
-      if (s && s.kind === 'iron' && s.partId === hit.comp.id && th.sources.includes(s)) {
-        s.x = hit.pos[0]; s.y = hit.pos[1]; s.g = g; s.temp = this.reworkMode.ironTemp; s.until = th.time + 0.25;
-      } else {
-        if (s) s.until = 0;
-        if (this.reworkMode.realistic && this.reworkMode.flux) this.rework?.applyFlux(hit.pos[0], hit.pos[1], 2);
-        const src: HeatSource = { kind: 'iron', x: hit.pos[0], y: hit.pos[1], temp: this.reworkMode.ironTemp, g, pmax: 60, until: th.time + 0.25, partId: hit.comp.id };
-        th.addSource(src);
-        h.src = src;
-      }
-      h.smoke -= dt;
-      if (h.smoke <= 0) { h.smoke = 0.35; this.renderer.spawnSmoke(hit.pos[0], hit.pos[1], at.side, this.board.thickness, 'flux'); }
+    const h = this.gpIron, hold = this.ironHold;
+    if (h) {
+      if (!hold || f.actions.includes('heatEnd') || f.heat <= 0 || !this.holdsTool()) { this.gpEndHeat(); return; }
+      const hit = at ? pickAt(this.board, at.pt, at.side, this.vizMode === 'xray') : null;
+      if (hit?.kind !== 'pad' || hit.comp !== hold.comp || hit.padIndex !== hold.pad) { this.gpEndHeat(); return; }
+      hold.src.g = h.base * heatScale(f.heat, this.gp.settings);
       h.pulse -= dt;
       if (h.pulse <= 0) { h.pulse = 0.3; this.gpRumble(0, 0.12 + 0.3 * f.heat, 60); }
-    } else if (h.src) {
-      h.src.until = 0;
-      h.src = null;
-    }
-  }
-
-  private gpEndHeat() {
-    if (!this.gpHeat) return;
-    if (this.gpHeat.src) this.gpHeat.src.until = 0;
-    this.gpHeat = null;
-  }
-
-  /** LT: feed solder with the iron (a joint has to be molten to take it), else the tool's second action (not the meter: B places black). */
-  private gpFeed(pt: V2, side: Side) {
-    if (this.activeTool === 'dmm') return;
-    if (this.activeTool !== 'iron') { this.applyToolAt(pt, side); return; }
-    const hit = pickAt(this.board, pt, side, this.vizMode === 'xray');
-    if (hit?.kind === 'pad' && hit.comp.state.populated) {
-      if (!this.reworkMode.realistic) { this.applyToolAt(pt, side); return; }
-      const c = hit.comp, pad = c.pads[hit.padIndex]?.name ?? String(hit.padIndex + 1);
-      if (this.rework?.isMolten(c)) {
-        if (c.state.cold.includes(hit.padIndex)) {
-          this.pushUndo();
-          toggleCold(c, hit.padIndex);
-          this.recompute(false);
-          this.renderUI();
-          this.toast(`Fresh solder fed into ${c.ref} pad ${pad}: the joint wets.`, 'success');
-        } else this.toast(`Solder flows into ${c.ref} pad ${pad}.`, 'info');
-        sfxSolder();
-        this.gpRumble(0.6, 0.3, 90);
-      } else this.toast(`Solder won't flow on a cold joint: hold RT on ${c.ref} pad ${pad} to heat it first.`, 'warn');
       return;
     }
-    // bare copper or a gap: a blob of solder, like the iron click
-    this.pushUndo();
-    addBlob(this.board, pt, side, 0.75);
-    this.renderer.spawnSmoke(pt[0], pt[1], side, this.board.thickness, 'flux');
-    sfxSolder();
-    this.recompute(false);
-    this.renderUI();
+    if (!f.actions.includes('heatStart') || !at) return;
+    if (this.holdsTool()) {
+      if (!this.beginIronHold(at.pt, at.side) || !this.ironHold) return;
+      const src = this.ironHold.src;
+      this.gpIron = { base: src.g, pulse: 0.3 };
+      src.g = src.g * heatScale(f.heat, this.gp.settings);
+      this.gpRumble(0, 0.35, 70);
+    } else if (this.activeTool === 'iron') this.applyToolAt(at.pt, at.side);
+  }
+
+  /** The trigger let go (or the panel opened, the pad went away): the bench lifts the iron. */
+  private gpEndHeat() {
+    if (!this.gpIron) return;
+    this.gpIron = null;
+    this.endIronHold();
+  }
+
+  /**
+   * LT. With the iron held on a joint (realistic rework), fresh solder is fed into it, and the rework
+   * monitor flows it while the joint is molten and the tip is on. The meter: nothing (B places the
+   * black probe). Anything else, and instant rework: the tool's click.
+   */
+  private gpFeed(pt: V2, side: Side) {
+    if (this.activeTool === 'dmm') return;
+    if (this.activeTool !== 'iron' || !this.reworkMode.realistic) { this.applyToolAt(pt, side); return; }
+    const h = this.ironHold;
+    if (h && !h.vacuum) {
+      this.rework?.feedSolder(h.comp, h.pad);
+      this.gpOverlay?.flash(t('Solder fed'));
+      this.announce(t('Solder fed to {joint}', { joint: h.where }));
+      this.gpRumble(0.4, 0.2, 80);
+      return;
+    }
+    const hit = pickAt(this.board, pt, side, this.vizMode === 'xray');
+    if (hit?.kind === 'pad' && hit.comp.state.populated) {
+      this.toast(t('Hold {btn} to put the iron on the joint first: solder is fed into a heated joint.', { btn: buttonName(this.gp.settings.keymap.heat) }), 'info');
+      return;
+    }
+    this.applyToolAt(pt, side); // bare copper or a gap: the iron's click
   }
 
   destroy() {

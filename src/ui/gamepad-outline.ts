@@ -1,15 +1,16 @@
 /**
- * Gamepad mod (by sergioSHKLR): a generic gamepad outline, drawn here as plain SVG (not a
+ * Gamepad support (by Sergio, sergioSHKLR): a generic gamepad outline, drawn here as plain SVG (not a
  * manufacturer asset), with callouts for the bound actions. Shared by Settings → Controller
  * (button map) and the controller test view (live presses).
  */
+import { t, tk } from '../i18n';
 import { BTN, KEYMAP_ROWS, buttonName, type BindAction, type GamepadSettings, type PadSnapshot } from './gamepad';
 
-/** Short action names for the callouts. */
+/** Short action names for the callouts (tk keys: show them with t()). */
 export const SHORT: Record<BindAction, string> = {
-  fineToggle: 'Fine (toggle)', fineHold: 'Fine (hold)', heat: 'Iron (hold)', feed: 'Feed solder', act: 'Use / red probe', blackProbe: 'Black probe (meter tap)',
-  cancel: 'Cancel (meter: hold)', toolPrev: 'Prev tool', toolNext: 'Next tool', flip: 'Flip board', zoomIn: 'Zoom in', zoomOut: 'Zoom out',
-  panLeft: 'Pan left', panRight: 'Pan right', menu: 'Boards menu', help: 'Help (tap)', calibrate: 'Calibrate (hold)', settings: 'Controller settings',
+  fineToggle: tk('Fine (toggle)'), fineHold: tk('Fine (hold)'), heat: tk('Iron (hold)'), feed: tk('Feed solder'), act: tk('Use / red probe'), blackProbe: tk('Black probe (meter tap)'),
+  cancel: tk('Cancel (meter: hold)'), toolPrev: tk('Prev tool'), toolNext: tk('Next tool'), flip: tk('Flip board'), zoomIn: tk('Zoom in'), zoomOut: tk('Zoom out'),
+  panLeft: tk('Pan left'), panRight: tk('Pan right'), menu: tk('Boards menu'), help: tk('Help (tap)'), calibrate: tk('Calibrate (hold)'), settings: tk('Controller settings'),
 };
 
 /** Callout columns, top to bottom, roughly in the order the buttons sit on the pad. */
@@ -26,7 +27,7 @@ const FACE = (x: number, y: number, i: number, l: string) => `<g><circle class="
 
 /** The outline. Every bindable control carries data-btn (its standard-mapping index). */
 export function outlineSvg(): string {
-  return `<svg class="gpo-svg" viewBox="0 0 400 260" role="img" aria-label="Gamepad outline">
+  return `<svg class="gpo-svg" viewBox="0 0 400 260" role="img" aria-label="${t('Gamepad outline')}">
   <rect class="b trig" data-btn="${BTN.LT}" x="88" y="10" width="54" height="24" rx="9"/><rect class="tfill" data-tf="${BTN.LT}" x="88" y="10" width="54" height="0" rx="9"/>
   <rect class="b trig" data-btn="${BTN.RT}" x="258" y="10" width="54" height="24" rx="9"/><rect class="tfill" data-tf="${BTN.RT}" x="258" y="10" width="54" height="0" rx="9"/>
   <text class="lbl" x="115" y="26">LT</text><text class="lbl" x="285" y="26">RT</text>
@@ -44,18 +45,18 @@ export function outlineSvg(): string {
 
 export const OUTLINE_CSS = `
 .gpo-svg{width:100%;height:auto;display:block;overflow:visible}
-.gpo-svg .body{fill:#23262a;stroke:#5a5f66;stroke-width:2}
-.gpo-svg .b{fill:#2e3237;stroke:#6b7078;stroke-width:1.5;transition:fill .05s}
-.gpo-svg .b.on{fill:#4be38a;stroke:#c9f5da}
-.gpo-svg .b.bad{stroke:#e08a00;stroke-width:2.5}
-.gpo-svg .b.seen{stroke:#4be38a;stroke-width:2.5}
-.gpo-svg .b.focus{stroke:#ffd27a;stroke-width:3}
-.gpo-svg .tfill{fill:#4be38a;opacity:.75;pointer-events:none}
-.gpo-svg .hub{fill:#2e3237}
-.gpo-svg .guide{fill:#1b1e21;stroke:#4a4e53;stroke-width:1.5}
-.gpo-svg .dot{fill:#7ee2a8;pointer-events:none}
-.gpo-svg text{fill:#d8d8d8;font:700 11px system-ui,sans-serif;text-anchor:middle;pointer-events:none}
-.gpo-svg .lbl{font-size:10px;fill:#9aa0a6}
+.gpo-svg .body{fill:var(--surface-2);stroke:var(--border-control);stroke-width:2}
+.gpo-svg .b{fill:var(--surface-3);stroke:var(--border-control);stroke-width:1.5;transition:fill .05s}
+.gpo-svg .b.on{fill:var(--accent);stroke:var(--accent-hover)}
+.gpo-svg .b.bad{stroke:var(--warn);stroke-width:2.5}
+.gpo-svg .b.seen{stroke:var(--accent);stroke-width:2.5}
+.gpo-svg .b.focus{stroke:var(--warn);stroke-width:3}
+.gpo-svg .tfill{fill:var(--accent);opacity:.75;pointer-events:none}
+.gpo-svg .hub{fill:var(--surface-3)}
+.gpo-svg .guide{fill:var(--surface);stroke:var(--border-strong);stroke-width:1.5}
+.gpo-svg .dot{fill:var(--accent);pointer-events:none}
+.gpo-svg text{fill:var(--text);font:700 11px var(--sans);text-anchor:middle;pointer-events:none}
+.gpo-svg .lbl{font-size:10px;fill:var(--text-2)}
 `;
 
 /** Paint a pad snapshot onto an outline inside `root`: pressed buttons, stick dots, trigger fill. */
@@ -84,13 +85,13 @@ export function paintPad(root: ParentNode, p: PadSnapshot | null, seen?: Set<num
 /** Settings → Controller: outline plus callouts (one per button) whose action chips start a rebind. */
 export function mapOutlineHtml(s: GamepadSettings, listening: BindAction | null, bad: Set<BindAction>): string {
   const km = s.keymap;
-  const stickNote = (i: number) => i === BTN.L3 ? (s.cursorStick === 'left' ? 'moves the cursor' : 'pans the board') : i === BTN.R3 ? (s.cursorStick === 'right' ? 'moves the cursor' : 'pans the board') : '';
+  const stickNote = (i: number) => i === BTN.L3 ? (s.cursorStick === 'left' ? t('moves the cursor') : t('pans the board')) : i === BTN.R3 ? (s.cursorStick === 'right' ? t('moves the cursor') : t('pans the board')) : '';
   const callout = (i: number, side: 'l' | 'r') => {
     const acts = actionsOn(km, i);
     const isBad = acts.some((a) => bad.has(a));
     const note = stickNote(i);
-    const name = i === BTN.L3 ? 'Left stick · L3' : i === BTN.R3 ? 'Right stick · R3' : buttonName(i);
-    return `<div class="gpo-co${isBad ? ' bad' : ''}" data-co="${i}" data-side="${side}"><div class="gpo-bn">${name}${note ? ` <span class="gpo-note">· ${note}</span>` : ''}</div><div class="gpo-acts">${acts.length ? acts.map((a) => `<button type="button" class="gpo-chip${bad.has(a) ? ' bad' : ''}${listening === a ? ' listen' : ''}" data-bind="${a}" title="Rebind: ${SHORT[a]}">${listening === a ? 'Press a button…' : SHORT[a]}</button>`).join('') : '<span class="gpo-none">not used</span>'}</div></div>`;
+    const name = i === BTN.L3 ? `${t('Left stick')} · L3` : i === BTN.R3 ? `${t('Right stick')} · R3` : buttonName(i);
+    return `<div class="gpo-co${isBad ? ' bad' : ''}" data-co="${i}" data-side="${side}"><div class="gpo-bn">${name}${note ? ` <span class="gpo-note">· ${note}</span>` : ''}</div><div class="gpo-acts">${acts.length ? acts.map((a) => `<button type="button" class="gpo-chip${bad.has(a) ? ' bad' : ''}${listening === a ? ' listen' : ''}" data-bind="${a}" title="${t('Rebind: {action}', { action: t(SHORT[a]) })}">${listening === a ? t('Press a button…') : t(SHORT[a])}</button>`).join('') : `<span class="gpo-none">${t('not used')}</span>`}</div></div>`;
   };
   return `<div class="gpo-col l">${LEFT_CALLOUTS.map((i) => callout(i, 'l')).join('')}</div>
     <div class="gpo-pad">${outlineSvg()}</div>
@@ -128,21 +129,22 @@ export const MAP_CSS = `
 .gpo-col{display:flex;flex-direction:column;gap:3px;min-width:0;grid-row:1}
 .gpo-col.l{grid-column:1}.gpo-col.r{grid-column:3}
 .gpo-col.l .gpo-co{text-align:right}.gpo-col.l .gpo-acts{justify-content:flex-end}
-.gpo-co{border:1px solid #2c2f33;border-radius:8px;padding:3px 6px;background:#1f2225;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px}
+.gpo-co{border:1px solid var(--border);border-radius:8px;padding:3px 6px;background:var(--surface-2);min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:2px 6px}
 .gpo-col.l .gpo-co{flex-direction:row-reverse}
-.gpo-co.bad{border-color:#e08a00;background:#2a2410}
-.gpo-co.on{border-color:#4be38a;background:#16301f}
-.gpo-bn{font-size:12px;font-weight:700;color:#fff;line-height:1.3}
-.gpo-note{font-weight:400;color:#9aa0a6}
+.gpo-co.bad{border-color:var(--warn);background:var(--warn-weak)}
+.gpo-co.on{border-color:var(--accent);background:var(--accent-weak)}
+.gpo-bn{font-size:12px;font-weight:700;color:var(--text);line-height:1.3}
+.gpo-note{font-weight:400;color:var(--text-2)}
 .gpo-acts{display:flex;flex-wrap:wrap;gap:3px}
-.gps .gpo-chip{min-height:32px;padding:2px 8px;font-size:12px;border-radius:6px;background:#2b2e32}
-.gps .gpo-chip.bad{border-color:#e08a00;color:#ffd27a}
-.gps .gpo-chip.listen{background:#4be38a;color:#111;border-color:#4be38a}
-.gpo-none{font-size:12px;color:#6b7078;padding:4px 0}
+.gps .gpo-chip{min-height:32px;padding:2px 8px;font:12px var(--sans);color:var(--text);background:var(--surface-3);border:1px solid var(--border-strong);border-radius:var(--radius);cursor:pointer}
+.gps .gpo-chip:hover{border-color:var(--accent-line)}
+.gps .gpo-chip.bad{border-color:var(--warn);color:var(--warn)}
+.gps .gpo-chip.listen{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.gpo-none{font-size:12px;color:var(--border-control);padding:4px 0}
 .gpo-lines{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
-.gpo-lines path{fill:none;stroke:#5a5f66;stroke-width:1}
-.gpo-lines circle{fill:#9aa0a6}
-.gpo-lines .bad{stroke:#e08a00}.gpo-lines circle.bad{fill:#e08a00}
+.gpo-lines path{fill:none;stroke:var(--border-control);stroke-width:1}
+.gpo-lines circle{fill:var(--text-2)}
+.gpo-lines .bad{stroke:var(--warn)}.gpo-lines circle.bad{fill:var(--warn)}
 @media (max-width:720px){
   .gpo-wrap{grid-template-columns:1fr 1fr;--stacked:1}
   .gpo-pad{grid-column:1/-1;grid-row:1;max-width:420px;margin:0 auto;width:100%}
