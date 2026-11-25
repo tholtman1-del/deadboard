@@ -26,7 +26,9 @@ export type ComponentKind =
 export type BodyShape =
   | 'box' | 'axial' | 'led' | 'radial' | 'coin' | 'tactile' | 'fuse' | 'header' | 'pin' | 'chip' | 'to92' | 'none'
   /** wire terminals (src/terminals.ts) */
-  | 'turret' | 'hook' | 'tab' | 'cup';
+  | 'turret' | 'hook' | 'tab' | 'cup'
+  /** a metal-can transistor (TO-5 / TO-39) */
+  | 'to5';
 
 export interface Body {
   shape: BodyShape;
@@ -116,6 +118,11 @@ export interface ComponentState {
    * in ideal fills (src/rework.ts FEED_RATE). Graded for insufficient and excessive solder.
    */
   solderFill?: Record<number, number>;
+  /**
+   * How a part stands on the board (NEETS 14 fig. 3-19): flush, on a spacer, or over an air gap.
+   * Absent = flush. A replacement is mounted the way the manufacturer mounted the original.
+   */
+  mount?: 'flush' | 'spacer' | 'gap';
   /** Clinched leads whose surface solder was wicked off: only a sweat joint holds them to the pad. */
   surfaceWicked?: number[];
   /** Intermittent faults driven by temperature / board flex (see src/intermittent.ts). */

@@ -141,12 +141,14 @@ function desoldering() {
 }
 
 /** The transistor switch (2N3904 sinking two LEDs), through-hole: shared by lessons 5 and 11. */
-function transistorSwitchBoard(label: string): Builder {
+function transistorSwitchBoard(label: string, can = false): Builder {
   const k = new Builder(82, 46);
   const j1 = k.header('J1', 3, [6, 24], 0, '2×AA');
   k.tactile('SW1', [20, 14]);
   const r1 = k.resistor('R1', 1000, [34, 16.25]);
-  const q1 = k.to92('Q1', '2N3904', [50, 30], 180);
+  // `can`: Q1 is a 2N2219A in a TO-39 metal can, mounted on a spacer (NEETS 14 fig. 3-19); same pins and tracks
+  const q1 = can ? k.to5('Q1', '2N2219A', [50, 30], 180) : k.to92('Q1', '2N3904', [50, 30], 180);
+  if (can) q1.state.mount = 'spacer';
   const r2 = k.resistor('R2', 68, [60, 9]);
   const d1 = k.led('D1', 'red', [70, 9], 180);
   const r3 = k.resistor('R3', 68, [60, 18]);
@@ -425,6 +427,30 @@ async function burnedLaminate(): Promise<Scenario> {
 }
 
 /**
+ * TO packages (NEETS 14 pp. 3-27 – 3-28): the transistor switch with Q1 a 2N2219A metal can that the
+ * manufacturer mounted on a spacer. Q1 is dead; the replacement goes in the same way.
+ */
+async function toPackages(): Promise<Scenario> {
+  const k = transistorSwitchBoard('HI-REL 17  TO PACKAGES', true);
+  const sw = (on: boolean) => ({ SW1: on });
+  const sc = await finalize('hr-to-package', {
+    title: 'TO Packages',
+    author: 'DEADBOARD',
+    difficulty: 3,
+    description: 'Pressing SW1 should light both LEDs. Q1, a 2N2219A in a metal can, failed. The manufacturer mounted it on a spacer above the board. Take it out without forcing it, and fit the new one the way the old one was fitted.',
+    hints: [
+      'Q1 is a TO-39 can on a spacer: look at it in 3D (V). Its three leads go through plated holes.',
+      'Clear each of the three holes (extractor, X, continuous vacuum). Only when every lead is free does the can slip out: take it out with the wick (4) or the Inspector.',
+      'Bench → TO mounting: on a spacer, as the original. Fit a new 2N2219A, clip a thermal shunt (S) on each lead, solder with "+ flux", clean, test with SW1.',
+    ],
+    par: 9,
+  }, k.b, [{ type: 'led', ref: 'D1', on: true, switches: sw(true) }, { type: 'led', ref: 'D2', on: true, switches: sw(true) }, { type: 'led', ref: 'D1', on: false, switches: sw(false) }, { type: 'led', ref: 'D2', on: false, switches: sw(false) }], 'PCB{t0_c4n_0n_4_sp4c3r}',
+  (b) => { b.components.find((c) => c.ref === 'Q1')!.state.burnt = true; });
+  sc.solver = 'spice';
+  return sc;
+}
+
+/**
  * Point-to-point wiring on terminals (T.O. 00-25-259 WP 008 00 / 009 00): +5V from J1 reaches
  * terminal E1; each LED row is fed from its own terminal (E2, E3 …); hook-up wires join them as
  * `wires` lists. The good board carries target wires (one diameter clearance, 180°, cut flush,
@@ -558,8 +584,8 @@ async function finalPractical(): Promise<Scenario> {
 }
 
 export async function solderingScenarios(): Promise<Scenario[]> {
-  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern(), conductorRepair(), conformalCoating(), coatingId(), esdBoard(), padRepair(), turretTerminals(), hookAndTab(), solderCups(), clinchedLeads(), burnedLaminate(), finalPractical()]);
+  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern(), conductorRepair(), conformalCoating(), coatingId(), esdBoard(), padRepair(), turretTerminals(), hookAndTab(), solderCups(), clinchedLeads(), burnedLaminate(), toPackages(), finalPractical()]);
 }
 
 /** The track's boards, in order. */
-export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern', 'hr-conductor-repair', 'hr-conformal-coating', 'hr-coating-id', 'hr-esd', 'hr-pad-repair', 'hr-turret', 'hr-hook-tab', 'hr-solder-cup', 'hr-clinched-leads', 'hr-laminate', 'hr-final-practical'] as const;
+export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern', 'hr-conductor-repair', 'hr-conformal-coating', 'hr-coating-id', 'hr-esd', 'hr-pad-repair', 'hr-turret', 'hr-hook-tab', 'hr-solder-cup', 'hr-clinched-leads', 'hr-laminate', 'hr-to-package', 'hr-final-practical'] as const;

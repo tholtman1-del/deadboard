@@ -172,7 +172,15 @@ No reference hardware is available, so realism is validated against *design inte
     NEETS p. 3-24) and `solder-excess` (05-4.2.10, 05-6.1), graded in every lesson; the iron's
     readout says what the fillet looks like (pad not covered / hole not full / full fillet / excess), the renderer sizes the fillet (thin / full / convex ball). Desoldering
     lesson gained the point. Wire terminals keep their own ok / starved model.
-  - **Next from the manuals:** icicles (05-4.2.12: lifting the iron before the solder, or reflowing
+  - **TO packages (2026-11-25), lesson 17 `hr-to-package` (track: 18):** body shape `to5` (TO-39 can,
+    `Builder.to5`: leads on a 5.08 mm circle, E/B/C), `ComponentState.mount` flush / spacer / gap
+    (drawn: spacer disc, lead stand-off), Bench → TO mounting applied on fit (`afterFit`, to5 only),
+    rule `mounting-style` (NEETS p. 3-27, compared with the reference). devicelib 2N2219A
+    (unverified: onsemi pins, hFE ≥ 100 at 150 mA; typical 150 estimate). Board =
+    `transistorSwitchBoard(label, can)` with Q1 a can on a spacer, burnt. NEETS fig. 3-19, Q24, Q25,
+    Q34. Not modelled: clipping a dead part's leads (Q24), embedded mounting, tab orientation.
+  - **Next from the manuals:** flat packs (NEETS pp. 3-29 – 3-31: heat each lead and lift, lead
+    forming/trimming, pretinned lap joints, skipping pattern); icicles (05-4.2.12: lifting the iron before the solder, or reflowing
     without flux), pinholes / blowholes; two-wire rules (overlap, alternating directions on a hook) are not modelled (the tool stacks
     wires); bifurcated terminals (08-6.8); resistive tweezers for cups; remaining 05-6.1 defects
     need a solder-volume model (convex fillet, icicles, solder balls).

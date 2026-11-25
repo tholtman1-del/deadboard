@@ -58,6 +58,7 @@ function normalizeComponent(c: Component): Component {
       ...(Array.isArray(c.state?.shunts) && { shunts: c.state.shunts.filter((x) => Number.isInteger(x)) }),
       ...(c.state?.clinch && typeof c.state.clinch === 'object' && { clinch: Object.fromEntries(Object.entries(c.state.clinch).filter(([k, v]) => Number.isInteger(Number(k)) && v && (v.style === 'semi' || v.style === 'full') && typeof v.len === 'number' && isFinite(v.len) && v.len > 0).map(([k, v]) => [k, { style: v.style, len: v.len, along: !!v.along }])) }),
       ...(c.state?.solderFill && typeof c.state.solderFill === 'object' && { solderFill: Object.fromEntries(Object.entries(c.state.solderFill).filter(([k, v]) => Number.isInteger(Number(k)) && typeof v === 'number' && isFinite(v) && v >= 0)) }),
+      ...((c.state?.mount === 'spacer' || c.state?.mount === 'gap') && { mount: c.state.mount }),
       ...(Array.isArray(c.state?.surfaceWicked) && { surfaceWicked: c.state.surfaceWicked.filter((x) => Number.isInteger(x)) }),
       ...(Array.isArray(c.state?.fluxResidue) && { fluxResidue: c.state.fluxResidue.filter((x) => Number.isInteger(x)) }),
       ...(Array.isArray(c.state?.intermittent) && { intermittent: c.state.intermittent.filter((f) => f && typeof f.threshold === 'number' && ['thermal-open', 'thermal-leak', 'flex-open', 'flex-close'].includes(f.kind)) }),

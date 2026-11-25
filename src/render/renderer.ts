@@ -1606,6 +1606,19 @@ export class Renderer {
       return;
     }
 
+    if (shape === 'to5') {
+      // a TO-5 / TO-39 metal can: flange, can and the reference tab; on a spacer or over an air gap if mounted so
+      const lift = c.state.mount === 'spacer' ? 1.5 : c.state.mount === 'gap' ? 1.5 : 0;
+      const m = thermCol ?? (burnt ? [0.46, 0.38, 0.3] : [0.78, 0.79, 0.82]); // a burnt can stays metal, discoloured
+      if (c.state.mount === 'spacer') { const q = toW(0, 0, lift / 2); op.cyl.pushTRS(q[0], q[1], q[2], 7.2, 7.2, lift, effRot, 0.86, 0.86, 0.82, 1, 0, 0.05, 0.7, spec); }
+      if (lift) for (const p of c.pads) { const a = toPadW(p.at[0], p.at[1], lift / 2); op.cyl.pushTRS(a[0], a[1], a[2], 0.45, 0.45, lift, 0, 0.82, 0.84, 0.88, 1, 0, 0.95, 0.2); }
+      const fl = toW(0, 0, lift + 0.25); op.cyl.pushTRS(fl[0], fl[1], fl[2], 9.4, 9.4, 0.5, effRot, m[0], m[1], m[2], 1, thermEm, 0.9, 0.25, spec);
+      const can = toW(0, 0, lift + 0.5 + (c.body.z - 0.5) / 2); op.cyl.pushTRS(can[0], can[1], can[2], 8.5, 8.5, c.body.z - 0.5, effRot, m[0], m[1], m[2], 1, thermEm, 0.9, 0.25, spec);
+      // the tab, on the emitter side of the base lead (45° between them)
+      const tb = toW(-3.3 * Math.SQRT1_2 * 1.4, 3.3 * Math.SQRT1_2 * 1.4, lift + 0.25); op.box.pushTRS(tb[0], tb[1], tb[2], 1.0, 0.8, 0.5, effRot + 45, m[0], m[1], m[2], 1, thermEm, 0.9, 0.25, spec);
+      return;
+    }
+
     if (shape === 'turret' || shape === 'hook' || shape === 'tab' || shape === 'cup') {
       // wire terminals (src/terminals.ts): tin-plated brass on a swaged flange, ~5 mm tall
       const m = thermCol ?? [0.84, 0.82, 0.74];

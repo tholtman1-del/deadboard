@@ -2,7 +2,7 @@
   "format": "deadboard-mod/2",
   "id": "board-notes",
   "name": "Board notes (knowledge packs for the shipped boards)",
-  "version": "1.19.0",
+  "version": "1.20.0",
   "author": "Biga73 (idea) · DEADBOARD",
   "description": "An example data mod: a knowledge pack for every board that ships with DEADBOARD. Rails, where each one comes from, what to expect at which pin, and what a low reading usually means, each marked documented, derived or estimated. The packs describe the working board and point at likely causes, the way the board's hints do; they don't name the planted faults. Based on the device knowledge pack RFC by Biga73.",
   "license": "CC0-1.0",
@@ -1349,6 +1349,46 @@
       "notes": [
         "Charred laminate conducts: R2 measured in circuit over a burn reads below 330 Ω. A surface patch removes the char (T.O. 00-25-259 11-5.2).",
         "Soldered with 63/37 tin-lead (melts at 183 °C, 361 °F), as in NEETS Module 14 (public-domain US Navy textbook)."
+      ]
+    },
+    {
+      "id": "hr-to-package",
+      "board": "official-boards/boards/hr-to-package",
+      "title": "TO Packages",
+      "provenance": { "kind": "board design + simulator", "where": "part values from the board; readings from DEADBOARD's simulator (SPICE, 2N2219A model) on the working board", "confidence": "derived" },
+      "rails": [
+        {
+          "net": "+3V",
+          "nominal": 3.0,
+          "domain": "always on",
+          "source": { "ref": "J1", "kind": "3 V battery connector (2×AA)" },
+          "checks": [
+            { "at": "R2", "pin": "1", "expect": "≈2.8–3.0 V (the cells sag a little under the ≈23 mA load with SW1 pressed)", "readsLowIf": "the battery is flat or not connected" }
+          ]
+        },
+        {
+          "net": "BASE",
+          "domain": "while SW1 is pressed",
+          "source": { "ref": "R1", "kind": "1 kΩ base resistor" },
+          "checks": [
+            { "at": "R1", "pin": "2", "expect": "≈0.67 V pressed (one base–emitter diode drop)", "readsLowIf": "≈0 V: SW1 or R1 is open. Close to +3V instead: the base–emitter path is open (Q1's base or emitter lead not soldered)" }
+          ]
+        },
+        {
+          "net": "COLLECTOR",
+          "domain": "both LED cathodes, switched to GND by Q1",
+          "source": { "ref": "Q1", "kind": "2N3904 NPN transistor (TO-92)" },
+          "checks": [
+            { "at": "Q1", "pin": "3", "expect": "≈0.07 V pressed (Q1 fully on)", "readsLowIf": "it reads high instead: Q1 never switches on (no base current, or its collector lead is not soldered)" }
+          ],
+          "notes": "Pressed, each LED takes ≈10.6 mA through its 68 Ω resistor. Q1's pins: 1 emitter, 2 base, 3 collector."
+        }
+      ],
+      "powerUp": [ "+3V" ],
+      "notes": [
+        "Through-hole parts are soldered on the bottom side: a dull, grainy joint there can look fine from the top and still be open.",
+        "Soldered with 63/37 tin-lead (melts at 183 °C, 361 °F), as in NEETS Module 14 (public-domain US Navy textbook).",
+        "Q1 is a 2N2219A in a TO-39 metal can (pins 1 emitter, 2 base, 3 collector), mounted on a spacer: a replacement goes in the same way (NEETS Module 14 p. 3-27)."
       ]
     },
     {

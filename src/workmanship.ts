@@ -2,7 +2,7 @@
 // actually happened on the bench (src/rework.ts episodes and events) and the board as it is now.
 // Every rule cites its source; a "reject" means the work would not pass inspection, a "note"
 // is advice. Universal: nothing here knows any particular board.
-import { tk } from './i18n';
+import { t, tk } from './i18n';
 import type { Board } from './types';
 import { FILL_LIMITS, isHeatSensitive, isPlated, type JointEpisode, type ReworkEvent } from './rework';
 import { judgeClinch, terminationName, terminationOf } from './clinch';
@@ -25,7 +25,7 @@ export type FindingKind =
   | 'wire-strip' | 'wire-tinning' | 'wire-clearance' | 'wire-forming' | 'wire-solder'
   | 'clinch' | 'termination-style'
   | 'laminate-burn' | 'laminate-excavation' | 'epoxy-fill' | 'buttercoat'
-  | 'solder-insufficient' | 'solder-excess';
+  | 'solder-insufficient' | 'solder-excess' | 'mounting-style';
 
 /**
  * `procedural`: about how the work was done, which the finished board does not show; listed only
@@ -69,8 +69,11 @@ export const RULES: Record<FindingKind, Rule> = {
   'buttercoat': { kind: 'buttercoat', severity: 'reject', title: tk('Buttercoat'), rule: tk('A thin, smooth, continuous layer of cured epoxy covers and overlaps the exposed fiber weave in the repair area.'), source: to('11-6.4') },
   'solder-insufficient': { kind: 'solder-insufficient', severity: 'reject', title: tk('Insufficient solder'), rule: tk('The pad on the termination side is at least 75 % covered with wetted solder (100 % is the target), and the vertical fill of a plated-through hole is 100 %.'), source: src('3-24'), also: [to('07-6.20')] },
   'solder-excess': { kind: 'solder-excess', severity: 'reject', title: tk('Excessive solder'), rule: tk('Too much solder hides the parts being joined: the fillet is convex and their outline is not discernible. The solder must be removed and the joint resoldered.'), source: to('05-4.2.10, 05-6.1') },
+  'mounting-style': { kind: 'mounting-style', severity: 'reject', title: tk('Not mounted like the original'), rule: tk('TOs are mounted flush, on a spacer or over an air gap, as the manufacturer chose (heat dissipation, short-circuit protection, support): the technician replaces them the same way.'), source: src('3-27') },
   'wire-repair': { kind: 'wire-repair', severity: 'note', title: tk('Wire repair'), rule: tk('A wire lap-soldered across a break is stronger than a solder bridge but not highly reliable; the clinched staple is the preferred repair of a broken conductor.'), source: src('3-32') },
 };
+
+const mountName = (m?: 'flush' | 'spacer' | 'gap') => (m === 'spacer' ? t('on a spacer') : m === 'gap' ? t('air gap') : t('flush'));
 
 /** A nick deeper than this share of the conductor is a defect (T.O. 00-25-259 12-6.1: 20 %; NEETS 14 p. 3-31 had one tenth). */
 export const NICK_LIMIT = 0.2;
@@ -180,6 +183,7 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
     if (!c.state.populated) continue;
     for (const pi of Object.keys(c.state.clinch ?? {}).map(Number)) for (const ck of judgeClinch(board, c, pi)) if (ck.verdict === 'defect') add({ kind: 'clinch', where: padName(c.ref, pi), detail: ck.what });
     const orig = reference?.components.find((x) => x.id === c.id);
+    if (orig && (orig.state.mount ?? 'flush') !== (c.state.mount ?? 'flush')) add({ kind: 'mounting-style', where: c.ref, detail: `${mountName(c.state.mount)} ≠ ${mountName(orig.state.mount)}` });
     if (orig && terminationOf(orig) !== terminationOf(c)) add({ kind: 'termination-style', where: c.ref, detail: `${terminationName(terminationOf(c))} ≠ ${terminationName(terminationOf(orig))}` });
   }
 

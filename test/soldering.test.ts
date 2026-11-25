@@ -496,6 +496,37 @@ async function main() {
     assert(inRow.findings.some((f) => f.kind === 'skip-pattern'), 'pins heated one after the other are caught');
   }
 
+  // ---- TO packages (NEETS 14 pp. 3-27 – 3-28): a can on a spacer, replaced the same way ----
+  {
+    const sc = scs.find((x) => x.id === 'hr-to-package')!, lesson = lessonFor('hr-to-package')!;
+    assert(referenceBoard(sc)!.components.find((c) => c.ref === 'Q1')!.state.mount === 'spacer', 'the factory mounted Q1 on a spacer');
+    const play = (mount: 'flush' | 'spacer') => {
+      const b = structuredClone(sc.board), q1 = b.components.find((c) => c.ref === 'Q1')!;
+      const m = new ThermalModel(b), rw = new ReworkMonitor(b, m, limitsFor('sn63'));
+      const heat = (pi: number, s: number, feed = false) => {
+        rw.applyFlux(q1.at[0], q1.at[1], 8); if (feed) rw.feedSolder(q1, pi);
+        m.addSource({ kind: 'iron', x: 0, y: 0, temp: 316, g: IRON_G.flux, pmax: 60, until: m.time + s, partId: q1.id, pad: pi });
+        for (let t = 0; t < s; t += 0.05) { m.step(0.05); rw.update(0.05); }
+      };
+      const cool = () => { for (let t = 0; t < 4; t += 0.1) { m.step(0.1); rw.update(0.1); } };
+      for (const pi of [0, 1, 2]) { heat(pi, 1.3); rw.extract(q1, pi, 'vacuum'); cool(); }
+      assert(heldPads(q1).length === 0, 'Q1 free');
+      removePart(q1); installPart(q1);
+      if (mount === 'spacer') q1.state.mount = 'spacer';
+      q1.state.holes = { 0: 'clear', 1: 'clear', 2: 'clear' }; q1.state.cold = [0, 1, 2];
+      q1.state.shunts = [0, 1, 2];
+      for (const pi of [0, 1, 2]) { heat(pi, 1.6, true); cool(); }
+      q1.state.shunts = undefined;
+      for (const c of b.components) c.state.fluxResidue = undefined;
+      return { b, ins: inspect(b, referenceBoard(sc)!, rw.episodes, rw.log) };
+    };
+    const good = play('spacer');
+    assert(evaluateObjectives(good.b, buildConnectivity(good.b), sc.objectives, 'spice').allPassed, 'the new 2N2219A switches both LEDs');
+    assert(lessonAccepted(lesson, good.ins), `refitted on a spacer: accepted (${JSON.stringify(good.ins.findings)})`);
+    const flush = play('flush');
+    assert(!lessonAccepted(lesson, flush.ins) && flush.ins.findings.some((f) => f.kind === 'mounting-style'), 'refitted flush: not like the original');
+  }
+
   // ---- solder volume on new joints (T.O. 07-6.20, 05-4.2.10) ----
   {
     const sc = scs.find((x) => x.id === 'hr-desoldering')!;

@@ -100,6 +100,7 @@ export const BOARD_INFO: Record<string, BoardInfo> = {
   'hr-solder-cup': { level: 4.6, symptom: tk('Two LEDs dark: the wires are missing'), teaches: ['tool:hookup', 'tool:iron', 'part:terminal'] },
   'hr-clinched-leads': { level: 4.8, symptom: tk('One of two LEDs stays dark'), teaches: ['tool:pliers', 'tool:extract', 'tool:replace'] },
   'hr-laminate': { level: 5.0, symptom: tk('One of two LEDs stays dark, the board is scorched'), teaches: ['tool:laminate', 'tool:extract', 'tool:replace'] },
+  'hr-to-package': { level: 3.4, symptom: tk('Pressed, the LEDs stay dark'), teaches: ['tool:extract', 'tool:shunt', 'tool:replace', 'part:bjt'] },
   'hr-final-practical': { level: 5.2, symptom: tk('Pressed, the LEDs stay dark'), teaches: ['tool:extract', 'tool:shunt', 'tool:decoat', 'tool:staple'] },
   'hr-thermal-shunt': { level: 2.9, symptom: tk('Pressed, the LEDs stay dark'), teaches: ['tool:shunt', 'part:bjt', 'fault:cold'] },
   'hr-clean-inspect': { level: 2.2, symptom: tk('Reworked, both LEDs dark, left a mess'), teaches: ['tool:wick', 'tool:ipa', 'fault:bridge'] },

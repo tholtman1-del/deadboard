@@ -336,6 +336,7 @@ how often the planted part is in the top 3, with and without your rules.
 | `official-boards/boards/hr-solder-cup` | Solder Cups |
 | `official-boards/boards/hr-clinched-leads` | Clinched Leads |
 | `official-boards/boards/hr-laminate` | Burned Laminate |
+| `official-boards/boards/hr-to-package` | TO Packages |
 | `official-boards/boards/hr-final-practical` | Final Practical |
 | `official-boards/boards/demo-mnt-reform2-mb30` | MNT Reform 2 · dead 3.3 V rail (demo, loads when opened) |
 | `official-boards/boards/demo-antmicro-jetson-nano-bb` | Antmicro baseboard · no 3.3 V, flaky 5 V (demo, loads when opened) |
@@ -376,6 +377,7 @@ Patch an entry by its address. Numbers are the datasheet quantities; see [Device
 | `official-solvers/devices/mmbt3904lp` | MMBT3904LP | npn | no |
 | `official-solvers/devices/4116r-2-331` | 4116R-2-331 | res, res, res, res, res, res, res, res | no |
 | `official-solvers/devices/2n7000` | 2N7000 | nmos | no |
+| `official-solvers/devices/2n2219a` | 2N2219A | npn | no |
 | `official-solvers/devices/2n3904` | 2N3904 | npn | no |
 | `official-solvers/devices/rb160m-60` | RB160M-60 | schottky | yes |
 | `official-solvers/devices/rb521es-30` | RB521ES-30 | schottky | yes |

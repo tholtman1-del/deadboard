@@ -240,6 +240,8 @@ export class PcbApp {
   private leadTerm: Termination = 'straight';
   private leadLen = 1;
   private leadAlong = true;
+  /** How a fitted metal-can (TO) part stands on the board (NEETS 14 fig. 3-19). */
+  private toMount: 'flush' | 'spacer' | 'gap' = 'flush';
   /** ESD: a grounded wrist strap and mat, and the air's relative humidity (Bench; NEETS 14 Table 3-2). */
   private grounded = true;
   private humidity: Humidity = 'high';
@@ -900,6 +902,11 @@ export class PcbApp {
             <label class="bench-row"><span>${t('Clinch direction')}</span><select id="lead-dir">
               <option value="along">${t('Along the conductor')}</option>
               <option value="across">${t('Across the conductor')}</option>
+            </select></label>
+            <label class="bench-row"><span>${t('TO mounting')}</span><select id="to-mount" title="${t('How a metal-can (TO) part you fit stands on the board: like the original (NEETS p. 3-27)')}">
+              <option value="flush">${t('Flush with the board')}</option>
+              <option value="spacer">${t('On a spacer')}</option>
+              <option value="gap">${t('Air gap above the board')}</option>
             </select></label>
             <label class="bench-row"><span>${t('ESD protection')}</span><select id="esd-mode" title="${t('Grounded wrist strap and bench mat (NEETS p. 3-40)')}">
               <option value="on">${t('Wrist strap on')}</option>
@@ -3175,6 +3182,7 @@ export class PcbApp {
     });
     q('#coat-method').addEventListener('change', (e) => { this.coatMethod = (e.target as HTMLSelectElement).value as CoatMethod; });
     q('#coat-type').addEventListener('change', (e) => { this.coatType = (e.target as HTMLSelectElement).value as CoatingType; });
+    q('#to-mount').addEventListener('change', (e) => { this.toMount = (e.target as HTMLSelectElement).value as 'flush' | 'spacer' | 'gap'; });
     q('#lead-term').addEventListener('change', (e) => { this.leadTerm = (e.target as HTMLSelectElement).value as Termination; });
     q('#lead-len').addEventListener('change', (e) => { this.leadLen = Number((e.target as HTMLSelectElement).value) || 1; });
     q('#lead-dir').addEventListener('change', (e) => { this.leadAlong = (e.target as HTMLSelectElement).value === 'along'; });
@@ -3858,6 +3866,8 @@ export class PcbApp {
     this.leadsUnsoldered(c);
     // the bench's lead termination (straight-through leaves the leads as they are)
     if (isThroughHole(c)) clinchFitted(c, this.leadTerm, this.leadLen, this.leadAlong);
+    // a metal can stands the way the bench says (flush is the default, so other parts are unchanged)
+    if (c.body.shape === 'to5') c.state.mount = this.toMount === 'flush' ? undefined : this.toMount;
     // a part fitted over charred laminate: the char still leaks between its pads
     for (const b of this.board.burns ?? []) if (b.comp === c.id) applyLeak(this.board, b);
     const out = handleEsd(c, this.grounded, this.humidity);

@@ -563,6 +563,34 @@ CONTENT.push({
   ],
 });
 
+// TO packages: NEETS Module 14 pp. 3-27 – 3-28.
+CONTENT.push({
+  scenario: 'hr-to-package',
+  source: { ...NEETS14_SOURCE, pages: '3-27 – 3-28' },
+  points: [
+    tk('TO cans are plugged in (leads through the board, flush, on a spacer or over an air gap) or embedded in a cut-out. The manufacturer chose the mounting for heat dissipation, short-circuit protection or support: replace the part the same way.'),
+    tk('Removing a plug-in TO is like removing a DIP or a discrete part: coating off if there is one, each lead desoldered, then the part gently lifted out.'),
+    tk('If the leads are not completely free, the part is not forced out: pressure damages the board. A part known to be defective may have its leads clipped first and the stubs removed one by one.'),
+    tk('Seat the new can with its reference tab where the old one was: viewed from the bottom, TO-5 leads are counted clockwise from the tab. Formed leads must not touch the case.'),
+  ],
+  numbers: [
+    { label: tk('Q1'), value: tk('2N2219A, TO-39 can, on a spacer') },
+    { label: tk('Lead circle'), value: tk('0.200 in (5.08 mm)') },
+  ],
+  figure: { src: 'lessons/neets14/fig-3-19.png', caption: tk('NEETS 14, figure 3-19. TO mounting techniques.') },
+  original: [
+    'Notice that plug-ins may either be mounted flush with the board surface or above the surface with or without a spacer. The air gap or spacer may be used by the manufacturer for a particular purpose. This type of mounting could be used for heat dissipation, short circuit protection, or to limit parasitic interaction between components. The spacer also provides additional physical support for the TO. The technician is responsible for using the same procedure as the manufacturer to replace TOs or any other components. (p. 3-27)',
+    'The procedure for removal of plug-in TOs (with or without conformal coatings) is the same as that used for a similarly mounted DIP or discrete component. The conformal coating is removed if required. Leads are desoldered and gently lifted out of the board. Then board terminals and component leads are cleaned. (p. 3-28)',
+    'When the new part or the one that was removed is installed, the leads are slipped through the spacer if required, and the part is properly positioned (reference tab in the proper location). The leads are aligned with the terminal holes and gently pressed into position. The part is soldered into place and visually inspected. Then the card is tested and the conformal coating is replaced if required. (p. 3-28)',
+  ],
+  task: tk('Q1, a 2N2219A on a spacer, failed. Clear its three holes, lift it out, fit a new one on a spacer (Bench → TO mounting), shunt each lead while you solder it, clean, and test with SW1.'),
+  questions: [
+    { ref: 'Q24', q: tk('When removing the component, under what circumstances may component leads be clipped?'), a: tk('If the component is known to be defective or if the board may be damaged by normal desoldering.'), page: '3-31' },
+    { ref: 'Q25', q: tk('How are imbedded TOs removed once the leads are free?'), a: tk('By pushing it gently out of the board.'), page: '3-31' },
+    { ref: 'Q34', q: tk('Viewed from the bottom, TO-5 pins are counted in what direction?'), a: tk('Clockwise.'), page: '1-32' },
+  ],
+});
+
 /** The whole lesson (meta and content) for a board. */
 export function lessonFor(scenarioId: string): Lesson | undefined {
   const m = LESSON_META.find((l) => l.scenario === scenarioId), c = CONTENT.find((l) => l.scenario === scenarioId);
