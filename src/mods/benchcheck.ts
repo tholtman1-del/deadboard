@@ -10,7 +10,7 @@
 //  - devices (added or patched): every board that uses the part is solved with and without the
 //    mod; the report lists the nets that moved and any test that changes result.
 import type { Board, Scenario } from '../types';
-import { lessonFor } from '../lessons/neets14';
+import { lessonMeta } from '../lessons/track';
 import type { LoadedMod } from './mods';
 import { buildConnectivity, type Conn } from '../connectivity';
 import { evaluateObjectives, evaluateObjectivesAsync, runSolver, type Solver } from '../verify';
@@ -165,7 +165,7 @@ export async function benchCheck(mod: LoadedMod, active: LoadedMod[], ctx: Bench
       const b = await ctx.board(addr);
       const ref = b && referenceBoard(b.scenario);
       if (!b || !ref || !b.scenario.objectives.length || ref.components.length > 60) continue; // small working boards: hundreds of faults are planted
-      if (lessonFor(b.scenario.id)) continue; // soldering lessons show no «Where to look?»: the lesson names the joints
+      if (lessonMeta(b.scenario.id)) continue; // soldering lessons show no «Where to look?»: the lesson names the joints
       boards.push({ title: b.title, reference: ref, objectives: b.scenario.objectives, solver: solverFor(b.scenario, true) });
     }
     const withMod = buildRuleSet(active.includes(mod) ? active : [...active, mod]);

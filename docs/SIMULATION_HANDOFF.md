@@ -80,8 +80,11 @@ No reference hardware is available, so realism is validated against *design inte
     with lesson 5) under thin acrylic, Q1 burnt, a 40 % nick on the collector run, dry air, strap
     off; every rule graded. Episodes heating a burnt part (`dead`) need no shunt. A test plays the
     whole practical through on the model.
-  - **Follow-ups:** the app chunk grew 226 → 263 KB gz this session, mostly lesson text: load
-    `src/lessons/neets14.ts` lazily (dynamic import when a track board opens); flat packs (3-29)
+  - **Lesson data split:** `src/lessons/track.ts` (`LESSON_META`, `lessonMeta`: board, title,
+    station, bench, grades: what the bench needs at once) and `src/lessons/neets14.ts` (the text,
+    its own 15 KB-gz chunk loaded with the first lesson dialog). App chunk 249 KB gz (was 226 before
+    the track, 263 with the text inline).
+  - **Follow-ups:** flat packs (3-29)
     and TO-5 cans (3-27) need new footprints; read the 2M certification manual + T.O. 00-25-259
     (the user downloads them) and compare the practical's grading with ours.
 

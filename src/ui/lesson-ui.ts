@@ -3,6 +3,7 @@
 // any other text (the app's `esc`).
 import { t } from '../i18n';
 import type { Lesson } from '../lessons/neets14';
+import type { LessonMeta } from '../lessons/track';
 import { BEST_JOINT_C, DWELL_LIMIT_S, RULES, type Inspection } from '../workmanship';
 import { COATINGS, METHODS, TABLE_3_1 } from '../coating';
 import { TABLE_3_2 } from '../esd';
@@ -65,7 +66,7 @@ export function lessonBriefHtml(l: Lesson, esc: Esc, base: string, phone: boolea
 }
 
 /** After the repair: the inspector's verdict, the measured joints, and the module's own review questions. */
-export function debriefHtml(l: Lesson | undefined, ins: Inspection, esc: Esc): string {
+export function debriefHtml(l: Lesson | LessonMeta | undefined, ins: Inspection, esc: Esc): string {
   const rejects = ins.findings.filter((f) => fails(l, f.kind));
   // procedure rules only where the lesson teaches them
   const notes = ins.findings.filter((f) => !rejects.includes(f) && (!RULES[f.kind].procedural || (l?.grades.includes(f.kind) ?? false)));
@@ -93,10 +94,11 @@ export function debriefHtml(l: Lesson | undefined, ins: Inspection, esc: Esc): s
         </tr>`).join('')}</tbody>
     </table>
     <p class="muted ins-ref">${t('The textbook: about {c} °C at the joint, soldering done in {s} s.', { c: BEST_JOINT_C, s: '2–3' })}</p>` : '';
-  const qs = l?.questions.length ? `
+  const questions = l && 'questions' in l ? l.questions : [];
+  const qs = questions.length ? `
     <div class="ins-qs">
       <div class="card-title">${t('Review questions')} <span class="muted">${t('from the textbook')}</span></div>
-      ${l.questions.map((q) => `
+      ${questions.map((q) => `
         <details class="ins-q">
           <summary><span class="mono muted">${esc(q.ref)}</span> ${esc(t(q.q))}</summary>
           <p>${esc(t(q.a))} <span class="muted">${t('NEETS 14, p. {page}', { page: esc(q.page) })}</span></p>
@@ -116,12 +118,12 @@ export function debriefHtml(l: Lesson | undefined, ins: Inspection, esc: Esc): s
 }
 
 /** Whether the inspection accepts the work under this lesson's graded rules. */
-export function lessonAccepted(l: Lesson | undefined, ins: Inspection): boolean {
+export function lessonAccepted(l: LessonMeta | undefined, ins: Inspection): boolean {
   return !ins.findings.some((f) => fails(l, f.kind));
 }
 
 /** A finding fails the inspection: a rule this lesson grades (whatever its usual severity: the lesson teaches it). */
-function fails(l: Lesson | undefined, kind: keyof typeof RULES): boolean {
+function fails(l: LessonMeta | undefined, kind: keyof typeof RULES): boolean {
   if (!l) return RULES[kind].severity === 'reject';
   return l.grades.includes(kind);
 }

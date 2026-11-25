@@ -54,7 +54,7 @@ import { fmtHz, sampleSignal, signalOn, type ScopeSignal } from '../scope';
 import type { PowerStateName } from '../spice/sequencer';
 import { HOTAIR_H, IRON_G, PREHEAT_H, ReworkMonitor, VACUUM_SECONDS, heldPads, isThroughHole, limitsFor, type ExtractMode, type ReworkEvent, type ReworkHistory } from '../rework';
 import { inspect, type Inspection } from '../workmanship';
-import { lessonFor } from '../lessons/neets14';
+import { lessonMeta } from '../lessons/track';
 import { handle as handleEsd, type Humidity } from '../esd';
 import { COATINGS, METHODS, applyCoating, coatingName, methodName, removeCoating, workable, type CoatMethod, type CoatingType } from '../coating';
 import { SOLDERING_TRACK_IDS } from '../scenarios/soldering';
@@ -244,6 +244,8 @@ export class PcbApp {
   private workHistory: ReworkHistory = { episodes: [], log: [] };
   /** The iron held on a joint (realistic rework): released on pointer / key up. */
   private ironHold: { src: { until: number }; start: number; where: string; el: HTMLElement | null; comp: Component; pad: number; vacuum: boolean; done: boolean } | null = null;
+  /** The lesson text module, once loaded (src/lessons/neets14.ts is its own chunk). */
+  private neets: typeof import('../lessons/neets14') | null = null;
   /** Soldering-track lesson dialog: before the repair, or the inspection after it. */
   private showLesson: 'brief' | 'debrief' | null = null;
   private lastInspection: Inspection | null = null;
@@ -1903,7 +1905,7 @@ export class PcbApp {
     const v = this.lastVerify;
     const ref = referenceBoard(sc);
     // a soldering lesson says which joints are bad and how to fix them: its help is the lesson
-    if (!v || v.allPassed || !ref || lessonFor(sc.id)) return '';
+    if (!v || v.allPassed || !ref || lessonMeta(sc.id)) return '';
     const mine = this.lookHere?.forVerify === v ? this.lookHere : null;
     const got = mine?.candidates ?? null;
     const busy = !!mine && !got;
@@ -2168,7 +2170,7 @@ export class PcbApp {
   private nextRepairHtml(): string {
     const v = this.lastVerify;
     const fixed = !!this.revealedFlag || (!!v?.allPassed && !v.topologyMismatch && !this.activeScenario.lock && this.activeScenario.objectives.length > 0);
-    if (!fixed || lessonFor(this.activeScenario.id)) return ''; // a soldering lesson's next step is in its track card
+    if (!fixed || lessonMeta(this.activeScenario.id)) return ''; // a soldering lesson's next step is in its track card
     const index = new Map(this.scenarios.map((sc, i) => [sc.id, i]));
     const solved = new Set(this.solvedIds);
     solved.add(this.activeScenario.id);
@@ -2338,7 +2340,7 @@ export class PcbApp {
 
   /** A soldering-track board sets its station and opens its lesson; leaving one restores the player's setting. */
   private applyLesson(sc: Scenario) {
-    const lesson = lessonFor(sc.id);
+    const lesson = lessonMeta(sc.id);
     this.lastInspection = null;
     if (lesson) {
       if (!this.savedRework) this.savedRework = { ...this.reworkMode };
@@ -3019,7 +3021,7 @@ export class PcbApp {
       sfxClick();
       this.toast(t('Bench checks failed — details in the Overview tab.'), 'warn');
     }
-    const lesson = lessonFor(this.activeScenario.id);
+    const lesson = lessonMeta(this.activeScenario.id);
     if (lesson && fixed) {
       // the board works: now the inspector looks at how the work was done
       this.lastInspection = this.inspectWork();
@@ -3109,7 +3111,7 @@ export class PcbApp {
     });
     q('#rework-mode').addEventListener('change', (e) => {
       const sel = e.target as HTMLSelectElement;
-      if (sel.value === 'instant' && lessonFor(this.activeScenario.id)) {
+      if (sel.value === 'instant' && lessonMeta(this.activeScenario.id)) {
         // a soldering lesson is about the real process: the inspector needs the heat you applied
         sel.value = this.reworkValue();
         this.toast(t('This lesson needs realistic rework: the inspection measures the heat you apply.'), 'info');
@@ -5028,7 +5030,7 @@ export class PcbApp {
     const hints = s.meta.hints;
     const v = this.lastVerify;
     const inTutTrack = isTutorialScenario(s.id);
-    const lesson = lessonFor(s.id);
+    const lesson = lessonMeta(s.id);
     // after the tutorials (all solved, or on the last one), and on the challenge boards themselves
     const showChallenges = (CHALLENGE_TRACK_IDS as readonly string[]).includes(s.id)
       || (inTutTrack && (TUTORIAL_SCENARIO_IDS.every((id) => this.solvedIds.has(id)) || s.id === TUTORIAL_SCENARIO_IDS[TUTORIAL_SCENARIO_IDS.length - 1]));
@@ -7050,7 +7052,7 @@ export class PcbApp {
   private lessonCardHtml(title: string): string {
     const ids = SOLDERING_TRACK_IDS as readonly string[];
     const ins = this.lastInspection;
-    const ok = ins && lessonAccepted(lessonFor(this.activeScenario.id), ins);
+    const ok = ins && lessonAccepted(lessonMeta(this.activeScenario.id), ins);
     return `
       <div class="card">
         <div class="card-title">
@@ -7068,8 +7070,15 @@ export class PcbApp {
 
   /** The lesson before a soldering-track repair, or the inspection after it. */
   private renderLessonModal() {
-    const lesson = lessonFor(this.activeScenario.id);
-    if (!lesson || (this.showLesson === 'debrief' && !this.lastInspection)) { this.showLesson = null; this.renderModal(); return; }
+    const meta = lessonMeta(this.activeScenario.id);
+    if (!meta || (this.showLesson === 'debrief' && !this.lastInspection)) { this.showLesson = null; this.renderModal(); return; }
+    // the lesson text (rules, NEETS quotes, tables, questions) is its own chunk, fetched with the first dialog
+    if (!this.neets) {
+      void import('../lessons/neets14').then((m) => { this.neets = m; if (this.showLesson) this.renderModal(); });
+      return;
+    }
+    const lesson = this.neets.lessonFor(this.activeScenario.id);
+    if (!lesson) { this.showLesson = null; this.renderModal(); return; }
     const brief = this.showLesson === 'brief';
     const ids = SOLDERING_TRACK_IDS as readonly string[];
     const nextId = ids[ids.indexOf(this.activeScenario.id) + 1];

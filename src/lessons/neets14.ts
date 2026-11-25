@@ -6,14 +6,14 @@
 // undone) and stay in English as a quote; everything else is ours and translated. Page numbers
 // are the module's printed page numbers. The review questions and answers are the module's own.
 import { tk } from '../i18n';
-import type { FindingKind } from '../workmanship';
+import { LESSON_META, type LessonMeta } from './track';
+export type { LessonMeta } from './track';
 
 export interface LessonQuestion { ref: string; q: string; a: string; page: string }
 
-export interface Lesson {
-  /** The board this lesson belongs to. */
+/** What a lesson teaches, loaded with the lesson dialog (the bench needs only `LessonMeta`). */
+export interface LessonContent {
   scenario: string;
-  title: string;
   source: { doc: string; pages: string; url: string };
   /** The rules in short, our words. */
   points: string[];
@@ -27,26 +27,21 @@ export interface Lesson {
   original: string[];
   /** What to do on this board. */
   task: string;
-  /** Bench conditions the board starts with: wrist strap on or off, and the air's humidity. */
-  bench?: { grounded: boolean; humidity: 'low' | 'high' };
   /** A table from the module rebuilt from data: 3-1 coating removal, 3-2 static charges. */
   table2?: 'table-3-2';
-  /** Station setting the board starts with (Bench → Rework). */
-  station: 'r350' | 'r350f' | 'r400f';
-  /** Inspection rules graded on this board (the others are shown as notes). */
-  grades: FindingKind[];
   questions: LessonQuestion[];
 }
+
+export type Lesson = LessonMeta & LessonContent;
 
 export const NEETS14_SOURCE = {
   doc: 'NEETS Module 14, Introduction to Microelectronics (NAVEDTRA 14186)',
   url: 'https://archive.org/details/NEETSModules',
 };
 
-export const LESSONS: Lesson[] = [
+export const CONTENT: LessonContent[] = [
   {
     scenario: 'hr-solder-flux',
-    title: tk('Solder and flux'),
     source: { ...NEETS14_SOURCE, pages: '2-19 – 2-20' },
     points: [
       tk('Solder is a tin-lead alloy; the tin share comes first (60/40 = 60 % tin). It bonds by dissolving a little of the metals it joins.'),
@@ -73,8 +68,6 @@ export const LESSONS: Lesson[] = [
       'Most electronic solder, in wire form, is made with one or more cores of rosin flux. When the joint or connection is heated and the wire solder is applied to the joint (not the iron), the flux flows onto the surface of the joint and removes the oxide. This process aids the wetting action of the solder. With enough heat the solder flows and replaces the flux. Insufficient heat results in a poor connection because the solder does not replace the flux.',
     ],
     task: tk('Three joints on the bottom are oxidised. The station starts with a dry tip and no fresh solder. Flux each joint with rosin (Rosin tool, R) or set Bench → Rework to "+ flux", then hold the iron on the joint until the solder flows.'),
-    station: 'r350',
-    grades: ['dull-joint', 'pad-lifted', 'part-overheated'],
     questions: [
       { ref: 'Q11', q: tk('Solder used in electronic repair is normally an alloy of what two elements?'), a: tk('Tin and lead.'), page: '2-20' },
       { ref: 'Q12', q: tk('In soldering, what alloy changes directly from a solid state to a liquid state?'), a: tk('Eutectic.'), page: '2-20' },
@@ -84,7 +77,6 @@ export const LESSONS: Lesson[] = [
   },
   {
     scenario: 'hr-heat-time',
-    title: tk('Heat and time'),
     source: { ...NEETS14_SOURCE, pages: '3-23 – 3-24' },
     points: [
       tk('Wetting needs a clean, oxide-free surface: the molten solder leaves a continuous, permanent film.'),
@@ -107,8 +99,6 @@ export const LESSONS: Lesson[] = [
       'Molten solder forms between the tip and the joint, creating a heat bridge or thermal linkage. This heat bridge causes the tip to become part of the joint and allows rapid heat transfer. A solder (heat) bridge is formed by melting a small amount of solder at the junction of the tip and the mass being soldered as the iron is applied. After the tip makes contact with the lead and the pad and after the heat bridge is established, the solder is applied with a wiping motion to form the solder bond. The completed solder joint should be bright and shiny in appearance. It should have no cracks or pits, and the solder should cover the pad. Examples of preferred solder joints are shown in figure 3-17. They are referred to as full fillet joints.',
     ],
     task: tk('Two joints are dull: one in the ground pour, one on a thin track. Make both in 2–3 s of heat each, without lifting a pad. Watch the Thermal view: if the pour joint stays below 288 °C, the station needs more heat (Bench → Rework).'),
-    station: 'r350f',
-    grades: ['dull-joint', 'pad-lifted', 'part-overheated'],
     questions: [
       { ref: 'Q19', q: tk('What is solderability?'), a: tk('The ease with which molten solder wets the surfaces of the metals to be joined.'), page: '3-25' },
       { ref: 'Q20', q: tk('What is the most common source of heat in electronic soldering?'), a: tk('Conductive-type soldering iron.'), page: '3-25' },
@@ -118,7 +108,6 @@ export const LESSONS: Lesson[] = [
   },
   {
     scenario: 'hr-clean-inspect',
-    title: tk('Clean and inspect'),
     source: { ...NEETS14_SOURCE, pages: '3-19 – 3-20, 3-24 – 3-25' },
     points: [
       tk('Most board damage happens while parts are taken off: always inspect the board afterwards.'),
@@ -136,8 +125,6 @@ export const LESSONS: Lesson[] = [
       'When a solder joint is completed, solvent must be used to remove all flux residue. The two most highly recommended solvents, in the order of their effectiveness, are 99.5 percent pure ethyl alcohol and 99.5 percent pure isopropyl alcohol.',
     ],
     task: tk('D1 and D2 are dark. Find the dull joint and the solder splash, repair both, then clean every reflowed joint with Isopropyl (0). The inspector rejects splattered solder and flux residue.'),
-    station: 'r350f',
-    grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'loose-solder'],
     questions: [
       { ref: 'Q10', q: tk('When does most printed circuit board damage occur?'), a: tk('During disassembly or repair.'), page: '3-19' },
       { ref: 'Q15', q: tk('How is oxide removed from pads and component leads?'), a: tk('With a fine abrasive.'), page: '3-22' },
@@ -146,7 +133,6 @@ export const LESSONS: Lesson[] = [
   },
   {
     scenario: 'hr-desoldering',
-    title: tk('Desoldering'),
     source: { ...NEETS14_SOURCE, pages: '3-15 – 3-19' },
     points: [
       tk('Most board damage happens during desoldering. First find out what kind of joint holds the part.'),
@@ -174,8 +160,6 @@ export const LESSONS: Lesson[] = [
       'The heat-and-pull method uses a soldering iron or gang-heater blocks to melt individual or multiple solder joints. The component leads are pulled when the solder is melted. This method has many shortcomings because of potential damage and should NOT be attempted. Heating blocks are patterned to suit specific configurations; but when used on multiple-lead connections, the joints may not be uniformly heated. Uneven heating results in plated-through hole damage, pad delamination, or blistering. Damage can also result when lead terminations are pulled through the board.',
     ],
     task: tk('R2 burned open. Clear both of its plated holes (Solder extractor, X; Bench → Extractor), take it out, fit a new 330 Ω resistor from the Parts bin (8), solder both leads with "+ flux" (flux-cored solder), clean with Isopropyl (0).'),
-    station: 'r350f',
-    grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'loose-solder'],
     questions: [
       { ref: 'Q11', q: tk('What procedure involves the use of finely braided copper wire to remove solder?'), a: tk('Wicking.'), page: '3-19' },
       { ref: 'Q12', q: tk('What is the most effective method of solder removal?'), a: tk('Continuous vacuum.'), page: '3-19' },
@@ -184,7 +168,6 @@ export const LESSONS: Lesson[] = [
   },
   {
     scenario: 'hr-thermal-shunt',
-    title: tk('Thermal shunt'),
     source: { ...NEETS14_SOURCE, pages: '3-23' },
     points: [
       tk('Diodes, transistors and ICs are heat-sensitive: their leads carry the iron\'s heat into the body.'),
@@ -200,15 +183,12 @@ export const LESSONS: Lesson[] = [
       'Before heat is applied to solder the joint, a thermal shunt is attached to sensitive component leads (diodes, transistors, and ICs). A thermal shunt is used to conduct heat away from the component. Because of its large heat content and high thermal conductivity, copper is usually used to make thermal shunts. Aluminum also has good conductivity but a smaller heat content; it is also used to conduct heat, especially if damage from the physical weight of the clamp is possible. Many types, shapes, and sizes of thermal shunts are available. The most commonly used is the clamp design; this is a spring clip (similar to an alligator clip) that easily fastens onto the part lead, as shown in figure 3-16.',
     ],
     task: tk('Q1\'s base and collector joints are dull. Clip a Thermal shunt (S) on each of those leads before you heat them, then hold the iron on each joint. The inspector checks that every transistor lead you heated had its shunt.'),
-    station: 'r350f',
-    grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'no-shunt'],
     questions: [
       { ref: 'Q22', q: tk('What term describes a device used to conduct heat away from a component?'), a: tk('A thermal shunt.'), page: '3-25' },
     ],
   },
   {
     scenario: 'hr-skipping-pattern',
-    title: tk('Skipping pattern'),
     source: { ...NEETS14_SOURCE, pages: '3-26 – 3-27, 3-30' },
     points: [
       tk('A DIP or any multilead part is always desoldered and soldered in a skipping pattern: never heat two pads next to each other one after the other.'),
@@ -227,8 +207,6 @@ export const LESSONS: Lesson[] = [
       'LAP-SOLDERING CONNECTIONS.—Before a connection is lap-soldered, the solder pads are cleaned and pretinned and the component leads are tinned. This is particularly important if they are gold plated. The IC is properly positioned on the pad areas, and the soldering process is a matter of "sweating" the two conductors together. When multilead components, such as ICs, are soldered, a skipping pattern is used to prevent excessive heat buildup in a single area of the board or component. When soldering is completed, all solder connections are thoroughly cleaned. All joints should be inspected and tested. The standards of workmanship are more specific for flat-pack installation.',
     ],
     task: tk('RN1 pins 1, 2, 3 and 4 are dull, side by side. Remake all four in a skipping pattern (for example 2, 4, 1, 3), holding the iron until each one flows, then clean with Isopropyl (0). The inspector checks the order you heated them in.'),
-    station: 'r350f',
-    grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'skip-pattern'],
     questions: [
       { ref: 'Q27', q: tk('How do you prevent excessive heat buildup on an area of a board when soldering multilead components?'), a: tk('Use a skipping pattern.'), page: '3-31' },
       { ref: 'Q24', q: tk('When removing the component, under what circumstances may component leads be clipped?'), a: tk('If the component is known to be defective or if the board may be damaged by normal desoldering.'), page: '3-31' },
@@ -236,7 +214,6 @@ export const LESSONS: Lesson[] = [
   },
   {
     scenario: 'hr-conductor-repair',
-    title: tk('Conductor repair'),
     source: { ...NEETS14_SOURCE, pages: '3-31 – 3-33' },
     points: [
       tk('Examine every conductor for nicks, tears and scratches that have not broken the circuit, as well as for complete breaks.'),
@@ -259,8 +236,6 @@ export const LESSONS: Lesson[] = [
       'REPLACING DAMAGED OR MISSING CONDUCTORS.—The procedures used to replace damaged or missing conductors are essentially the same as using the clinched-staple method of conductor repair.',
     ],
     task: tk('D1\'s track is cracked through and D2\'s has a deep nick. Repair both with a Clinched staple (K): click the conductor on one side of the damage, then the other. A solder bridge or a jumper wire would make D1 light, but the inspector rejects both here.'),
-    station: 'r350f',
-    grades: ['loose-solder', 'wire-repair', 'nick', 'pad-lifted', 'part-overheated'],
     questions: [
       { ref: 'Q30', q: tk('What is the preferred method of repairing cracked runs on boards?'), a: tk('Clinched staple.'), page: '3-37' },
       { ref: 'Q29', q: tk('List three causes of damage to printed circuit boards.'), a: tk('Operational failures, repairs by untrained personnel, repair using improper tools, mishandling, improper shipping, packaging, and storage.'), page: '3-37' },
@@ -268,7 +243,6 @@ export const LESSONS: Lesson[] = [
   },
   {
     scenario: 'hr-conformal-coating',
-    title: tk('Conformal coating'),
     source: { ...NEETS14_SOURCE, pages: '3-2 – 3-7' },
     points: [
       tk('Conformal coatings (epoxy, parylene, silicone, polyurethane, varnish, lacquer) protect an assembly from corrosion, moisture and stress.'),
@@ -295,8 +269,6 @@ export const LESSONS: Lesson[] = [
       'Once the required repairs have been completed, the conformal coating must be replaced. To ensure the same protective characteristics, you should use the same type of replacement coating as that removed.',
     ],
     task: tk('The drawing says: thin polyurethane coating. Set Bench → Coating removal to Table 3-1\'s first choice for it and take the coating off R2 (U). Reflow R2 pad 2 with flux, clean with Isopropyl (0), then set Bench → Conformal coating to polyurethane and coat R2 again (J).'),
-    station: 'r350f',
-    grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'coating-charred', 'coating-missing', 'coating-mismatch', 'coating-method'],
     questions: [
       { ref: 'Q1', q: tk('What material is applied to electronic assemblies to prevent damage from corrosion, moisture, and stress?'), a: tk('Conformal coating.'), page: '3-7' },
       { ref: 'Q2', q: tk('What three methods are used to remove protective material?'), a: tk('Chemical, mechanical, and thermal.'), page: '3-7' },
@@ -306,7 +278,6 @@ export const LESSONS: Lesson[] = [
   },
   {
     scenario: 'hr-esd',
-    title: tk('Electrostatic discharge'),
     source: { ...NEETS14_SOURCE, pages: '3-38 – 3-42' },
     points: [
       tk('Static builds up whenever two materials rub or separate; you only feel a discharge from about 3,500–4,000 V. Lower voltages pass unnoticed.'),
@@ -330,9 +301,6 @@ export const LESSONS: Lesson[] = [
       '6. When removing or replacing an ESDS device or assembly in the equipment, hold the device or assembly through the electrostatic-free wrap if possible. Otherwise pick up the device or assembly by its body only. Do not touch component leads, connector pins, or any other electrical connections or paths on boards, even though they are covered by conformal coating.',
     ],
     task: tk('Q1 (a 2N7000 MOSFET) is missing and the air is dry. Put the wrist strap on first (Bench → ESD protection), then fit Q1 from the Parts bin (8), solder its three leads with "+ flux" and clean with Isopropyl (0).'),
-    station: 'r350f',
-    bench: { grounded: false, humidity: 'low' },
-    grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'esd-damage', 'esd-handling'],
     questions: [
       { ref: 'Q35', q: tk('What is the purpose of the wrist ground strap?'), a: tk('To discharge any static charge built up in the body.'), page: '3-46' },
       { ref: 'Q34', q: tk('List two causes of damage to ESD-sensitive electronic components.'), a: tk('ESD, improper stowage, and improper handling.'), page: '3-46' },
@@ -340,7 +308,6 @@ export const LESSONS: Lesson[] = [
   },
   {
     scenario: 'hr-pad-repair',
-    title: tk('Pad repair'),
     source: { ...NEETS14_SOURCE, pages: '3-33 – 3-34' },
     points: [
       tk('A termination pad that has lifted or is missing is replaced, not bypassed: a replacement pad comes from a scrap circuit board.'),
@@ -359,8 +326,6 @@ export const LESSONS: Lesson[] = [
       'REPLACING EYELETS.—Eyelets have been referred to in several places in this topic. Not only are they used for through-the-board terminations, but also to reinforce some types of board repairs. As with any kind of material, eyelets are subject to damage. Eyelets may break, they may be installed improperly, or they may be missing from the equipment. When an eyelet is missing or damaged, regardless of the kind of damage, it should be replaced. The guidelines for the selection and installation of new eyelets are far too complex to explain here. However, they do comprise a large part of the 2M technician\'s training.',
     ],
     task: tk('R2 pad 2 has lifted off the board, so D2 is dark. Replace the pad with Pad repair (E), then solder R2\'s lead in the new eyelet with "+ flux" and clean with Isopropyl (0). A jumper wire around the pad is not a high-reliability repair: the inspector rejects it here.'),
-    station: 'r350f',
-    grades: ['pad-lifted', 'wire-repair', 'loose-solder', 'dull-joint', 'flux-residue', 'part-overheated'],
     questions: [
       { ref: 'Q31', q: tk('Damaged or missing termination pads are replaced using what procedure?'), a: tk('Epoxy a replacement pad to the board, set an eyelet, and solder it.'), page: '3-37' },
       { ref: 'Q32', q: tk('How is board damage caused by technicians?'), a: tk('Repairs by untrained personnel and technicians using improper tools.'), page: '3-37' },
@@ -368,7 +333,6 @@ export const LESSONS: Lesson[] = [
   },
   {
     scenario: 'hr-final-practical',
-    title: tk('Final practical'),
     source: { ...NEETS14_SOURCE, pages: '3-1, 3-20, 3-26 – 3-28' },
     points: [
       tk('A repaired assembly is restored at least to the original manufacturer\'s standards: parts remounted in the same position, with the same terminations.'),
@@ -386,9 +350,6 @@ export const LESSONS: Lesson[] = [
       'The 2M technician should restore the electronic assembly at least to the original manufacturer\'s standards. Parts should always be remounted or reassembled in the same position and with termination methods used by the original manufacturer. This approach ensures a continuation of the original reliability of the system.',
     ],
     task: tk('Q1 burned out on a card coated with thin acrylic, in dry air. Replace Q1 and repair whatever else you find, the way the course taught: every rule is graded. The hints list the order of work if you need it.'),
-    station: 'r350f',
-    bench: { grounded: false, humidity: 'low' },
-    grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'mlcc-cracked', 'flux-residue', 'loose-solder', 'wire-repair', 'nick', 'no-shunt', 'coating-charred', 'coating-missing', 'coating-mismatch', 'coating-method', 'esd-damage', 'esd-handling'],
     questions: [
       { ref: 'Q14', q: tk('To what standards should a technician restore electronic assemblies?'), a: tk('Manufacturer\'s standards.'), page: '3-22' },
       { ref: 'Q36', q: tk('What is the cause of most accidents?'), a: tk('Deviation from prescribed safe operating procedures.'), page: '3-46' },
@@ -396,6 +357,10 @@ export const LESSONS: Lesson[] = [
   },
 ];
 
+/** The whole lesson (meta and content) for a board. */
 export function lessonFor(scenarioId: string): Lesson | undefined {
-  return LESSONS.find((l) => l.scenario === scenarioId);
+  const m = LESSON_META.find((l) => l.scenario === scenarioId), c = CONTENT.find((l) => l.scenario === scenarioId);
+  return m && c ? { ...m, ...c } : undefined;
 }
+
+export const LESSONS: Lesson[] = LESSON_META.map((m) => lessonFor(m.scenario)!);

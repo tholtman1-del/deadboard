@@ -8,7 +8,8 @@ import { cleanFluxWithIpa, fluxResidueNear } from '../src/residue';
 import { RULES, inspect } from '../src/workmanship';
 import { TABLE_3_1, applyCoating, removeCoating, workable } from '../src/coating';
 import { TABLE_3_2, benchCharge, handle as handleEsd } from '../src/esd';
-import { LESSONS, lessonFor } from '../src/lessons/neets14';
+import { CONTENT, LESSONS, lessonFor } from '../src/lessons/neets14';
+import { LESSON_META } from '../src/lessons/track';
 import { lessonAccepted } from '../src/ui/lesson-ui';
 import { SOLDERING_TRACK_IDS, solderingScenarios } from '../src/scenarios/soldering';
 import { referenceBoard } from '../src/scenarios/reference';
@@ -389,6 +390,7 @@ async function main() {
   }
 
   // ---- lesson data ----
+  assert(LESSON_META.length === CONTENT.length && LESSON_META.every((m) => CONTENT.some((c) => c.scenario === m.scenario)), 'every lesson has its bench data (track.ts) and its text (neets14.ts)');
   assert(LESSONS.length === SOLDERING_TRACK_IDS.length && LESSONS.every((l, i) => l.scenario === SOLDERING_TRACK_IDS[i]), 'one lesson per board, in order');
   for (const l of LESSONS) {
     assert(l.points.length >= 3 && l.original.length >= 1 && l.questions.length >= 1, `${l.scenario}: rules, original text and review questions`);
