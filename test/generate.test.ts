@@ -6,6 +6,7 @@ import { builtinScenarios } from '../src/scenarios/builtin';
 import { repairedDemo } from '../src/scenarios/demoRepairs';
 import { generateProblem } from '../src/scenarios/generate';
 import { addBlob, cutTrace, installPart, toggleCold } from '../src/ops';
+import { addWire, targetEnd, terminalType } from '../src/terminals';
 import { buildConnectivity } from '../src/connectivity';
 import { evaluateObjectives, verifyScenario, type Solver } from '../src/verify';
 import { importScenarioOrPcb } from '../src/io/kicad';
@@ -22,6 +23,13 @@ const part = (b: Board, ref: string): Component => b.components.find((c) => c.re
 const unblob = (b: Board) => { b.blobs = []; };
 
 /** How a player repairs each built-in board (the test's own data, not the generator's). */
+/** Hook-up wires between terminals, formed and soldered to the target. */
+const wire = (b: Board, pairs: [string, string][]) => {
+  for (const [x, y] of pairs) {
+    const a = part(b, x), z = part(b, y);
+    for (const e of addWire(b, a, targetEnd(a, terminalType(a)!), z, targetEnd(z, terminalType(z)!)).ends!) e.soldered = 'ok';
+  }
+};
 const FIXES: Record<string, (b: Board) => void> = {
   'builtin-first-light': (b) => { addBlob(b, [62, 19], 'F', 0.75); },
   'builtin-tut-cold-joint': (b) => toggleCold(part(b, 'R1'), 0),
@@ -50,6 +58,9 @@ const FIXES: Record<string, (b: Board) => void> = {
   'hr-coating-id': (b) => toggleCold(part(b, 'R1'), 0),
   'hr-esd': (b) => installPart(part(b, 'Q1')),
   'hr-pad-repair': (b) => { const r2 = part(b, 'R2'); r2.state.lifted = undefined; r2.state.cold = []; },
+  'hr-turret': (b) => wire(b, [['E1', 'E2'], ['E2', 'E3']]),
+  'hr-hook-tab': (b) => wire(b, [['E1', 'E2'], ['E1', 'E3']]),
+  'hr-solder-cup': (b) => wire(b, [['E1', 'E2'], ['E1', 'E3']]),
   'hr-final-practical': (b) => { const rn = part(b, 'RN1'); rn.state.lifted = undefined; installPart(rn); },
 };
 

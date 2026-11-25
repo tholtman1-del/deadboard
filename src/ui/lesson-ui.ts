@@ -8,6 +8,7 @@ import { BEST_JOINT_C, DWELL_LIMIT_S, NEETS14, RULES, type Inspection, type Rule
 
 /** "NEETS 14, p. 3-19" or "T.O. 00-25-259, 05-6.1" */
 const cite = (s: RuleSource, esc: Esc) => (s.doc === NEETS14 ? t('NEETS 14, p. {page}', { page: esc(s.page) }) : t('T.O. 00-25-259, {para}', { para: esc(s.page) }));
+import { WIRE, terminalName, type Check } from '../terminals';
 import { COATINGS, COAT_TESTS, ID_TYPES, METHODS, TABLE_3_1, coatingName, observe } from '../coating';
 
 /** T.O. 00-25-259 Figure 06-1, as the three tests and what each coating shows (06-4.2). */
@@ -71,7 +72,7 @@ export function lessonBriefHtml(l: Lesson, esc: Esc, base: string, phone: boolea
       ${l.table === 'table-3-1' ? table31Html(esc) : ''}
       ${l.table2 === 'table-3-2' ? table32Html(esc) : ''}
       ${l.flow === 'figure-06-1' ? flow061Html(esc) : ''}
-      ${l.figure ? `<figure class="lesson-fig"><img src="${esc(base + l.figure.src)}" alt="${esc(t(l.figure.caption))}" loading="lazy" /><figcaption>${esc(t(l.figure.caption))}</figcaption></figure>` : ''}`;
+      ${l.figure ? `<figure class="lesson-fig">${l.figure.more?.length ? '<div class="lesson-fig-row">' : ''}${[l.figure.src, ...(l.figure.more ?? [])].map((src) => `<img src="${esc(base + src)}" alt="${esc(t(l.figure!.caption))}" loading="lazy" />`).join('')}${l.figure.more?.length ? '</div>' : ''}<figcaption>${esc(t(l.figure.caption))}</figcaption></figure>` : ''}`;
   const task = `<div class="lesson-task"><b>${t('On this board')}</b><span>${esc(t(l.task))}</span></div>`;
   // phones: the task first, the rules folded (the text keeps its size; it is folded, not shrunk)
   return `
@@ -108,13 +109,29 @@ export function debriefHtml(l: Lesson | LessonMeta | undefined, ins: Inspection,
       <tbody>${ins.joints.map((j) => `
         <tr>
           <td class="mono">${esc(j.where)}${j.times > 1 ? ` <span class="muted">×${j.times}</span>` : ''}</td>
-          <td class="mono ${j.molten > DWELL_LIMIT_S ? 'warn' : ''}">${j.molten.toFixed(1)} s</td>
+          <td class="mono ${j.dwell > DWELL_LIMIT_S ? 'warn' : ''}">${j.molten.toFixed(1)} s${j.molten - j.dwell > 1 ? ` <span class="muted">${t('tip {s} s', { s: j.dwell.toFixed(1) })}</span>` : ''}</td>
           <td class="mono">${Math.round(j.peak)} °C</td>
           <td class="mono">${Math.round(j.bodyPeak)} °C${j.shunt ? ` <span class="muted">${t('shunt')}</span>` : ''}</td>
           <td>${j.flux ? t('yes') : t('no')}</td>
         </tr>`).join('')}</tbody>
     </table>
     <p class="muted ins-ref">${t('The textbook: about {c} °C at the joint, soldering done in {s} s.', { c: BEST_JOINT_C, s: '2–3' })}</p>` : '';
+  // hook-up wire ends: the T.O.'s checks, worst verdict per column
+  const cell = (cks: Check[]) => {
+    if (!cks.length) return '<td class="muted">—</td>';
+    const v = cks.some((c) => c.verdict === 'defect') ? 'bad' : cks.some((c) => c.verdict === 'acceptable') ? 'acc' : '';
+    return `<td class="mono ${v}">${esc(cks.map((c) => c.value).join(' · '))}</td>`;
+  };
+  const wires = ins.wires.length ? `
+    <table class="ins-joints">
+      <thead><tr><th>${t('Wire end')}</th><th>${t('Clearance')}</th><th>${t('Forming')}</th><th>${t('Tinned')}</th><th>${t('Solder')}</th></tr></thead>
+      <tbody>${ins.wires.map((w) => `
+        <tr>
+          <td class="mono">${esc(w.where)} <span class="muted">${esc(t(terminalName(w.type)))}</span></td>
+          ${cell(w.checks.filter((c) => c.area === 'clearance'))}${cell(w.checks.filter((c) => c.area === 'forming'))}${cell(w.checks.filter((c) => c.area === 'tinning'))}${cell(w.checks.filter((c) => c.area === 'solder'))}
+        </tr>`).join('')}</tbody>
+    </table>
+    <p class="muted ins-ref">${t('D = one wire diameter, insulation included ({d} mm). Target: 1 D of clearance, 180° round the post, the end cut flush, a full fillet. Red: a defect; amber: acceptable, not the target.', { d: WIRE.od.toFixed(2) })}</p>` : '';
   const questions = l && 'questions' in l ? l.questions : [];
   const qs = questions.length ? `
     <div class="ins-qs">
@@ -122,7 +139,7 @@ export function debriefHtml(l: Lesson | LessonMeta | undefined, ins: Inspection,
       ${questions.map((q) => `
         <details class="ins-q">
           <summary><span class="mono muted">${esc(q.ref)}</span> ${esc(t(q.q))}</summary>
-          <p>${esc(t(q.a))} <span class="muted">${t('NEETS 14, p. {page}', { page: esc(q.page) })}</span></p>
+          <p>${esc(t(q.a))} <span class="muted">${q.module === 4 ? t('NEETS 4, p. {page}', { page: esc(q.page) }) : t('NEETS 14, p. {page}', { page: esc(q.page) })}</span></p>
         </details>`).join('')}
     </div>` : '';
   return `
@@ -133,6 +150,7 @@ export function debriefHtml(l: Lesson | LessonMeta | undefined, ins: Inspection,
       </div>
       ${rejects.length ? `<ul class="ins-list">${grouped(rejects, true)}</ul>` : ''}
       ${notes.length ? `<div class="sub">${t('Remarks')}</div><ul class="ins-list">${grouped(notes, false)}</ul>` : ''}
+      ${wires}
       ${joints}
       ${qs}
     </div>`;

@@ -56,6 +56,8 @@ import { HOTAIR_H, IRON_G, MELT_WITHIN_S, PREHEAT_H, ReworkMonitor, VACUUM_SECON
 import { inspect, type Inspection } from '../workmanship';
 import { lessonMeta } from '../lessons/track';
 import { handle as handleEsd, type Humidity } from '../esd';
+import { addWire, endsAt, terminalType, type TerminalType, type WirePrep } from '../terminals';
+import { START_PREP, wireMeasureHtml, wirePrepHtml, wirePreviewSvg } from './wire-ui';
 import { COATINGS, COAT_TESTS, ID_TYPES, METHODS, applyCoating, coatingName, methodName, observe, removeCoating, workable, type CoatMethod, type CoatTest, type CoatingType } from '../coating';
 import { SOLDERING_TRACK_IDS } from '../scenarios/soldering';
 import { debriefHtml, lessonAccepted, lessonBriefHtml } from './lesson-ui';
@@ -77,7 +79,7 @@ import { beginnerPrimerHtml, CHALLENGE_TRACK_IDS, lessonDock, TUTORIAL_SCENARIO_
 import { TOOL_SHORT, TOOL_TIP_PHONE, TouchGestures, splitLead, touchCopy, wantsMobileLayout } from './touch';
 import { cursorStops, describeAt, stepToward } from './boardcursor';
 
-type ToolId = 'inspect' | 'dmm' | 'iron' | 'wick' | 'flip180' | 'jumper' | 'knife' | 'replace' | 'freeze' | 'ipa' | 'press' | 'hotair' | 'scope' | 'rosin' | 'extract' | 'shunt' | 'staple' | 'decoat' | 'coat' | 'padfix' | 'coatest';
+type ToolId = 'inspect' | 'dmm' | 'iron' | 'wick' | 'flip180' | 'jumper' | 'knife' | 'replace' | 'freeze' | 'ipa' | 'press' | 'hotair' | 'scope' | 'rosin' | 'extract' | 'shunt' | 'staple' | 'decoat' | 'coat' | 'padfix' | 'coatest' | 'hookup';
 type PanelTab = 'mission' | 'inspect' | 'studio' | 'mods';
 type DmmMode = 'V' | 'OHM' | 'DIODE' | 'CAP' | 'AMP';
 
@@ -109,6 +111,7 @@ const TOOLS: { id: ToolId; key: string; ico: string; lbl: string; tip: string }[
   { id: 'coatest', key: 'q', ico: 'probe', lbl: tk('Coating test'), tip: tk('Test the conformal coating on a part (press, alcohol or heat, set in Bench) to identify its type, as in the 2M manual\'s flowchart') },
   { id: 'decoat', key: 'u', ico: 'scrape', lbl: tk('Coating removal'), tip: tk('Take the conformal coating off a part\'s leads and pads (click the part); the method is set in Bench, as in NEETS Table 3-1') },
   { id: 'coat', key: 'j', ico: 'coat', lbl: tk('Conformal coating'), tip: tk('Put conformal coating back on a part after the repair (the type is set in Bench)') },
+  { id: 'hookup', key: 'w', ico: 'hookup', lbl: tk('Hook-up wire'), tip: tk('Wire terminals together the 2M way (turret, hook, pierced tab, solder cup): click a terminal and prepare that end, then the other terminal') },
   { id: 'shunt', key: 's', ico: 'clip', lbl: tk('Thermal shunt'), tip: tk('Clip a heat sink on a through-hole lead (click its pad) so the part stays cool while you solder; click again to take it off') },
 ];
 
@@ -275,6 +278,10 @@ export class PcbApp {
   private probeRed: ProbePin | null = null;
   private probeBlack: ProbePin | null = null;
   private jumperStart: { a: V2; la: Side } | null = null;
+  /** Hook-up wire: the last prep used (the dialog starts from it), the first end placed, the dialog open. */
+  private wirePrep: WirePrep = { ...START_PREP };
+  private wireStart: { comp: Component; prep: WirePrep } | null = null;
+  private wireDialog: { comp: Component; type: TerminalType } | null = null;
 
   private lastVerify: VerifyResult | null = null;
   private revealedFlag: string | null = null;
@@ -2501,7 +2508,7 @@ export class PcbApp {
       if (e.kind === 'molten') continue;
       changed = true;
       const bad = e.kind === 'pad-lifted' || e.kind === 'part-overheated' || e.kind === 'mlcc-cracked' || e.kind === 'part-displaced' || e.kind === 'dull-joint' || e.kind === 'overheated-joint';
-      this.toast(e.detail, bad ? 'danger' : e.kind === 'no-solder' ? 'warn' : 'success');
+      this.toast(e.detail, bad ? 'danger' : e.kind === 'no-solder' || e.kind === 'wire-starved' ? 'warn' : 'success');
       if (e.kind === 'reflowed') sfxSolder();
     }
     if (changed) { this.recompute(true); this.renderUI(); }
@@ -3500,6 +3507,7 @@ export class PcbApp {
     if (t !== this.activeTool) this.stapleStart = null;
     this.activeTool = t;
     if (t !== 'jumper') this.jumperStart = null;
+    if (t !== 'hookup') this.wireStart = null;
     this.mount.querySelectorAll<HTMLButtonElement>('.tool-btn[data-tool]').forEach((b) => {
       b.classList.toggle('active', b.dataset.tool === t);
       b.setAttribute('aria-pressed', String(b.dataset.tool === t));
@@ -3901,7 +3909,8 @@ export class PcbApp {
       this.renderBoardsModal();
       return;
     }
-    if (e.key === 'Escape' && (this.showBoards || this.showHelp || this.showFeedback || this.showMods || this.showLesson)) {
+    if (e.key === 'Escape' && (this.showBoards || this.showHelp || this.showFeedback || this.showMods || this.showLesson || this.wireDialog)) {
+      this.wireDialog = null;
       this.showLesson = null;
       this.showBoards = false;
       this.bpSel = null;
@@ -4151,6 +4160,18 @@ export class PcbApp {
           this.renderUI();
           return;
         }
+        // wires waiting on this terminal (instant rework: a good joint at once)
+        const open = endsAt(this.board, c, hit.padIndex).filter(({ j, end }) => !j.ends![end].soldered);
+        if (open.length) {
+          this.pushUndo();
+          for (const { j, end } of open) j.ends![end].soldered = 'ok';
+          this.renderer.spawnSmoke(hit.pos[0], hit.pos[1], side, this.board.thickness, 'flux');
+          sfxSolder();
+          this.recompute(false);
+          this.toast(t('{ref}: wire soldered', { ref: c.ref }), 'success');
+          this.renderUI();
+          return;
+        }
         // a cold joint, or a cracked one (intermittent) even while it happens to conduct
         if (c.state.cold.includes(hit.padIndex) || c.state.intermittent?.some((f) => f.pad === hit.padIndex && f.kind !== 'thermal-leak')) {
           this.pushUndo();
@@ -4273,6 +4294,17 @@ export class PcbApp {
       sfxSolder();
       this.recompute(false);
       this.renderUI();
+      return;
+    }
+
+    if (this.activeTool === 'hookup') {
+      // T.O. 00-25-259 WP 008 00 / 009 00: each end is stripped, tinned and formed for its terminal
+      const c = hit?.kind === 'pad' || hit?.kind === 'comp' ? hit.comp : null;
+      const type = c ? terminalType(c) : null;
+      if (!c || !type) { this.toast(t('Click a wire terminal: a turret, hook, pierced tab or solder cup.'), 'info'); return; }
+      if (this.wireStart?.comp === c) { this.toast(t('That is where the wire starts: click the other terminal.'), 'info'); return; }
+      this.wireDialog = { comp: c, type };
+      this.renderModal();
       return;
     }
 
@@ -6991,6 +7023,58 @@ export class PcbApp {
     this.toast(t('Saved {file}: check the name, author and licence in mod.json before sharing.', { file: `${manifest.id}.zip` }) + lockNote, lockNote ? 'info' : 'success');
   }
 
+  /** The hook-up wire's prep dialog for one end; placing the second end puts the wire on the board. */
+  private renderWirePrep() {
+    const d = this.wireDialog!;
+    const p = this.wirePrep;
+    this.modalRootEl.innerHTML = this.txt(wirePrepHtml(d.comp.ref, d.type, p, !!this.wireStart, (x) => this.esc(x)));
+    const q = <T extends HTMLElement>(id: string) => this.modalRootEl.querySelector<T>('#' + id);
+    const redraw = () => {
+      q('wp-svg')!.innerHTML = wirePreviewSvg(d.type, p);
+      q('wp-measure')!.innerHTML = wireMeasureHtml(d.type, p);
+      const sv = q('wp-strip-v'), gv = q('wp-gap-v');
+      if (sv) sv.textContent = `${p.strip.toFixed(1)} mm`;
+      if (gv) gv.textContent = `${p.gap.toFixed(2)} mm`;
+    };
+    const on = (id: string, f: (el: HTMLInputElement & HTMLSelectElement) => void) => {
+      const el = q<HTMLInputElement & HTMLSelectElement>(id);
+      el?.addEventListener('input', () => { f(el); redraw(); });
+    };
+    on('wp-stripper', (el) => { p.stripper = el.value as WirePrep['stripper']; });
+    on('wp-strip', (el) => { p.strip = Number(el.value); });
+    on('wp-tinned', (el) => { p.tinned = el.checked; });
+    on('wp-gap', (el) => { p.gap = Number(el.value); });
+    on('wp-wrap', (el) => { p.wrap = Number(el.value); });
+    on('wp-flush', (el) => { p.flush = el.checked; });
+    on('wp-hook', (el) => { p.hook = el.value as WirePrep['hook']; });
+    on('wp-eye', (el) => { p.eye = el.checked; });
+    const close = () => { this.wireDialog = null; this.renderModal(); };
+    q('wp-cancel')?.addEventListener('click', close);
+    q('wp-cancel2')?.addEventListener('click', close);
+    q('wp-close-bg')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) close(); });
+    q('wp-place')?.addEventListener('click', () => {
+      const prep = { ...p };
+      if (!this.wireStart) {
+        this.wireStart = { comp: d.comp, prep };
+        close();
+        sfxClick();
+        this.toast(t('{ref}: end formed. Now click the terminal the wire goes to.', { ref: d.comp.ref }), 'info');
+        return;
+      }
+      this.pushUndo();
+      addWire(this.board, this.wireStart.comp, this.wireStart.prep, d.comp, prep);
+      const from = this.wireStart.comp.ref;
+      this.wireStart = null;
+      close();
+      sfxClick();
+      this.noteOnce('tool');
+      this.recompute(false);
+      this.toast(t('Wire from {a} to {b} formed on both terminals. Now solder each end.', { a: from, b: d.comp.ref }), 'info');
+      this.renderUI();
+    });
+    q<HTMLButtonElement>('wp-place')?.focus();
+  }
+
   private renderModal() {
     this.mount.querySelector('#btn-boards')?.classList.toggle('active', this.showBoards);
     this.mount.querySelector('#btn-feedback')?.classList.toggle('active', this.showFeedback);
@@ -7008,6 +7092,10 @@ export class PcbApp {
     }
     if (this.showLesson) {
       this.renderLessonModal();
+      return;
+    }
+    if (this.wireDialog) {
+      this.renderWirePrep();
       return;
     }
     if (!this.showHelp) {

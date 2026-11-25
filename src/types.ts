@@ -24,7 +24,9 @@ export type ComponentKind =
   | 'testpoint' | 'ic' | 'connector' | 'generic';
 
 export type BodyShape =
-  | 'box' | 'axial' | 'led' | 'radial' | 'coin' | 'tactile' | 'fuse' | 'header' | 'pin' | 'chip' | 'to92' | 'none';
+  | 'box' | 'axial' | 'led' | 'radial' | 'coin' | 'tactile' | 'fuse' | 'header' | 'pin' | 'chip' | 'to92' | 'none'
+  /** wire terminals (src/terminals.ts) */
+  | 'turret' | 'hook' | 'tab' | 'cup';
 
 export interface Body {
   shape: BodyShape;
@@ -136,8 +138,10 @@ export interface Trace { id: string; layer: Side; a: V2; b: V2; w: number; net?:
 export interface Via { id: string; at: V2; d: number; drill: number; side?: Side; net?: string }
 export interface Blob { id: string; at: V2; r: number; layer: Side }
 /** A wire added in repair. `staple`: a clinched staple (NEETS 14 fig. 3-24): through two holes either
- * side of a break, sleeved wire on the other side, clinched and soldered on the conductor. */
-export interface Jumper { id: string; a: V2; b: V2; la: Side; lb: Side; kind?: 'staple' }
+ * side of a break, sleeved wire on the other side, clinched and soldered on the conductor.
+ * `wire`: an insulated hook-up wire between two terminals; `ends` say how each end was prepared,
+ * formed and soldered (src/terminals.ts). An end that is not soldered does not conduct. */
+export interface Jumper { id: string; a: V2; b: V2; la: Side; lb: Side; kind?: 'staple' | 'wire'; ends?: [import('./terminals').WireEnd, import('./terminals').WireEnd] }
 /**
  * Damage that leaves a conductor conducting: a nick or scratch across `depth` of its width. Over
  * one tenth of the cross-section it must be repaired (NEETS 14 p. 3-31). Drawn as a notch.

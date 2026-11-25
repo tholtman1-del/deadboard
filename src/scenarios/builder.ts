@@ -1,5 +1,6 @@
 import type { Board, Component, LedColor, Pad, Side, V2 } from '../types';
 import { rot } from '../geom';
+import type { TerminalType } from '../terminals';
 
 export function emptyBoard(w: number, h: number): Board {
   return { w, h, thickness: 1.6, components: [], traces: [], vias: [], blobs: [], jumpers: [], zones: [], silk: [], texts: [], nextId: 1 };
@@ -114,6 +115,19 @@ export class Builder {
       ref, kind: 'generic', value: 0, label, at, rot: 0,
       pads, pins: Object.fromEntries(pads.map((p) => [p.name, p.name])),
       body: { shape: 'chip', w: half * 2.54 + 0.6, h: 6.4, z: 3.3 },
+    });
+  }
+
+  /**
+   * A wire terminal swaged into a plated hole (T.O. 00-25-259 WP 008 00; sizes are estimates for
+   * small board terminals). `rot` turns a hook's opening or a tab's eye.
+   */
+  terminal(ref: string, type: TerminalType, at: V2, r = 0) {
+    const g = { turret: { pad: 3.2, drill: 1.7, w: 2.4, h: 2.4 }, hook: { pad: 2.6, drill: 1.1, w: 2.6, h: 1.4 }, tab: { pad: 2.6, drill: 1.1, w: 2.8, h: 0.6 }, cup: { pad: 2.8, drill: 1.4, w: 2.0, h: 2.0 } }[type];
+    return this.comp({
+      ref, kind: 'connector', value: 0, at, rot: r, footprint: `TERMINAL_${type.toUpperCase()}`,
+      pads: [tht('1', [0, 0], g.pad, 'circle', g.drill)], pins: { '1': '1' },
+      body: { shape: type, w: g.w, h: g.h, z: 5 },
     });
   }
 

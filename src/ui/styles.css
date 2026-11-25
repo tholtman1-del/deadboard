@@ -1778,6 +1778,8 @@ body.is-mobile .loadout-bar select { flex: 1 1 auto; width: auto; max-width: non
 /* the textbook's line drawings are black on white: shown on their own paper */
 .lesson-fig { margin: 0; display: grid; justify-items: center; gap: 6px; }
 .lesson-fig img { background: #fff; border-radius: var(--radius); padding: 8px; max-width: min(260px, 70%); height: auto; }
+.lesson-fig-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.lesson-fig-row img { max-width: min(200px, 45%); }
 .lesson-fig figcaption { font-size: 11.5px; color: var(--muted); }
 .lesson-task { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--accent-line); background: var(--accent-weak); border-radius: var(--radius); font-size: 13px; line-height: 1.5; }
 .lesson-task b { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); }
@@ -1799,6 +1801,8 @@ body.is-mobile .loadout-bar select { flex: 1 1 auto; width: auto; max-width: non
 .ins-joints th { text-align: left; font-weight: 500; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
 .ins-joints td { padding: 4px 6px; border-bottom: 1px solid var(--border); color: var(--text-2); }
 .ins-joints td.warn { color: var(--warn); }
+.ins-joints td.acc { color: var(--warn); }
+.ins-joints td.bad { color: var(--danger-text); }
 .ins-ref { margin: 0; font-size: 11.5px; }
 .ins-qs { display: grid; gap: 6px; }
 .ins-q p { margin: 6px 0 0 18px; font-size: 12.5px; color: var(--text); }
@@ -1820,3 +1824,23 @@ body.is-mobile .loadout-bar select { flex: 1 1 auto; width: auto; max-width: non
 .lesson-table p { margin: 0; font-size: 11.5px; }
 .modal .lesson-flow { padding-left: 18px; gap: 4px; }
 .lesson-table td.lt-text { text-align: left; color: var(--text-2); min-width: 140px; }
+
+/* hook-up wire prep dialog (src/ui/wire-ui.ts) */
+.wire-prep { width: min(660px, 100%); }
+.wire-prep .wp-body { padding: 12px 16px 16px; }
+.wire-prep .wp-wire { margin: 0 0 12px; font-size: 12px; }
+.wp-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 14px; align-items: start; }
+.wp-controls { display: grid; gap: 10px; font-size: 13px; }
+.wp-controls label { display: grid; gap: 4px; color: var(--text-2); }
+.wp-controls label.wp-check { display: flex; align-items: center; gap: 8px; }
+.wp-controls input[type='range'] { width: 100%; accent-color: var(--accent); }
+.wp-view { display: grid; gap: 8px; }
+.wp-svg { width: 100%; height: auto; background: var(--float); border: 1px solid var(--border); border-radius: var(--radius); }
+.wp-svg .wp-metalfill { fill: #b9a66a; }
+.wp-svg .wp-metal { stroke: #b9a66a; }
+.wp-svg .wp-ref { stroke: var(--muted); stroke-dasharray: 3 3; stroke-width: 1; }
+.wp-svg .wp-tick { stroke: var(--text-2); stroke-width: 1; }
+.wp-svg .wp-lbl { fill: var(--text-2); font: 12px var(--mono); }
+.wp-measure { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; }
+.wp-actions { margin-top: 14px; gap: 8px; }
+@media (max-width: 640px) { .wp-grid { grid-template-columns: 1fr; } .wp-view { order: -1; } }

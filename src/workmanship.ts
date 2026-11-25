@@ -5,6 +5,7 @@
 import { tk } from './i18n';
 import type { Board } from './types';
 import { isHeatSensitive, type JointEpisode, type ReworkEvent } from './rework';
+import { isWire, judge, type Check, type CheckArea, type TerminalType } from './terminals';
 
 /** Where a rule comes from (public-domain source, page as printed). */
 export interface RuleSource { doc: string; page: string }
@@ -18,7 +19,8 @@ export type FindingKind =
   | 'pad-lifted' | 'part-overheated' | 'mlcc-cracked' | 'part-displaced' | 'dull-joint'
   | 'flux-residue' | 'loose-solder' | 'long-dwell' | 'wire-repair' | 'no-shunt' | 'skip-pattern' | 'nick'
   | 'coating-charred' | 'coating-missing' | 'coating-mismatch' | 'coating-method' | 'esd-damage' | 'esd-handling'
-  | 'overheated-joint' | 'slow-melt' | 'coating-id' | 'coating-id-order';
+  | 'overheated-joint' | 'slow-melt' | 'coating-id' | 'coating-id-order'
+  | 'wire-strip' | 'wire-tinning' | 'wire-clearance' | 'wire-forming' | 'wire-solder';
 
 /**
  * `procedural`: about how the work was done, which the finished board does not show; listed only
@@ -49,12 +51,17 @@ export const RULES: Record<FindingKind, Rule> = {
   'coating-id': { kind: 'coating-id', severity: 'reject', procedural: true, title: tk('Coating not identified correctly'), rule: tk('The conformal coating type must be identified before removal, so the appropriate removal technique can be used (by its hardness, transparency, thickness, solubility in isopropyl alcohol and reaction to heat).'), source: to('06-5.2, 06-4.1') },
   'coating-id-order': { kind: 'coating-id-order', severity: 'note', procedural: true, title: tk('Coating removed before it was identified'), rule: tk('Identify the coating first: the removal method depends on its type.'), source: to('06-5.2') },
   'nick': { kind: 'nick', severity: 'reject', title: tk('Nicked conductor'), rule: tk('Damage that reduces a conductor\'s cross-sectional area must be repaired, as its current-carrying capability is reduced: over one tenth in NEETS (1998), over 20 % in the current 2M manual, which is the limit used here.'), source: src('3-31'), also: [to('12-6.1')] },
+  'wire-strip': { kind: 'wire-strip', severity: 'reject', procedural: true, title: tk('Wrong wire stripper'), rule: tk('Thermal stripping is the preferred method. Do not use mechanical strippers on wire sizes AWG-22 or smaller: the pulling action of the stripper may stretch the smaller-sized wires.'), source: to('08-5.3') },
+  'wire-tinning': { kind: 'wire-tinning', severity: 'reject', title: tk('Wire not tinned'), rule: tk('Stranded wires are tinned on all portions of the wire coming into contact with the soldered area: tinning prevents birdcaging during forming and enhances solder flow.'), source: to('08-6.3, 08-5.4') },
+  'wire-clearance': { kind: 'wire-clearance', severity: 'reject', title: tk('Insulation clearance'), rule: tk('Target: one wire diameter (including insulation) between the end of the insulation and the terminal. Acceptable: up to two wire diameters. Defect: more than two, or the insulation contacts the terminal (in a solder cup: the solder fillet).'), source: to('08-6.4, 09-6.1') },
+  'wire-forming': { kind: 'wire-forming', severity: 'reject', title: tk('Wire forming'), rule: tk('Turret and hook: the wire contacts the post for 180°, more is acceptable if the wire does not overlap itself. Pierced tab: through the eye, at least 90° of contact. The cut end may extend at most one wire diameter beyond the terminal. A wire goes to the full depth of a solder cup.'), source: to('08-6.5 – 08-6.7, 09-6.1') },
+  'wire-solder': { kind: 'wire-solder', severity: 'reject', title: tk('Wire solder connection'), rule: tk('A discernible solder fillet covers 100 % of the wire and terminal contact area, the contour of the wire still visible. A solder cup is filled at least 75 % of its cutout, with complete wetting between the wire and the cup.'), source: to('08-6.12, 09-6.1') },
   'wire-repair': { kind: 'wire-repair', severity: 'note', title: tk('Wire repair'), rule: tk('A wire lap-soldered across a break is stronger than a solder bridge but not highly reliable; the clinched staple is the preferred repair of a broken conductor.'), source: src('3-32') },
 };
 
 /** A nick deeper than this share of the conductor is a defect (T.O. 00-25-259 12-6.1: 20 %; NEETS 14 p. 3-31 had one tenth). */
 export const NICK_LIMIT = 0.2;
-/** Molten longer than this counts as a long heating (the source: "within 2 or 3 seconds"). */
+/** The tip on a molten joint longer than this counts as a long heating (the source: "within 2 or 3 seconds"). */
 export const DWELL_LIMIT_S = 3;
 /** The joint temperature the source names as most efficient (550 °F). */
 export const BEST_JOINT_C = 288;
@@ -66,7 +73,9 @@ export interface Inspection {
   accepted: boolean;
   findings: Finding[];
   /** Joints that were heated, with their measured numbers (each joint's last and longest episode). */
-  joints: { where: string; molten: number; peak: number; flux: boolean; times: number; bodyPeak: number; shunt: boolean }[];
+  joints: { where: string; molten: number; dwell: number; peak: number; flux: boolean; times: number; bodyPeak: number; shunt: boolean }[];
+  /** Hook-up wire ends on terminals, each with the T.O.'s checks. */
+  wires: { where: string; type: TerminalType; checks: Check[] }[];
 }
 
 /**
@@ -107,8 +116,8 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
   // solder blobs and wires the board was not designed with
   const refBlobs = new Set((reference?.blobs ?? []).map((b) => `${b.at[0].toFixed(2)},${b.at[1].toFixed(2)}`));
   for (const b of board.blobs) if (!refBlobs.has(`${b.at[0].toFixed(2)},${b.at[1].toFixed(2)}`)) add({ kind: 'loose-solder', where: `${b.at[0].toFixed(1)}, ${b.at[1].toFixed(1)} mm` });
-  const refJumpers = (reference?.jumpers ?? []).filter((j) => j.kind !== 'staple').length;
-  const wires = board.jumpers.filter((j) => j.kind !== 'staple');
+  const refJumpers = (reference?.jumpers ?? []).filter((j) => !j.kind).length;
+  const wires = board.jumpers.filter((j) => !j.kind);
   if (wires.length > refJumpers) add({ kind: 'wire-repair', where: String(wires.length - refJumpers) });
 
   // a nick over a tenth of the conductor stays a defect until a staple bridges it
@@ -141,15 +150,34 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
     if (c.state.coatMethodRank !== undefined && c.state.coatBestRank !== undefined && c.state.coatMethodRank > c.state.coatBestRank) add({ kind: 'coating-method', where: c.ref, detail: `#${c.state.coatMethodRank}` });
   }
 
+  // hook-up wires on terminals, end by end, to the T.O.'s workmanship standards
+  const wireEnds: Inspection['wires'] = [];
+  const areaRule: Record<CheckArea, FindingKind> = { strip: 'wire-strip', tinning: 'wire-tinning', clearance: 'wire-clearance', forming: 'wire-forming', solder: 'wire-solder' };
+  const onTerm = new Map<string, number>();
+  for (const j of board.jumpers) {
+    if (!isWire(j)) continue;
+    for (const e of j.ends) {
+      const c = board.components.find((x) => x.id === e.comp);
+      const ref = c?.ref ?? '?', n = (onTerm.get(ref) ?? 0) + 1;
+      onTerm.set(ref, n);
+      const where = n > 1 ? `${ref} (${n})` : ref;
+      const checks = judge(e);
+      wireEnds.push({ where, type: e.type, checks });
+      const bad = new Map<FindingKind, string[]>();
+      for (const ck of checks) if (ck.verdict === 'defect') bad.set(areaRule[ck.area], [...(bad.get(areaRule[ck.area]) ?? []), `${ck.what} (${ck.value})`]);
+      for (const [kind, what] of bad) add({ kind, where, detail: what.join('; ') });
+    }
+  }
+
   // how the joints were heated
   const byJoint = new Map<string, Inspection['joints'][number]>();
   for (const ep of episodes) {
     const where = padName(ep.ref, ep.pad);
     const j = byJoint.get(where);
-    if (!j) byJoint.set(where, { where, molten: ep.molten, peak: ep.peak, flux: ep.flux, times: 1, bodyPeak: ep.bodyPeak, shunt: ep.shunt });
-    else { j.molten = Math.max(j.molten, ep.molten); j.peak = Math.max(j.peak, ep.peak); j.flux = ep.flux; j.times++; j.bodyPeak = Math.max(j.bodyPeak, ep.bodyPeak); j.shunt = ep.shunt; }
+    if (!j) byJoint.set(where, { where, molten: ep.molten, dwell: ep.dwell ?? ep.molten, peak: ep.peak, flux: ep.flux, times: 1, bodyPeak: ep.bodyPeak, shunt: ep.shunt });
+    else { j.molten = Math.max(j.molten, ep.molten); j.dwell = Math.max(j.dwell, ep.dwell ?? ep.molten); j.peak = Math.max(j.peak, ep.peak); j.flux = ep.flux; j.times++; j.bodyPeak = Math.max(j.bodyPeak, ep.bodyPeak); j.shunt = ep.shunt; }
   }
-  for (const j of byJoint.values()) if (j.molten > DWELL_LIMIT_S) add({ kind: 'long-dwell', where: j.where, detail: `${j.molten.toFixed(1)} s` });
+  for (const j of byJoint.values()) if (j.dwell > DWELL_LIMIT_S) add({ kind: 'long-dwell', where: j.where, detail: `${j.dwell.toFixed(1)} s` });
 
   // procedure: shunts on sensitive leads, and the skipping pattern on multilead parts
   for (const ep of episodes) {
@@ -167,5 +195,5 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
 
   const order = (f: Finding) => (RULES[f.kind].severity === 'reject' ? 0 : 1);
   findings.sort((a, b) => order(a) - order(b));
-  return { accepted: !findings.some((f) => RULES[f.kind].severity === 'reject'), findings, joints: [...byJoint.values()] };
+  return { accepted: !findings.some((f) => RULES[f.kind].severity === 'reject'), findings, joints: [...byJoint.values()], wires: wireEnds };
 }

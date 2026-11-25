@@ -46,6 +46,14 @@ export function pickAt(board: Board, pt: V2, side: Side, xray = false): PickHit 
   // 2. Jumper endpoints or wires
   let bestJumper: { jumper: Jumper; end?: 0 | 1; pos: V2; d: number } | null = null;
   for (const j of board.jumpers) {
+    if (j.kind === 'wire') {
+      // a hook-up wire: its ends sit on terminals (clicks there go to the terminal's joint); the wire is picked along its run
+      if (((sideMask(j.la) & mask) || (sideMask(j.lb) & mask)) && dist(pt, j.a) > 2 && dist(pt, j.b) > 2) {
+        const d = pointSegDist(pt, j.a, j.b);
+        if (d <= 0.9 && (!bestJumper || d < bestJumper.d)) bestJumper = { jumper: j, pos: pt, d };
+      }
+      continue;
+    }
     if (sideMask(j.la) & mask) {
       const d = dist(pt, j.a);
       if (d <= 1.3 && (!bestJumper || d < bestJumper.d)) bestJumper = { jumper: j, end: 0, pos: j.a, d };

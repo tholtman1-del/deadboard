@@ -1,5 +1,6 @@
 import type { Blob, Board, Component, Jumper, Trace, Via, Zone } from './types';
 import { Grid, makeShape, pointInPolygon, polyBB, shapeGap, type BB, type Shape } from './geom';
+import { endOpen } from './terminals';
 import { padMask, padShape, rolePadName } from './model';
 
 export type ItemKind = 'pad' | 'trace' | 'via' | 'blob' | 'jend' | 'zone';
@@ -92,8 +93,9 @@ export function buildConnectivity(board: Board): Conn {
   }
   const jStart = items.length;
   for (const j of board.jumpers) {
-    items.push({ kind: 'jend', layers: sideMask(j.la), shape: makeShape([j.a], 0.35), jumper: j, end: 0 });
-    items.push({ kind: 'jend', layers: sideMask(j.lb), shape: makeShape([j.b], 0.35), jumper: j, end: 1 });
+    // a hook-up wire's end only conducts once it is soldered to its terminal
+    items.push({ kind: 'jend', layers: endOpen(j, 0) ? 0 : sideMask(j.la), shape: makeShape([j.a], 0.35), jumper: j, end: 0 });
+    items.push({ kind: 'jend', layers: endOpen(j, 1) ? 0 : sideMask(j.lb), shape: makeShape([j.b], 0.35), jumper: j, end: 1 });
   }
   for (const z of board.zones) {
     if (z.poly.length < 3) continue;

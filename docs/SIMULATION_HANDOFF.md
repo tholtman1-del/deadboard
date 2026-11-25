@@ -8,7 +8,7 @@ No reference hardware is available, so realism is validated against *design inte
 ## Status (start here)
 
 - **High-reliability soldering track: Phase 1 pushed (`8fb70ba`, live); Phase 2 (`fd53b00`) and
-  lessons 6–11 (`4d036fd` … ) committed locally, NOT pushed (the auto-mode
+  lessons 6–14 (`4d036fd` … ) committed locally, NOT pushed (the auto-mode
   permission check refused `git push`; the user pushes, or allows it).** A separate learning path after NEETS Module 14 (NAVEDTRA 14186, Navy 2M
   soldering; Distribution A, public domain). Research and the 3-phase plan: `ideas/navy-2m-soldering.md`
   (local only). User's choices: lesson card + original text before, workmanship debrief + the module's
@@ -108,9 +108,29 @@ No reference hardware is available, so realism is validated against *design inte
     off. Identify → remove → extract 16 joints in a skipping pattern → pad repair → new DIP → nick
     staple → clean → recoat. Burn scorch now follows the part outline (renderer). Lesson text quotes
     the certification manual (`CERT_SOURCE`, NAVSEA TE000-AA-MAN-010/2M).
-  - **Next from the manuals:** a wire-terminal mini-track (turret, hook, pierced tab, solder cup — a
-    third of the real practical); remaining 05-6.1 defects need a solder-volume model (convex
-    fillet, icicles, solder balls).
+  - **Wires on terminals (2026-11-25), lessons 12–14 before the final practical (track: 15):**
+    `src/terminals.ts` (universal): terminals are THT parts with body shape `turret` / `hook` / `tab`
+    / `cup` (`Builder.terminal`, refs E1…); a hook-up wire is `Jumper.kind 'wire'` with `ends`
+    (stripper, strip length, tinned, clearance kept when forming, wrap, flush cut, hook position,
+    through the eye; `soldered` 'ok' | 'starved'). An end conducts only once soldered
+    (connectivity). The rework monitor solders the ends on a terminal joint when it melts: fresh
+    solder fed → 'ok', none → 'starved' (event `wire-starved`). `form()` measures the end
+    (clearance, contact °, cut end; cup: depth 2.5 mm, estimate), `judge()` = the T.O.'s
+    target / acceptable / defect for 08-5.3, 08-6.3, 08-6.4, 08-6.5–6.7, 08-6.12, 09-6.1. Wire
+    M22759/16-22 (19×34, 0.76 / 1.32 mm, Glenair table); post sizes are estimates. Rules
+    `wire-strip` (procedural), `wire-tinning`, `wire-clearance`, `wire-forming`, `wire-solder`;
+    the debrief has a wire-end table. Tool Hook-up wire (W) opens a prep dialog per end with a
+    to-scale drawing and what a scale reads (src/ui/wire-ui.ts). Boards `hr-turret` (E2 two-wire),
+    `hr-hook-tab` (two-wire hook), `hr-solder-cup`; lesson text from the T.O., NEETS 14 fig. 3-8
+    and Q6/Q8, NEETS **Module 4** (NAVEDTRA 14176, Distribution A) Q1/Q22/Q23/Q33 (`module: 4`).
+    **Model change, all boards:** oxidation ("long") and the long-heating note now count the tip's
+    *dwell* on a molten joint (`JointEpisode.dwell`), not the whole molten time: a brass terminal
+    stays molten ~6–10 s after a correct 1.6 s touch, which is cooling, not overheating.
+    Test: `test/terminals.test.ts` (checks + the three boards played through, starved and sloppy fail).
+  - **Next from the manuals:** a wire on a terminal in the final practical (Appendix C has them);
+    two-wire rules (overlap, alternating directions on a hook) are not modelled (the tool stacks
+    wires); bifurcated terminals (08-6.8); resistive tweezers for cups; remaining 05-6.1 defects
+    need a solder-volume model (convex fillet, icicles, solder balls).
   - **Follow-ups:** flat packs (3-29)
     and TO-5 cans (3-27) need new footprints; read the 2M certification manual + T.O. 00-25-259
     (the user downloads them) and compare the practical's grading with ours.

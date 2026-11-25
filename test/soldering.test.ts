@@ -270,7 +270,7 @@ async function main() {
     const k = new Builder(40, 20);
     const u = k.resistor('U1', 1, [20, 10]);
     u.pads = [0, 1, 2, 3, 4, 5].map((i) => ({ name: String(i + 1), at: [i * 2.54 - 6.35, 0] as [number, number], size: [1.6, 1.6] as [number, number], shape: 'circle' as const, layers: 'FB' as const, drill: 0.8 }));
-    const ep = (pad: number, t: number) => ({ ref: 'U1', pad, molten: 1, peak: 260, flux: true, t, open: false, shunt: false, bodyPeak: 40 });
+    const ep = (pad: number, t: number) => ({ ref: 'U1', pad, molten: 1, dwell: 1, peak: 260, flux: true, t, open: false, shunt: false, bodyPeak: 40 });
     assert(inspect(k.b, k.b, [ep(0, 0), ep(1, 3)], []).findings.some((f) => f.kind === 'skip-pattern'), 'pins 1 then 2: heat builds up');
     assert(!inspect(k.b, k.b, [ep(0, 0), ep(2, 3), ep(4, 6), ep(1, 9), ep(3, 12), ep(5, 15)], []).findings.some((f) => f.kind === 'skip-pattern'), 'pins 1, 3, 5, 2, 4, 6: a skipping pattern');
   }

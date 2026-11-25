@@ -9,7 +9,7 @@ import { tk } from '../i18n';
 import { LESSON_META, type LessonMeta } from './track';
 export type { LessonMeta } from './track';
 
-export interface LessonQuestion { ref: string; q: string; a: string; page: string }
+export interface LessonQuestion { ref: string; q: string; a: string; page: string; /** NEETS module the question is from (default 14) */ module?: 4 }
 
 /** What a lesson teaches, loaded with the lesson dialog (the bench needs only `LessonMeta`). */
 export interface LessonContent {
@@ -20,7 +20,7 @@ export interface LessonContent {
   /** Key numbers: label (translated) and value as printed, with °C beside °F. */
   numbers: { label: string; value: string }[];
   /** A figure from the module (public/lessons/…), caption translated. */
-  figure?: { src: string; caption: string };
+  figure?: { src: string; caption: string; /** more views of the same figure, side by side */ more?: string[] };
   /** A table from the module rebuilt from data (`table-3-1`: conformal coating removal techniques). */
   table?: 'table-3-1';
   /** The module's own paragraphs (English quote). */
@@ -401,6 +401,99 @@ export const CONTENT: LessonContent[] = [
     ],
   },
 ];
+
+// Wires on terminals: the 2M workmanship manual (WP 008 00, WP 009 00), with NEETS Module 14's
+// terminal figure and Module 4's review questions (NAVEDTRA 14176, also Distribution A).
+CONTENT.push(
+  {
+    scenario: 'hr-turret',
+    source: { ...TO_SOURCE, pages: '08-5.3 – 08-6.5, 08-6.12' },
+    points: [
+      tk('Strip with thermal strippers, the preferred method. Mechanical strippers are not used on AWG 22 or smaller: their pull can stretch the wire.'),
+      tk('Tin the stripped end before forming: tinning holds the strands so they do not birdcage, and helps the solder flow.'),
+      tk('Insulation clearance: one wire diameter, insulation included, between the insulation and the terminal. Up to two is acceptable; touching the terminal, or more than two, is a defect.'),
+      tk('Bend the wire 180° round the post, never overlapping itself, and cut the end flush so it touches the post (at most one bare-wire diameter beyond it).'),
+      tk('Solder at 600 °F (316 °C): melt within two seconds, solder to the cut end, and form the fillet where the wire meets the post. With two wires on one terminal, solder both before the tip leaves it. Then clean off the flux.'),
+    ],
+    numbers: [
+      { label: tk('Wire'), value: tk('M22759/16-22: 1.32 mm over the insulation, 0.76 mm conductor') },
+      { label: tk('Insulation clearance'), value: tk('target 1 diameter (1.3 mm), at most 2 (2.6 mm)') },
+      { label: tk('Wrap'), value: '180°' },
+      { label: tk('Cut end'), value: tk('flush; at most 0.76 mm beyond the post') },
+      { label: tk('Tip'), value: tk('600 °F (316 °C), melt within 2 s') },
+    ],
+    figure: { src: 'lessons/neets14/fig-3-8a.png', caption: tk('NEETS 14, figure 3-8 (A). Pin and turret terminals.') },
+    original: [
+      'Thermal stripping is the preferred method of insulated wire stripping. Use thermal strippers whenever possible to reduce the risk of wire damage. Do not use mechanical strippers on wire sizes AWG-22 or smaller. The pulling action of the stripper may stretch the smaller-sized wires.',
+      'Tinning stranded wire reduces the probability of wire damage. Tinning prevents birdcaging during the forming operation and enhances solder flow.',
+      'There is an insulation clearance of one wire diameter (including insulation) between the end of the insulation and the outside edge of the terminal. (Defect: the insulation clearance is greater than two wire diameters; the insulation contacts the terminal.)',
+      'The wire contacts the terminal post for 180°. (Defect: the wire has less than 180° of contact between the wire and the terminal post or overlaps itself on the terminal.)',
+      'The cut end of the wire contacts the post. (Defect: the wire end extends beyond the edge of the terminal more than one wire diameter, not including insulation.)',
+      'WHEN SOLDERING MULTIPLE WIRES, COMPLETE ALL SOLDERING BEFORE REMOVING THE SOLDERING IRON TIP FROM ITS ORIGINAL POSITION ON THE TERMINAL.',
+      'Discernible solder fillet covers 100% of the wire and terminal contact area. The contour of the wire is discernible in the solder.',
+    ],
+    task: tk('Wire E1 to E2, and E2 to E3, with the Hook-up wire (W): click a terminal, prepare that end, then the other. Work out the strip length: clearance plus the wrap round the post. Then solder each turret with fresh solder ("+ flux") and clean the flux off.'),
+    questions: [
+      { ref: 'Q6', q: tk('What term is used to identify the procedure of connecting one side of a circuit board with the other?'), a: tk('Interfacial connections.'), page: '3-14' },
+      { ref: 'Q1', module: 4, q: tk('What are the basic requirements for any splice or terminal connection?'), a: tk('The connection must be both mechanically and electrically as strong as the conductor or device with which it is used.'), page: '2-5' },
+      { ref: 'Q22', module: 4, q: tk('What does "tinning" mean in relationship to soldering?'), a: tk('The coating of the material to be soldered with a light coat of solder.'), page: '2-26' },
+    ],
+  },
+  {
+    scenario: 'hr-hook-tab',
+    source: { ...TO_SOURCE, pages: '08-6.6 – 08-6.7' },
+    points: [
+      tk('Hook: the wire contacts the hook for 180° and sits inside the hook\'s 180° arc. Less than two wire diameters from the base, or one from the end of the hook, is a defect.'),
+      tk('Two wires on one hook: neither may overlap the other; attaching them in alternating directions is the target.'),
+      tk('Pierced tab: the wire passes through the eye and contacts two parallel sides (180°). At least 90° is acceptable; less, or a wire over the edge instead of through the eye, is a defect.'),
+      tk('Clearance, flush cut, tinning and soldering are the same as on a turret.'),
+    ],
+    numbers: [
+      { label: tk('Hook'), value: tk('in the arc: ≥ 2 diameters from the base, ≥ 1 from the end') },
+      { label: tk('Pierced tab'), value: tk('through the eye; 180° target, 90° minimum') },
+      { label: tk('Insulation clearance'), value: tk('target 1 diameter (1.3 mm), at most 2 (2.6 mm)') },
+    ],
+    figure: { src: 'lessons/neets14/fig-3-8c.png', more: ['lessons/neets14/fig-3-8d.png'], caption: tk('NEETS 14, figure 3-8 (C, D). Hook and pierced terminals.') },
+    original: [
+      'HOOK TERMINALS [view (C)] are made of cylindrical stock formed in the shape of a hook or question mark. PERFORATED OR PIERCED TERMINALS [view (D)] describe a class of terminals that uses a hole pierced in flat metal for termination (e.g., terminal lugs).',
+      'The wires are attached within the 180° arc of the hook. (Defect: the wire is attached less than two wire diameters, including insulation, from the base of the terminal, one wire diameter from the end of the hook, or outside the arc of the hook.)',
+      'The wire contacts two parallel sides (180° bend) of the terminal. The wire passes through the eye of the terminal. (Acceptable: the wire to terminal contact is greater than or equal to 90°, provided the wire does not overlap itself.)',
+      'Multiple wires are attached in alternating directions. (Defect: multiple wires overlap each other on the terminal.)',
+    ],
+    task: tk('Wire hook E1 to tab E2 and hook E1 to tab E3 (W). On the hook, keep the wire in the arc; on the tabs, through the eye. Solder E1 with both wires on it, then the tabs, and clean the flux off.'),
+    questions: [
+      { ref: 'Q8', q: tk('Turret, bifurcated, and hook terminals are used for what type of termination?'), a: tk('Above-the-board termination.'), page: '3-14' },
+    ],
+  },
+  {
+    scenario: 'hr-solder-cup',
+    source: { ...TO_SOURCE, pages: '09-5.3, 09-6.1' },
+    points: [
+      tk('The wire goes straight into the cup, along its axis, for the full depth of the cup, touching the back wall.'),
+      tk('Clearance: one wire diameter between the insulation and the top edge of the cup. Up to two is acceptable; insulation in the solder fillet, or more than two, is a defect. NEETS Module 4 (1998) gave about 1/32 in; the current manual\'s rule is graded here.'),
+      tk('Fill: 100 % of the cup\'s cutout is the target, at least 75 % with full wetting is acceptable. The tinning on the wire alone does not fill a cup: add solder.'),
+      tk('Tip at 600 °F (316 °C), as low as possible on the back of the cup; no pressure on the cup. Burned insulation is a defect.'),
+    ],
+    numbers: [
+      { label: tk('Cup depth'), value: tk('2.5 mm (estimate for this cup)') },
+      { label: tk('Strip length'), value: tk('cup depth + 1 wire diameter') },
+      { label: tk('Fill'), value: tk('100 % target, at least 75 %') },
+    ],
+    figure: { src: 'lessons/neets14/fig-3-8e.png', caption: tk('NEETS 14, figure 3-8 (E). Solder cup.') },
+    original: [
+      'SOLDER CUP TERMINALS [view (E)] are a common type found on connectors.',
+      'The wire contacts the back wall of the solder cup or contacts other inserted wires for the full depth of the cup. (Defect: the wire is not inserted for the full depth of the solder cup.)',
+      'There is an insulation clearance of one wire diameter (including insulation) between the end of the insulation and the top edge of the solder cup where the wire first makes contact. (Defect: the wire insulation contacts the solder fillet or is greater than two wire diameters.)',
+      'Solder vertical fill is 100% of the cutout section of the face of the cup, complete wetting between the wire and the cup, forming a concave fillet between the wire and the top of the solder cup. (Defect: solder vertical fill is less than 75% of the cutout section of the face of the cup or complete wetting is not evident between the wire and the solder cup.)',
+      'Wires to be soldered to connectors should be stripped so that when the wire is placed in the barrel, there will be a gap of approximately 1/32 inch between the end of the barrel and the end of the insulation. This is done to prevent burning the insulation during the soldering process and to allow the wire to flex easier at a stress point. (NEETS Module 4, p. 2-24)',
+    ],
+    task: tk('Wire turret E1 to cup E2 and to cup E3 (W). For a cup, the strip length is the whole story: deep enough to bottom out, short enough to leave one wire diameter above the rim. Fill each cup with fresh solder ("+ flux"), solder E1, and clean the flux off.'),
+    questions: [
+      { ref: 'Q23', module: 4, q: tk('Why should wire be stripped 1/32 inch longer than the depth of the solder barrel?'), a: tk('To prevent burning the insulation during the soldering process and to allow the wire to flex easier at a stress point.'), page: '2-26' },
+      { ref: 'Q33', module: 4, q: tk('What is an advantage of using a resistance soldering iron when soldering wire to a connector?'), a: tk('The soldering tips are hot only during the brief period of soldering the connection, thus minimizing the chance of burning the wire insulation or connector inserts.'), page: '2-32' },
+    ],
+  },
+);
 
 /** The whole lesson (meta and content) for a board. */
 export function lessonFor(scenarioId: string): Lesson | undefined {

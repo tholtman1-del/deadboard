@@ -331,6 +331,9 @@ how often the planted part is in the top 3, with and without your rules.
 | `official-boards/boards/hr-coating-id` | Coating Identification |
 | `official-boards/boards/hr-esd` | ESD |
 | `official-boards/boards/hr-pad-repair` | Pad Repair |
+| `official-boards/boards/hr-turret` | Turret Terminals |
+| `official-boards/boards/hr-hook-tab` | Hook and Pierced Tab |
+| `official-boards/boards/hr-solder-cup` | Solder Cups |
 | `official-boards/boards/hr-final-practical` | Final Practical |
 | `official-boards/boards/demo-mnt-reform2-mb30` | MNT Reform 2 · dead 3.3 V rail (demo, loads when opened) |
 | `official-boards/boards/demo-antmicro-jetson-nano-bb` | Antmicro baseboard · no 3.3 V, flaky 5 V (demo, loads when opened) |

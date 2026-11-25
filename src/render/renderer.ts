@@ -1,5 +1,6 @@
 import type { Board, Component, Side, V2 } from '../types';
 import { DEG, triangulate, type V3 } from '../geom';
+import { TERM_GEOM, WIRE, form } from '../terminals';
 import { BAND_RGB, GOLD_RGB, LED_INFO, padWorld, resistorBands } from '../model';
 import type { Conn } from '../connectivity';
 import type { Sim } from '../sim';
@@ -816,6 +817,52 @@ export class Renderer {
         op.cyl.pushSeg3D([pa[0], pa[1], zo], [pb[0], pb[1], zo], 0.55, 0.55, 0.93, 0.93, 0.9, 1, isHov ? 0.3 : 0, 0.05, 0.7);
         continue;
       }
+      if (j.kind === 'wire' && j.ends && la === lb) {
+        // a hook-up wire on terminals (src/terminals.ts): insulation, the bare clearance, the wrap
+        // round the post (or straight down into a cup), the cut end, and the fillet once soldered
+        const sgn = la === 'F' ? 1 : -1;
+        const ins: [number, number, number] = isHov ? [1, 0.9, 0.55] : [0.93, 0.92, 0.88];
+        const ends = [pa, pb].map((P, i) => {
+          const e = j.ends![i], Q = i === 0 ? pb : pa;
+          const dx = Q[0] - P[0], dy = Q[1] - P[1], L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+          const post = e.type === 'turret' ? TERM_GEOM.turretPost : e.type === 'hook' ? TERM_GEOM.hookStock : e.type === 'tab' ? TERM_GEOM.tabThick : 2.0;
+          const h = e.type === 'cup' ? 4.6 : e.type === 'turret' ? 2.9 : e.type === 'hook' ? 4.0 : 3.6;
+          const z = sgn * (ht + h);
+          const f = form(e, e.type);
+          const bare: [number, number, number] = e.tinned ? [0.8, 0.82, 0.86] : [0.86, 0.52, 0.3];
+          const wr = (post + WIRE.cond) / 2;
+          let insAt: V3;
+          if (e.type === 'cup') {
+            // straight down the cup's axis; the insulation stops `gap` above the rim
+            const top: V3 = [P[0], P[1], z + sgn * f.gap];
+            op.cyl.pushSeg3D([P[0], P[1], z - sgn * 0.3], top, WIRE.cond, WIRE.cond, bare[0], bare[1], bare[2], 1, 0, 0.85, 0.3);
+            insAt = [P[0], P[1], z + sgn * (f.gap + 0.01)];
+            const bend: V3 = [P[0], P[1], z + sgn * (f.gap + 1.6)];
+            op.cyl.pushSeg3D(insAt, bend, WIRE.od, WIRE.od, ins[0], ins[1], ins[2], 1, isHov ? 0.3 : 0, 0.05, 0.6);
+            insAt = bend;
+          } else {
+            const a0 = Math.atan2(uy, ux), n = Math.max(1, Math.ceil(f.contact / 30));
+            const at = (k: number): V3 => { const a = a0 - (k / n) * (f.contact * DEG); return [P[0] + wr * Math.cos(a), P[1] + wr * Math.sin(a), z]; };
+            for (let k = 1; k <= n; k++) op.cyl.pushSeg3D(at(k - 1), at(k), WIRE.cond, WIRE.cond, bare[0], bare[1], bare[2], 1, 0, 0.85, 0.3);
+            if (f.tail > 0.05) {
+              const a = a0 - f.contact * DEG, e0 = at(n);
+              op.cyl.pushSeg3D(e0, [e0[0] + Math.sin(a) * f.tail, e0[1] - Math.cos(a) * f.tail, z], WIRE.cond, WIRE.cond, bare[0], bare[1], bare[2], 1, 0, 0.85, 0.3);
+            }
+            const edge = post / 2 + f.gap;
+            op.cyl.pushSeg3D(at(0), [P[0] + ux * edge, P[1] + uy * edge, z], WIRE.cond, WIRE.cond, bare[0], bare[1], bare[2], 1, 0, 0.85, 0.3);
+            insAt = [P[0] + ux * edge, P[1] + uy * edge, z];
+          }
+          if (e.soldered) {
+            const d = e.soldered === 'ok' ? wr * 2 + 0.5 : wr * 2 - 0.2;
+            op.sphere.pushTRS(P[0], P[1], z, d, d, 1.0, 0, 0.86, 0.88, 0.92, 1, 0, e.soldered === 'ok' ? 0.95 : 0.6, e.soldered === 'ok' ? 0.12 : 0.5);
+          }
+          return insAt;
+        });
+        const mid: V3 = [(ends[0][0] + ends[1][0]) / 2, (ends[0][1] + ends[1][1]) / 2, (ends[0][2] + ends[1][2]) / 2 + sgn * 1.5];
+        op.cyl.pushSeg3D(ends[0], mid, WIRE.od, WIRE.od, ins[0], ins[1], ins[2], 1, isHov ? 0.3 : 0, 0.05, 0.6);
+        op.cyl.pushSeg3D(mid, ends[1], WIRE.od, WIRE.od, ins[0], ins[1], ins[2], 1, isHov ? 0.3 : 0, 0.05, 0.6);
+        continue;
+      }
       const col: [number, number, number] = isHov ? [1, 0.78, 0.22] : [0.95, 0.36, 0.14];
       // Solder joints at endpoints
       op.sphere.pushTRS(pa[0], pa[1], za, 0.8, 0.8, 0.55, 0, 0.86, 0.88, 0.92, 1, 0, 0.92, 0.15);
@@ -1515,6 +1562,30 @@ export class Renderer {
       if (cSim?.over) {
         const mp = toW(0, 0, cz);
         this.pushGlow(mp[0], mp[1], mp[2], 5.0, 1.0, 0.55, 0.1, 0.85);
+      }
+      return;
+    }
+
+    if (shape === 'turret' || shape === 'hook' || shape === 'tab' || shape === 'cup') {
+      // wire terminals (src/terminals.ts): tin-plated brass on a swaged flange, ~5 mm tall
+      const m = thermCol ?? [0.84, 0.82, 0.74];
+      const cyl = (d: number, z0: number, z1: number, col = m, rough = 0.3) => { const q = toW(0, 0, (z0 + z1) / 2); op.cyl.pushTRS(q[0], q[1], q[2], d, d, z1 - z0, effRot, col[0], col[1], col[2], 1, thermEm, 0.9, rough, spec); };
+      cyl(Math.max(c.body.w, c.body.h) + 0.2, 0, 0.5);
+      if (shape === 'turret') {
+        cyl(2.2, 0.5, 1.6); cyl(1.6, 1.6, 4.1); cyl(2.4, 4.1, 4.7);
+      } else if (shape === 'cup') {
+        cyl(2.0, 0.5, 4.6);
+        const q = toW(0, 0, 4.62);
+        op.cyl.pushTRS(q[0], q[1], q[2], 1.4, 1.4, 0.04, effRot, 0.18, 0.17, 0.15, 1, 0, 0.5, 0.6, spec); // the cup's mouth
+      } else if (shape === 'tab') {
+        const q = toW(0, 0, 2.6);
+        op.box.pushTRS(q[0], q[1], q[2], c.body.w, 0.5, 4.2, effRot, m[0], m[1], m[2], 1, thermEm, 0.9, 0.3, spec);
+      } else {
+        cyl(1.0, 0.5, 3.4);
+        // the hook: a question mark of round stock over the post, opening along local +x
+        const pts: V3[] = [];
+        for (let i = 0; i <= 8; i++) { const a = Math.PI - (i / 8) * Math.PI * 1.15; pts.push(toW(0.8 + 0.8 * Math.cos(a), 0, 3.4 + 0.9 * Math.sin(a) + 0.1)); }
+        for (let i = 1; i < pts.length; i++) op.cyl.pushSeg3D(pts[i - 1], pts[i], 1.0, 1.0, m[0], m[1], m[2], 1, thermEm, 0.9, 0.3, spec);
       }
       return;
     }

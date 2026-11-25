@@ -6,6 +6,7 @@ import { buildConnectivity } from '../connectivity';
 import { lockFlag, topology } from '../crypto';
 import { addBlob, cutTrace, removePart } from '../ops';
 import { Builder } from './builder';
+import { addWire, targetEnd, terminalType, type TerminalType } from '../terminals';
 import { setReference } from './reference';
 
 async function finalize(id: string, meta: ScenarioMeta, b: Board, objectives: Objective[], flag: string, sabotage: (b: Board) => void): Promise<Scenario> {
@@ -341,6 +342,96 @@ function padRepair() {
 }
 
 /**
+ * Point-to-point wiring on terminals (T.O. 00-25-259 WP 008 00 / 009 00): +5V from J1 reaches
+ * terminal E1; each LED row is fed from its own terminal (E2, E3 …); hook-up wires join them as
+ * `wires` lists. The good board carries target wires (one diameter clearance, 180°, cut flush,
+ * soldered); the lesson takes them away.
+ */
+function wiredRows(label: string, src: TerminalType, rows: { type: TerminalType; color: LedColor; y: number; r?: number }[], wires: [number, number][], h = 40) {
+  const w = 70, k = new Builder(w, h);
+  const j1 = k.header('J1', 5, [6, h / 2], 0, '5V DC');
+  setNets(j1, { '1': '+5V', '2': 'GND' });
+  const y1 = k.pad(j1, '1')[1];
+  const terms = [k.terminal('E1', src, [20, y1])];
+  setNets(terms[0], { '1': '+5V' });
+  k.track('F', [k.pad(j1, '1'), k.pad(terms[0], '1')], 0.9, '+5V');
+  const gndX = 66;
+  rows.forEach((r, i) => {
+    const n = i + 1;
+    const e = k.terminal(`E${n + 1}`, r.type, [36, r.y], r.r ?? 0);
+    terms.push(e);
+    const res = k.resistor(`R${n}`, 330, [48, r.y]);
+    const led = k.led(`D${n}`, r.color, [62, r.y], 180);
+    setNets(e, { '1': `FEED${n}` });
+    setNets(res, { '1': `FEED${n}`, '2': `LED${n}_A` });
+    setNets(led, { '2': `LED${n}_A`, '1': 'GND' });
+    k.track('F', [k.pad(e, '1'), k.pad(res, '1')], 0.9, `FEED${n}`);
+    k.track('F', [k.pad(res, '2'), k.pad(led, '2')], 0.8, `LED${n}_A`);
+    k.track('B', [k.pad(led, '1'), [gndX, r.y]], 0.9, 'GND');
+  });
+  const ys = rows.map((r) => r.y);
+  k.track('B', [[gndX, Math.min(...ys)], [gndX, h - 3], [6, h - 3], k.pad(j1, '2')], 0.9, 'GND');
+  k.text([w / 2 - 4, 3], label, 1.4);
+  for (const [a, b] of wires) {
+    const ca = terms[a], cb = terms[b];
+    const j = addWire(k.b, ca, targetEnd(ca, terminalType(ca)!), cb, targetEnd(cb, terminalType(cb)!));
+    for (const e of j.ends!) e.soldered = 'ok'; // the good board's wires are soldered
+  }
+  return k;
+}
+
+function turretTerminals() {
+  const k = wiredRows('HI-REL 12  TURRET TERMINALS', 'turret', [{ type: 'turret', color: 'red', y: 11 }, { type: 'turret', color: 'green', y: 29 }], [[0, 1], [1, 2]]);
+  return finalize('hr-turret', {
+    title: 'Turret Terminals',
+    author: 'DEADBOARD',
+    difficulty: 3,
+    description: 'Point-to-point wiring: +5V arrives at turret E1, and each LED is fed from its own turret. The two wires are missing: E1 to E2, and E2 on to E3. Strip, tin, form and solder them to the 2M standard.',
+    hints: [
+      'Hook-up wire (W): click E1, prepare the end, then click E2 and prepare that end. The wire is M22759/16-22: 1.32 mm over the insulation.',
+      'Thermal strippers; tin the end; keep one wire diameter (about 1.3 mm) of bare wire before the terminal; bend 180° round the post and cut the end flush. Strip enough for clearance plus the wrap.',
+      'Then hold the iron on each turret with "+ flux" (fresh solder) until the wire is soldered. E2 carries two wires: place both before you solder it. Clean the flux with Isopropyl.',
+    ],
+    par: 8,
+  }, k.b, [lit('D1'), lit('D2')], 'PCB{turr3t_180_0n3_d14m3t3r}',
+  (b) => { b.jumpers = []; });
+}
+
+function hookAndTab() {
+  const k = wiredRows('HI-REL 13  HOOK + PIERCED TAB', 'hook', [{ type: 'tab', color: 'yellow', y: 11 }, { type: 'tab', color: 'blue', y: 29 }], [[0, 1], [0, 2]]);
+  return finalize('hr-hook-tab', {
+    title: 'Hook and Pierced Tab',
+    author: 'DEADBOARD',
+    difficulty: 3,
+    description: '+5V arrives at hook terminal E1; the LEDs are fed from pierced tabs E2 and E3. Both wires from the hook are missing. A hook has its own rule for where the wire sits, and a tab wire must pass through the eye.',
+    hints: [
+      'Hook-up wire (W) from E1 to E2, and again from E1 to E3: E1 is a two-wire hook.',
+      'On the hook, the wire sits inside the hook\'s 180° arc, not at its base or its tip. On a tab, through the eye: 180° is the target, 90° is the least.',
+      'Solder E1 once both wires are on it, then E2 and E3, with fresh solder ("+ flux"), and clean the flux off.',
+    ],
+    par: 8,
+  }, k.b, [lit('D1'), lit('D2')], 'PCB{h00k_4rc_th3n_th3_3y3}',
+  (b) => { b.jumpers = []; });
+}
+
+function solderCups() {
+  const k = wiredRows('HI-REL 14  SOLDER CUPS', 'turret', [{ type: 'cup', color: 'green', y: 11 }, { type: 'cup', color: 'red', y: 29 }], [[0, 1], [0, 2]]);
+  return finalize('hr-solder-cup', {
+    title: 'Solder Cups',
+    author: 'DEADBOARD',
+    difficulty: 3,
+    description: 'The LEDs are fed through solder cups E2 and E3, like the pins of a connector. Wire both cups from turret E1. A cup takes the wire straight in, to the bottom, and has to be filled with solder.',
+    hints: [
+      'Hook-up wire (W) from E1 to each cup. In a cup, the stripped length is the cup depth (2.5 mm) plus the clearance above the rim: one wire diameter.',
+      'Strip too short and the wire does not reach the bottom, or the insulation sits in the solder; too long and the bare wire stands out of the cup.',
+      'Fill each cup with fresh solder ("+ flux"): the tinning alone does not fill it. Clean the flux off.',
+    ],
+    par: 8,
+  }, k.b, [lit('D1'), lit('D2')], 'PCB{s0ld3r_cup_full_d3pth}',
+  (b) => { b.jumpers = []; });
+}
+
+/**
  * The final practical, after the 2M miniature performance test (certification manual Appendix C):
  * on the DIP-16 network board under an unidentified coating (hard polyurethane), RN1 burned out and
  * is replaced whole (coating identified and taken off, 16 pins desoldered and soldered in a skipping
@@ -376,8 +467,8 @@ async function finalPractical(): Promise<Scenario> {
 }
 
 export async function solderingScenarios(): Promise<Scenario[]> {
-  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern(), conductorRepair(), conformalCoating(), coatingId(), esdBoard(), padRepair(), finalPractical()]);
+  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern(), conductorRepair(), conformalCoating(), coatingId(), esdBoard(), padRepair(), turretTerminals(), hookAndTab(), solderCups(), finalPractical()]);
 }
 
 /** The track's boards, in order. */
-export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern', 'hr-conductor-repair', 'hr-conformal-coating', 'hr-coating-id', 'hr-esd', 'hr-pad-repair', 'hr-final-practical'] as const;
+export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern', 'hr-conductor-repair', 'hr-conformal-coating', 'hr-coating-id', 'hr-esd', 'hr-pad-repair', 'hr-turret', 'hr-hook-tab', 'hr-solder-cup', 'hr-final-practical'] as const;

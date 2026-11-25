@@ -138,7 +138,7 @@ export function touchCopy(s: string): string {
 export const TOOL_SHORT: Record<string, string> = {
   inspect: 'Select', dmm: 'Meter', iron: 'Iron', wick: 'Wick', flip180: 'Rotate', jumper: 'Jumper',
   knife: 'Cutter', replace: 'Parts', freeze: 'Freeze', ipa: 'IPA', hotair: 'Hot air', rosin: 'Rosin',
-  scope: 'Scope', press: 'Press', extract: 'Extract', shunt: 'Shunt', staple: 'Staple', decoat: 'Uncoat', coat: 'Coat', padfix: 'New pad', coatest: 'Test coat',
+  scope: 'Scope', press: 'Press', extract: 'Extract', shunt: 'Shunt', staple: 'Staple', decoat: 'Uncoat', coat: 'Coat', padfix: 'New pad', coatest: 'Test coat', hookup: 'Wire',
 };
 
 /** What each tool does, in one short line for the phone (the desktop shows `TOOLS[].tip` on hover). */
@@ -163,6 +163,7 @@ export const TOOL_TIP_PHONE: Record<string, string> = {
   coat: 'Tap a part to put conformal coating back on.',
   padfix: 'Tap a lifted pad to replace it with a new pad and eyelet.',
   coatest: 'Tap a coated part to test the coating (test set in Bench).',
+  hookup: 'Tap a terminal, prepare the end; then the other terminal.',
 };
 
 /**

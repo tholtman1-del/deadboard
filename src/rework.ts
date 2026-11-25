@@ -2,6 +2,7 @@
 // real heat sources (iron, hot air, preheater); this monitor turns them into what happens to the
 // solder joints, pads and parts. Limits are typical process-window values (estimates, as data).
 import { t } from './i18n';
+import { endsAt, terminalType } from './terminals';
 import type { Board, Component } from './types';
 import type { ThermalModel } from './thermal';
 import { rng, seedOf, sampleSeverity } from './faults';
@@ -60,7 +61,7 @@ export const DEFAULT_LIMITS: ProcessLimits = {
 
 export type ReworkEventKind = 'molten' | 'reflowed' | 'wetted' | 'dull-joint' | 'pad-lifted' | 'part-overheated' | 'mlcc-cracked' | 'part-displaced'
   | 'filled' | 'no-solder' | 'extracted' | 'sweat' | 'wick-surface' | 'not-molten'
-  | 'overheated-joint' | 'slow-melt';
+  | 'overheated-joint' | 'slow-melt' | 'wire-soldered' | 'wire-starved';
 export interface ReworkEvent { kind: ReworkEventKind; ref: string; pad?: number; detail: string }
 
 /**
@@ -71,6 +72,11 @@ export interface JointEpisode {
   ref: string; pad: number;
   /** Seconds the joint was molten (above liquidus). */
   molten: number;
+  /**
+   * Of those, seconds with the tip still on it: the dwell the manuals mean. A big terminal stays
+   * molten for seconds after the tip leaves; that is cooling, not overheating.
+   */
+  dwell: number;
   /** Peak joint temperature (°C). */
   peak: number;
   /** Flux was active when it melted. */
@@ -112,9 +118,9 @@ export const VACUUM_SECONDS = 0.6;
 export type ExtractMode = 'wick' | 'plunger' | 'vacuum';
 
 /**
- * Solder oxidizes when it stays molten too long, or is reflowed again and again (T.O. 00-25-259
- * 05-4.2.5/6). The manual gives no numbers: these are estimates — twice the 3 s soldering action,
- * and a third reflow of the same solder.
+ * Solder oxidizes when it is heated too long (the tip's dwell while it is molten), or reflowed
+ * again and again (T.O. 00-25-259 05-4.2.5/6). The manual gives no numbers: these are estimates —
+ * twice the 3 s soldering action, and a third reflow of the same solder.
  */
 export const OXIDIZE_MOLTEN_S = 6;
 export const OXIDIZE_REFLOWS = 3;
@@ -257,17 +263,19 @@ export class ReworkMonitor {
         const tj = this.thermal.jointTemp(c, pi);
         if (tj >= L.alloy.liquidus) {
           if (!js.ep) {
-            js.ep = { ref: c.ref, pad: pi, molten: 0, peak: tj, flux: ps.flux > 0, t: this.thermal.time, open: true, shunt: !!c.state.shunts?.includes(pi), bodyPeak: T, ...(c.state.burnt && { dead: true }) };
+            js.ep = { ref: c.ref, pad: pi, molten: 0, dwell: 0, peak: tj, flux: ps.flux > 0, t: this.thermal.time, open: true, shunt: !!c.state.shunts?.includes(pi), bodyPeak: T, ...(c.state.burnt && { dead: true }) };
             this.episodes.push(js.ep);
             if (c.state.holes?.[pi] !== 'clear') js.reflows++;
           }
           js.ep.molten += dt;
-          // too long molten, or the same solder reflowed again and again: it oxidizes (dull, grainy)
-          const why = js.ep.molten >= OXIDIZE_MOLTEN_S ? 'long' : js.reflows >= OXIDIZE_REFLOWS ? 'repeated' : null;
+          const tipOn = this.thermal.sources.some((s) => s.kind === 'iron' && s.partId === c.id && (s.pad === undefined || s.pad === pi) && this.thermal.time <= s.until + 1e-9);
+          if (tipOn) js.ep.dwell += dt;
+          // heated too long, or the same solder reflowed again and again: it oxidizes (dull, grainy)
+          const why = js.ep.dwell >= OXIDIZE_MOLTEN_S ? 'long' : js.reflows >= OXIDIZE_REFLOWS ? 'repeated' : null;
           if (why && !c.state.burnt && c.state.holes?.[pi] !== 'clear' && !c.state.oxidized?.includes(pi)) {
             c.state.oxidized = [...(c.state.oxidized ?? []), pi].sort((a, b) => a - b);
             ev.push({ kind: 'overheated-joint', ref: c.ref, pad: pi, detail: why === 'long'
-              ? t('{ref} pad {pad}: molten for {s} s — the solder is oxidizing (dull, grainy). It must be removed and the joint resoldered.', { ref: c.ref, pad: p.name, s: OXIDIZE_MOLTEN_S })
+              ? t('{ref} pad {pad}: heated molten for {s} s — the solder is oxidizing (dull, grainy). It must be removed and the joint resoldered.', { ref: c.ref, pad: p.name, s: OXIDIZE_MOLTEN_S })
               : t('{ref} pad {pad}: reflowed {n} times — the solder is oxidized. Remove it and resolder the joint with fresh solder.', { ref: c.ref, pad: p.name, n: js.reflows }) });
           }
           js.ep.peak = Math.max(js.ep.peak, tj);
@@ -302,6 +310,16 @@ export class ReworkMonitor {
           if (ps.flux > 0 && !lifted0(c, pi) && !c.state.fluxResidue?.includes(pi)) c.state.fluxResidue = [...(c.state.fluxResidue ?? []), pi].sort((a, b) => a - b);
           if (!c.state.cold.includes(pi) && !c.state.intermittent?.some((f) => f.pad === pi)) ev.push({ kind: 'wetted', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: solder flowed', { ref: c.ref, pad: p.name }) });
           const lifted = c.state.lifted?.includes(pi);
+          // hook-up wires on this terminal: the solder flows round them. Fresh solder makes the
+          // fillet; without it there is only what the tinning and the terminal carried (T.O. 08-5.7)
+          for (const { j, end } of lifted ? [] : endsAt(this.board, c, pi)) {
+            const we = j.ends![end];
+            if (we.soldered) continue;
+            we.soldered = js.fed ? 'ok' : 'starved';
+            ev.push({ kind: js.fed ? 'wire-soldered' : 'wire-starved', ref: c.ref, pad: pi, detail: js.fed
+              ? t('{ref}: wire soldered', { ref: c.ref })
+              : t('{ref}: the wire is held only by the tinning — no solder was added, so the fillet is starved', { ref: c.ref }) });
+          }
           if (!lifted && c.state.cold.includes(pi)) {
             const ok = ps.flux > 0 || rng(seedOf(`${c.ref}|${pi}|${Math.round(this.thermal.time)}`))() < 0.4;
             if (ok) {
@@ -329,7 +347,7 @@ export class ReworkMonitor {
       ps.molten = allMolten;
       // part body overheating
       if (T >= L.partMaxTemp) ps.overheat += dt;
-      if (ps.overheat >= L.partMaxSeconds && !c.state.burnt && c.kind !== 'testpoint') {
+      if (ps.overheat >= L.partMaxSeconds && !c.state.burnt && c.kind !== 'testpoint' && !terminalType(c)) { // a bare metal post has nothing to burn
         c.state.burnt = true;
         ev.push({ kind: 'part-overheated', ref: c.ref, detail: t('{ref} overheated ({s} s above {temp} °C)', { ref: c.ref, s: ps.overheat.toFixed(1), temp: L.partMaxTemp }) });
       }
