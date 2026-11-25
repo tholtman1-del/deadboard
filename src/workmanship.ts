@@ -185,7 +185,7 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
   const wires = board.jumpers.filter((j) => !j.kind);
   if (wires.length > refJumpers) add({ kind: 'wire-repair', where: String(wires.length - refJumpers) });
 
-  // a nick over a tenth of the conductor stays a defect until a staple bridges it
+  // a nick over NICK_LIMIT (20 %) of the conductor stays a defect until a staple bridges it
   const staples = board.jumpers.filter((j) => j.kind === 'staple');
   const distToSeg = (p: [number, number], a: [number, number], b: [number, number]) => {
     const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy || 1e-9;

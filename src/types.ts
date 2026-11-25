@@ -106,7 +106,7 @@ export interface ComponentState {
   esdDamaged?: true;
   /** Coating was taken off this part before the coating type had been identified (T.O. 06-5.2). */
   coatRemovedBlind?: true;
-  /** Table 3-1 preferred-order rank of the removal method used, and the best one possible here. */
+  /** Preferred-order rank of the removal method used in the graded table (06-3, or NEETS 3-1 in its lesson), and the best one possible here. */
   coatMethodRank?: number;
   coatBestRank?: number;
   /**
@@ -172,7 +172,7 @@ export interface Blob { id: string; at: V2; r: number; layer: Side }
 export interface Jumper { id: string; a: V2; b: V2; la: Side; lb: Side; kind?: 'staple' | 'wire'; ends?: [import('./terminals').WireEnd, import('./terminals').WireEnd] }
 /**
  * Damage that leaves a conductor conducting: a nick or scratch across `depth` of its width. Over
- * one tenth of the cross-section it must be repaired (NEETS 14 p. 3-31). Drawn as a notch.
+ * 20 % of the cross-section it must be repaired (T.O. 00-25-259 12-6.1; NEETS 14 p. 3-31 said one tenth). Drawn as a notch.
  */
 export interface Nick { id: string; at: V2; layer: Side; len: number; depth: number; rot: number; /** conductor width (mm) */ width: number }
 export interface Zone { id: string; layer: Side; net?: string; poly: V2[] }

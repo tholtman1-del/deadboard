@@ -65,7 +65,7 @@ export function fluxResidueNear(board: Board, xmm: number, ymm: number, rmm: num
 
 /**
  * Rework flux residue: rosin dissolves readily in alcohol, so one scrub over a pad removes it
- * (NEETS 14 p. 3-25: 99.5 % ethyl or isopropyl alcohol). Returns "R1.2"-style names of the pads cleaned.
+ * (NEETS 14 p. 3-25: 99.5 % ethyl or isopropyl alcohol; the 2M manual allows isopropyl only, 05-5.4). Returns "R1.2"-style names of the pads cleaned.
  */
 export function cleanFluxWithIpa(board: Board, xmm: number, ymm: number, rmm: number): string[] {
   const out: string[] = [];

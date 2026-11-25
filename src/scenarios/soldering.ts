@@ -270,7 +270,7 @@ function conductorRepair() {
     hints: [
       'Look closely at the tracks between R1 and D1, and between R2 and D2, on the top side.',
       'A solder bridge or a wire across the crack would work, but neither is a high-reliability repair. The textbook\'s choice is the clinched staple (K): click the conductor on one side of the damage, then the other.',
-      'The nick takes half the width of D2\'s track: more than a tenth, so it must be repaired too, with a staple across it.',
+      'The nick takes half the width of D2\'s track: more than 20 %, so it must be repaired too, with a staple across it.',
     ],
     par: 2,
   }, k.b, [lit('D1'), lit('D2')], 'PCB{cl1nch3d_st4pl3_h1_r3l}',
@@ -295,7 +295,7 @@ async function coatingId(): Promise<Scenario> {
     hints: [
       'Coating test (Q) on any part, three tests set in Bench → Coating test: press, a drop of alcohol, controlled heat. Follow the flowchart in the lesson.',
       'Not soft, no reaction to alcohol, and heat turns it into a white powder: that is epoxy. Record it in Bench → Identified as.',
-      'Table 3-1\'s first choice for thin epoxy is the hot air jet. Then reflow R1 pad 1 with flux, clean, and coat R1 with epoxy again.',
+      'Table 06-3\'s first choice for epoxy is the hot air jet. Then reflow R1 pad 1 with flux, clean, and coat R1 with epoxy again.',
     ],
     par: 6,
   }, k.b, [lit('D1'), lit('D2')], 'PCB{1d3nt1fy_b3f0r3_y0u_str1p}',
@@ -390,7 +390,7 @@ function clinchedLeads() {
     description: 'D2 is dark: R2 burned open. Like every resistor on this double-sided card, its leads are fully clinched along their runs on the bottom. A clinched lead cannot simply be sucked out: free it the way the manual says, then fit the new resistor the way the old one was fitted.',
     hints: [
       'Flip to the bottom (F): R2\'s leads are bent flat along their tracks. The extractor tip cannot fit over a bent lead.',
-      'For each lead: Desolder wick (4) to take the surface solder off, then Lead pliers (L) to break the sweat joint and straighten the lead. Then clear the hole with the extractor (X) on continuous vacuum.',
+      'For each lead: Desolder wick (4) to take the surface solder off, then Lead pliers (L) to break the sweat joint and straighten the lead. Refill the pads with fresh solder (the iron with "+ flux"), and only then clear the hole with the extractor (X) on continuous vacuum.',
       'Take R2 out, set Bench → Lead termination to a full clinch along the conductor, one pad diameter long, fit a new 330 Ω, solder both leads with "+ flux" and clean.',
     ],
     par: 9,
@@ -606,7 +606,7 @@ async function finalPractical(): Promise<Scenario> {
       'Order of work: wrist strap on before you touch the card (Bench → ESD protection). Identify the coating by test and record it, take it off RN1 with Table 06-3\'s first choice, then clear all 16 holes with continuous vacuum in a skipping pattern (never two neighbouring pins in a row).',
       'RN1 out: the pad under pin 1 has lifted, replace it (Pad repair, E). Fit a new RN1, solder all 16 pins in a skipping pattern, clean the flux. The +5V run has a deep nick: staple it (K).',
       'Wire E1 to E2, E1 to E3, then E2 to cup E4 (Hook-up wire, W): a double wire on the turret, both hook wires in the arc and bent opposite ways, the tab wire through the eye, the cup wire to the full depth. Place every wire a terminal takes before you solder it, then clean.',
-      'R5 (bottom right): its leads are full-clinched on the bottom. Coating off, wick the surface solder, straighten the leads (Lead pliers, L), extract, take it out. Patch the burned laminate under it (Laminate repair, A), then fit a new 330 Ω R5 with a full clinch along its runs (Bench → Lead termination) and solder it.',
+      'R5 (bottom right): its leads are full-clinched on the bottom. Coating off, wick the surface solder, straighten the leads (Lead pliers, L), refill the pads with fresh solder, extract, take it out. Patch the burned laminate under it (Laminate repair, A), then fit a new 330 Ω R5 with a full clinch along its runs (Bench → Lead termination) and solder it.',
       'Last: the same coating back on RN1 and R5, then run the tests.',
     ],
     par: 58,

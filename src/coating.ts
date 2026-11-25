@@ -50,7 +50,8 @@ export const TABLE_3_1: Record<CoatingType, Partial<Record<CoatMethod, Cell>>> =
 
 /**
  * T.O. 00-25-259 Table 06-3 "Conformal Coating Removal Methods" (Rev 4, 2013), the current 2M
- * standard: isopropyl alcohol is the only solvent (05-5.4), parylene comes off mechanically only.
+ * standard (06-5.4): isopropyl alcohol is the only solvent for coating tests and removal (06-5.2;
+ * also the only cleaning solvent, 05-5.4), parylene comes off mechanically only.
  * Its notes: * identifies the type; a: thick coatings only (0.025 in and thicker); b: thin coatings
  * only; c: do not attempt to remove to the CCA surface. The manual lists no varnish: a varnish
  * coating keeps its Table 3-1 row.
