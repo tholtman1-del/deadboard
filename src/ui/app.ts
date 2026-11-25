@@ -56,6 +56,7 @@ import { HOTAIR_H, IRON_G, MELT_WITHIN_S, PREHEAT_H, ReworkMonitor, VACUUM_SECON
 import { inspect, type Inspection } from '../workmanship';
 import { lessonMeta } from '../lessons/track';
 import { handle as handleEsd, type Humidity } from '../esd';
+import { clinchFitted, straighten, type Termination } from '../clinch';
 import { addWire, endsAt, terminalType, type TerminalType, type WirePrep } from '../terminals';
 import { START_PREP, wireMeasureHtml, wirePrepHtml, wirePreviewSvg } from './wire-ui';
 import { COATINGS, COAT_TESTS, ID_TYPES, METHODS, applyCoating, coatingName, methodName, observe, removeCoating, workable, type CoatMethod, type CoatTest, type CoatingType } from '../coating';
@@ -79,7 +80,7 @@ import { beginnerPrimerHtml, CHALLENGE_TRACK_IDS, lessonDock, TUTORIAL_SCENARIO_
 import { TOOL_SHORT, TOOL_TIP_PHONE, TouchGestures, splitLead, touchCopy, wantsMobileLayout } from './touch';
 import { cursorStops, describeAt, stepToward } from './boardcursor';
 
-type ToolId = 'inspect' | 'dmm' | 'iron' | 'wick' | 'flip180' | 'jumper' | 'knife' | 'replace' | 'freeze' | 'ipa' | 'press' | 'hotair' | 'scope' | 'rosin' | 'extract' | 'shunt' | 'staple' | 'decoat' | 'coat' | 'padfix' | 'coatest' | 'hookup';
+type ToolId = 'inspect' | 'dmm' | 'iron' | 'wick' | 'flip180' | 'jumper' | 'knife' | 'replace' | 'freeze' | 'ipa' | 'press' | 'hotair' | 'scope' | 'rosin' | 'extract' | 'shunt' | 'staple' | 'decoat' | 'coat' | 'padfix' | 'coatest' | 'hookup' | 'pliers';
 type PanelTab = 'mission' | 'inspect' | 'studio' | 'mods';
 type DmmMode = 'V' | 'OHM' | 'DIODE' | 'CAP' | 'AMP';
 
@@ -112,6 +113,7 @@ const TOOLS: { id: ToolId; key: string; ico: string; lbl: string; tip: string }[
   { id: 'decoat', key: 'u', ico: 'scrape', lbl: tk('Coating removal'), tip: tk('Take the conformal coating off a part\'s leads and pads (click the part); the method is set in Bench, as in NEETS Table 3-1') },
   { id: 'coat', key: 'j', ico: 'coat', lbl: tk('Conformal coating'), tip: tk('Put conformal coating back on a part after the repair (the type is set in Bench)') },
   { id: 'hookup', key: 'w', ico: 'hookup', lbl: tk('Hook-up wire'), tip: tk('Wire terminals together the 2M way (turret, hook, pierced tab, solder cup): click a terminal and prepare that end, then the other terminal') },
+  { id: 'pliers', key: 'l', ico: 'pliers', lbl: tk('Lead pliers'), tip: tk('Straighten a clinched lead (click its pad): duckbill pliers turn it 15° to break the sweat joint, then it is straightened. Wick its surface solder off first') },
   { id: 'shunt', key: 's', ico: 'clip', lbl: tk('Thermal shunt'), tip: tk('Clip a heat sink on a through-hole lead (click its pad) so the part stays cool while you solder; click again to take it off') },
 ];
 
@@ -231,6 +233,10 @@ export class PcbApp {
   private reworkMode: { realistic: boolean; ironTemp: number; flux: boolean } = { realistic: false, ironTemp: 350, flux: true };
   /** Solder extractor: a motorized continuous vacuum, or a one-shot manual plunger. */
   private extractMode: 'vacuum' | 'plunger' = 'vacuum';
+  /** How the leads of a fitted part are terminated (T.O. 00-25-259 07-5.11): style, length in pad diameters, along the conductor. */
+  private leadTerm: Termination = 'straight';
+  private leadLen = 1;
+  private leadAlong = true;
   /** ESD: a grounded wrist strap and mat, and the air's relative humidity (Bench; NEETS 14 Table 3-2). */
   private grounded = true;
   private humidity: Humidity = 'high';
@@ -875,6 +881,18 @@ export class PcbApp {
             <label class="bench-row"><span>${t('Extractor')}</span><select id="extract-mode" title="${t('Solder extractor: continuous vacuum (motorized) or a one-shot manual plunger')}">
               <option value="vacuum">${t('Continuous vacuum')}</option>
               <option value="plunger">${t('Manual plunger')}</option>
+            </select></label>
+            <label class="bench-row"><span>${t('Lead termination')}</span><select id="lead-term" title="${t('How the leads of a part you fit are terminated on the solder side (NEETS p. 3-22, T.O. 07-5.11)')}">
+              <option value="straight">${t('Straight-through')}</option>
+              <option value="semi">${t('Semi-clinch 45°')}</option>
+              <option value="full">${t('Full clinch 90°')}</option>
+            </select></label>
+            <label class="bench-row"><span>${t('Clinched length')}</span><select id="lead-len" title="${t('Length of a clinched lead after cutting, in pad diameters')}">
+              ${[0.25, 0.5, 1, 2, 3].map((x) => `<option value="${x}"${x === 1 ? ' selected' : ''}>${t('{n} pad diameter|{n} pad diameters', { n: x })}</option>`).join('')}
+            </select></label>
+            <label class="bench-row"><span>${t('Clinch direction')}</span><select id="lead-dir">
+              <option value="along">${t('Along the conductor')}</option>
+              <option value="across">${t('Across the conductor')}</option>
             </select></label>
             <label class="bench-row"><span>${t('ESD protection')}</span><select id="esd-mode" title="${t('Grounded wrist strap and bench mat (NEETS p. 3-40)')}">
               <option value="on">${t('Wrist strap on')}</option>
@@ -3150,6 +3168,9 @@ export class PcbApp {
     });
     q('#coat-method').addEventListener('change', (e) => { this.coatMethod = (e.target as HTMLSelectElement).value as CoatMethod; });
     q('#coat-type').addEventListener('change', (e) => { this.coatType = (e.target as HTMLSelectElement).value as CoatingType; });
+    q('#lead-term').addEventListener('change', (e) => { this.leadTerm = (e.target as HTMLSelectElement).value as Termination; });
+    q('#lead-len').addEventListener('change', (e) => { this.leadLen = Number((e.target as HTMLSelectElement).value) || 1; });
+    q('#lead-dir').addEventListener('change', (e) => { this.leadAlong = (e.target as HTMLSelectElement).value === 'along'; });
     q('#extract-mode').addEventListener('change', (e) => {
       this.extractMode = (e.target as HTMLSelectElement).value === 'plunger' ? 'plunger' : 'vacuum';
     });
@@ -3693,6 +3714,11 @@ export class PcbApp {
     const hit = pickAt(this.board, pt, side, this.vizMode === 'xray');
     if (hit?.kind !== 'pad' || !hit.comp.state.populated) return false;
     if (vacuum && !isThroughHole(hit.comp)) return false;
+    if (vacuum && hit.comp.state.clinch?.[hit.padIndex]) {
+      // the tip cannot fit over a lead bent across its pad
+      this.toast(t('{ref} pad {pad}: the lead is clinched over the pad, so the extractor tip cannot fit over it. Wick the surface solder off, break the sweat joint and straighten the lead first.', { ref: hit.comp.ref, pad: hit.comp.pads[hit.padIndex].name }), 'info');
+      return true;
+    }
     if (!workable(this.board, hit.comp)) { this.coatingInTheWay(hit.comp, !vacuum); return true; }
     this.endIronHold();
     this.noteOnce('tool');
@@ -3821,6 +3847,8 @@ export class PcbApp {
    */
   private afterFit(c: Component) {
     this.leadsUnsoldered(c);
+    // the bench's lead termination (straight-through leaves the leads as they are)
+    if (isThroughHole(c)) clinchFitted(c, this.leadTerm, this.leadLen, this.leadAlong);
     const out = handleEsd(c, this.grounded, this.humidity);
     if (out === 'gate-ruptured') this.toast(t('Zap: you were not grounded and carried about {v} V. {ref}\'s gate broke down and now leaks to its source.', { v: this.humidity === 'low' ? '6 000' : '100', ref: c.ref }), 'danger');
     else if (out === 'latent') this.toast(t('Zap: you were not grounded and carried about {v} V into {ref}. Nothing shows yet, but a part hit by static can fail early.', { v: this.humidity === 'low' ? '6 000' : '100', ref: c.ref }), 'warn');
@@ -4292,6 +4320,25 @@ export class PcbApp {
       addJumper(this.board, this.jumperStart.a, this.jumperStart.la, snap, side);
       this.jumperStart = null;
       sfxSolder();
+      this.recompute(false);
+      this.renderUI();
+      return;
+    }
+
+    if (this.activeTool === 'pliers') {
+      // T.O. 00-25-259 07-5.4: surface solder wicked off, the sweat joint broken (lead turned 15°), the lead straightened
+      if (hit?.kind !== 'pad') { this.toast(t('Click the pad of a clinched lead.'), 'info'); return; }
+      const c = hit.comp, pi = hit.padIndex, where = { ref: c.ref, pad: c.pads[pi].name };
+      if (!c.state.clinch?.[pi]) { this.toast(t('{ref} pad {pad}: the lead is straight already.', where), 'info'); return; }
+      if (!workable(this.board, c)) { this.coatingInTheWay(c, false); return; }
+      this.pushUndo();
+      const r = straighten(c, pi);
+      if (r === 'tore') {
+        const detail = t('{ref} pad {pad} tore off the board: the lead was still soldered over the pad. Wick the surface solder off before you straighten a clinched lead.', where);
+        this.rework?.log.push({ kind: 'pad-lifted', ref: c.ref, pad: pi, detail, t: this.thermal?.time ?? 0 });
+        this.toast(detail, 'danger');
+      } else this.toast(t('{ref} pad {pad}: sweat joint broken, lead straightened. The hole can now be cleared.', where), 'success');
+      sfxClick();
       this.recompute(false);
       this.renderUI();
       return;

@@ -5,6 +5,7 @@
 import { tk } from './i18n';
 import type { Board } from './types';
 import { isHeatSensitive, type JointEpisode, type ReworkEvent } from './rework';
+import { judgeClinch, terminationName, terminationOf } from './clinch';
 import { isWire, judge, type Check, type CheckArea, type TerminalType } from './terminals';
 
 /** Where a rule comes from (public-domain source, page as printed). */
@@ -20,7 +21,8 @@ export type FindingKind =
   | 'flux-residue' | 'loose-solder' | 'long-dwell' | 'wire-repair' | 'no-shunt' | 'skip-pattern' | 'nick'
   | 'coating-charred' | 'coating-missing' | 'coating-mismatch' | 'coating-method' | 'esd-damage' | 'esd-handling'
   | 'overheated-joint' | 'slow-melt' | 'coating-id' | 'coating-id-order'
-  | 'wire-strip' | 'wire-tinning' | 'wire-clearance' | 'wire-forming' | 'wire-solder';
+  | 'wire-strip' | 'wire-tinning' | 'wire-clearance' | 'wire-forming' | 'wire-solder'
+  | 'clinch' | 'termination-style';
 
 /**
  * `procedural`: about how the work was done, which the finished board does not show; listed only
@@ -56,6 +58,8 @@ export const RULES: Record<FindingKind, Rule> = {
   'wire-clearance': { kind: 'wire-clearance', severity: 'reject', title: tk('Insulation clearance'), rule: tk('Target: one wire diameter (including insulation) between the end of the insulation and the terminal. Acceptable: up to two wire diameters. Defect: more than two, or the insulation contacts the terminal (in a solder cup: the solder fillet).'), source: to('08-6.4, 09-6.1') },
   'wire-forming': { kind: 'wire-forming', severity: 'reject', title: tk('Wire forming'), rule: tk('Turret and hook: the wire contacts the post for 180°, more is acceptable if the wire does not overlap itself. Pierced tab: through the eye, at least 90° of contact. The cut end may extend at most one wire diameter beyond the terminal. A wire goes to the full depth of a solder cup.'), source: to('08-6.5 – 08-6.7, 09-6.1') },
   'wire-solder': { kind: 'wire-solder', severity: 'reject', title: tk('Wire solder connection'), rule: tk('A discernible solder fillet covers 100 % of the wire and terminal contact area, the contour of the wire still visible. A solder cup is filled at least 75 % of its cutout, with complete wetting between the wire and the cup.'), source: to('08-6.12, 09-6.1') },
+  'clinch': { kind: 'clinch', severity: 'reject', title: tk('Clinched lead'), rule: tk('A clinched lead is cut to one pad diameter (at least one pad radius, at most two) and formed in the direction of the connecting conductor; it must not extend beyond the edge of the pad or of the conductor. A lead on an isolated pad is not fully clinched.'), source: src('3-22'), also: [to('07-6.17, 07-6.18')] },
+  'termination-style': { kind: 'termination-style', severity: 'reject', title: tk('Not terminated like the original'), rule: tk('The replacement component should be mounted in the same manner as the original: if the manufacturer clinched the leads (full or semi), the replacement part is reinstalled with clinched leads.'), source: src('3-22'), also: [to('07-5.5')] },
   'wire-repair': { kind: 'wire-repair', severity: 'note', title: tk('Wire repair'), rule: tk('A wire lap-soldered across a break is stronger than a solder bridge but not highly reliable; the clinched staple is the preferred repair of a broken conductor.'), source: src('3-32') },
 };
 
@@ -148,6 +152,14 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
     if (st === 'removed') add({ kind: 'coating-missing', where: c.ref });
     else if (st && st !== board.coating.type) add({ kind: 'coating-mismatch', where: c.ref, detail: st });
     if (c.state.coatMethodRank !== undefined && c.state.coatBestRank !== undefined && c.state.coatMethodRank > c.state.coatBestRank) add({ kind: 'coating-method', where: c.ref, detail: `#${c.state.coatMethodRank}` });
+  }
+
+  // clinched leads (07-6.17 / 07-6.18), and a replacement terminated like the original (07-5.5)
+  for (const c of board.components) {
+    if (!c.state.populated) continue;
+    for (const pi of Object.keys(c.state.clinch ?? {}).map(Number)) for (const ck of judgeClinch(board, c, pi)) if (ck.verdict === 'defect') add({ kind: 'clinch', where: padName(c.ref, pi), detail: ck.what });
+    const orig = reference?.components.find((x) => x.id === c.id);
+    if (orig && terminationOf(orig) !== terminationOf(c)) add({ kind: 'termination-style', where: c.ref, detail: `${terminationName(terminationOf(c))} ≠ ${terminationName(terminationOf(orig))}` });
   }
 
   // hook-up wires on terminals, end by end, to the T.O.'s workmanship standards

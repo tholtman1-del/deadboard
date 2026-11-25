@@ -61,6 +61,7 @@ const FIXES: Record<string, (b: Board) => void> = {
   'hr-turret': (b) => wire(b, [['E1', 'E2'], ['E2', 'E3']]),
   'hr-hook-tab': (b) => wire(b, [['E1', 'E2'], ['E1', 'E3']]),
   'hr-solder-cup': (b) => wire(b, [['E1', 'E2'], ['E1', 'E3']]),
+  'hr-clinched-leads': (b) => installPart(part(b, 'R2'), { value: 330 }),
   'hr-final-practical': (b) => { const rn = part(b, 'RN1'); rn.state.lifted = undefined; installPart(rn); wire(b, [['E1', 'E2'], ['E1', 'E3']]); },
 };
 

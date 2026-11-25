@@ -8,7 +8,7 @@ No reference hardware is available, so realism is validated against *design inte
 ## Status (start here)
 
 - **High-reliability soldering track: Phase 1 pushed (`8fb70ba`, live); Phase 2 (`fd53b00`) and
-  lessons 6–14 (`4d036fd` … ) committed locally, NOT pushed (the auto-mode
+  lessons 6–15 (`4d036fd` … ) committed locally, NOT pushed (the auto-mode
   permission check refused `git push`; the user pushes, or allows it).** A separate learning path after NEETS Module 14 (NAVEDTRA 14186, Navy 2M
   soldering; Distribution A, public domain). Research and the 3-phase plan: `ideas/navy-2m-soldering.md`
   (local only). User's choices: lesson card + original text before, workmanship debrief + the module's
@@ -132,7 +132,21 @@ No reference hardware is available, so realism is validated against *design inte
     practical starts without the two wires: a double wire on the turret and a single wire on a
     pierced tab, as Appendix C lists them. Wire rules graded; label moved to the top edge
     (`dipNetworkBoard(label, wired)`; lesson 6 unchanged). board-notes 1.16.0.
-  - **Next from the manuals:** two-wire rules (overlap, alternating directions on a hook) are not modelled (the tool stacks
+  - **Clinched leads (2026-11-25), lesson 15 `hr-clinched-leads` (track: 16):** `src/clinch.ts`
+    (universal): `ComponentState.clinch` per pad (style semi / full, length in pad diameters,
+    along the lead-side conductor or not), `surfaceWicked`. The extractor refuses a clinched lead
+    (event `clinched`; the vacuum tip is refused before heating); the wick takes its surface solder
+    (→ `surfaceWicked`); Lead pliers (L) `straighten()`: freed after wicking, else the pad tears off
+    (lifted). Bench → Lead termination / Clinched length / Clinch direction set how a fitted part's
+    leads end (`afterFit` → `clinchFitted`; default straight-through, so other boards are
+    unchanged). Rules `clinch` (07-6.17 / 07-6.18, NEETS p. 3-22: length ½–2 pad diameters,
+    along the conductor, no full clinch on an isolated pad) and `termination-style` (07-5.5: like
+    the original, compared with the reference). Board: `ledRows(…, resBottom)` routes the
+    resistor runs on B (via from the bus); R1/R2 full-clinched, R2 burnt. NEETS fig. 3-5 (the scan
+    labels both views "(A)", said in the caption), Q7 + Q18. Test `test/clinch.test.ts`.
+    Not modelled: the 1/16 in clearance of a semi-clinch to neighbours, clinch angle (always 45/90).
+  - **Next from the manuals:** the surface patch laminate repair (last Appendix C project without
+    a lesson); then perhaps a clinched axial part in the final practical; two-wire rules (overlap, alternating directions on a hook) are not modelled (the tool stacks
     wires); bifurcated terminals (08-6.8); resistive tweezers for cups; remaining 05-6.1 defects
     need a solder-volume model (convex fillet, icicles, solder balls).
   - **Follow-ups:** flat packs (3-29)

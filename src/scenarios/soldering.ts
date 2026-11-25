@@ -6,6 +6,7 @@ import { buildConnectivity } from '../connectivity';
 import { lockFlag, topology } from '../crypto';
 import { addBlob, cutTrace, removePart } from '../ops';
 import { Builder } from './builder';
+import { clinchFitted } from '../clinch';
 import { addWire, targetEnd, terminalType, type TerminalType } from '../terminals';
 import { setReference } from './reference';
 
@@ -29,7 +30,7 @@ const setNets = (c: Component, nets: Record<string, string>) => { for (const p o
  * A 5 V header and LED rows: each row a 330 Ω resistor into an LED (turned 180° so its anode
  * faces the resistor), cathodes to ground. +5V runs on the top, ground on the bottom (or a pour).
  */
-function ledRows(w: number, h: number, rows: { color: LedColor; y: number }[], label: string, pour = false): Builder {
+function ledRows(w: number, h: number, rows: { color: LedColor; y: number }[], label: string, pour = false, resBottom = false): Builder {
   const k = new Builder(w, h);
   const j1 = k.header('J1', 5, [6, h / 2], 0, '5V DC');
   setNets(j1, { '1': '+5V', '2': 'GND' });
@@ -42,8 +43,12 @@ function ledRows(w: number, h: number, rows: { color: LedColor; y: number }[], l
     const led = k.led(`D${n}`, r.color, [44, r.y], 180); // A (pad 2) at x 42.73, K (pad 1) at 45.27
     setNets(res, { '1': '+5V', '2': `LED${n}_A` });
     setNets(led, { '2': `LED${n}_A`, '1': 'GND' });
-    k.track('F', [[busX, r.y], k.pad(res, '1')], 0.9, '+5V');
-    k.track('F', [k.pad(res, '2'), k.pad(led, '2')], 0.8, `LED${n}_A`);
+    // resBottom: the resistor's runs on the solder side (a via down from the +5V bus), so its
+    // leads can be clinched along them
+    const rl = resBottom ? 'B' : 'F';
+    if (resBottom) k.b.vias.push({ id: 'v' + (k.b.nextId++).toString(36), at: [busX, r.y], d: 1.2, drill: 0.6, net: '+5V' });
+    k.track(rl, [[busX, r.y], k.pad(res, '1')], 0.9, '+5V');
+    k.track(rl, [k.pad(res, '2'), k.pad(led, '2')], 0.8, `LED${n}_A`);
     if (!pour) k.track('B', [k.pad(led, '1'), [gndX, r.y]], 0.9, 'GND');
   });
   if (pour) {
@@ -358,6 +363,28 @@ function padRepair() {
 }
 
 /**
+ * A double-sided board whose resistors were fitted horizontally with full-clinched leads along
+ * their bottom-side runs (T.O. 00-25-259 07-5.4, 07-6.18): R2 burned open and is replaced the same way.
+ */
+function clinchedLeads() {
+  const k = ledRows(64, 34, [{ color: 'red', y: 11 }, { color: 'green', y: 23 }], 'HI-REL 15  CLINCHED LEADS', false, true);
+  for (const c of k.b.components) if (c.kind === 'resistor') clinchFitted(c, 'full', 1, true);
+  return finalize('hr-clinched-leads', {
+    title: 'Clinched Leads',
+    author: 'DEADBOARD',
+    difficulty: 3,
+    description: 'D2 is dark: R2 burned open. Like every resistor on this double-sided card, its leads are fully clinched along their runs on the bottom. A clinched lead cannot simply be sucked out: free it the way the manual says, then fit the new resistor the way the old one was fitted.',
+    hints: [
+      'Flip to the bottom (F): R2\'s leads are bent flat along their tracks. The extractor tip cannot fit over a bent lead.',
+      'For each lead: Desolder wick (4) to take the surface solder off, then Lead pliers (L) to break the sweat joint and straighten the lead. Then clear the hole with the extractor (X) on continuous vacuum.',
+      'Take R2 out, set Bench → Lead termination to a full clinch along the conductor, one pad diameter long, fit a new 330 Ω, solder both leads with "+ flux" and clean.',
+    ],
+    par: 9,
+  }, k.b, [lit('D1'), lit('D2')], 'PCB{full_cl1nch_str41ght3n_f1rst}',
+  (b) => { b.components.find((c) => c.ref === 'R2')!.state.burnt = true; });
+}
+
+/**
  * Point-to-point wiring on terminals (T.O. 00-25-259 WP 008 00 / 009 00): +5V from J1 reaches
  * terminal E1; each LED row is fed from its own terminal (E2, E3 …); hook-up wires join them as
  * `wires` lists. The good board carries target wires (one diameter clearance, 180°, cut flush,
@@ -485,8 +512,8 @@ async function finalPractical(): Promise<Scenario> {
 }
 
 export async function solderingScenarios(): Promise<Scenario[]> {
-  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern(), conductorRepair(), conformalCoating(), coatingId(), esdBoard(), padRepair(), turretTerminals(), hookAndTab(), solderCups(), finalPractical()]);
+  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern(), conductorRepair(), conformalCoating(), coatingId(), esdBoard(), padRepair(), turretTerminals(), hookAndTab(), solderCups(), clinchedLeads(), finalPractical()]);
 }
 
 /** The track's boards, in order. */
-export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern', 'hr-conductor-repair', 'hr-conformal-coating', 'hr-coating-id', 'hr-esd', 'hr-pad-repair', 'hr-turret', 'hr-hook-tab', 'hr-solder-cup', 'hr-final-practical'] as const;
+export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern', 'hr-conductor-repair', 'hr-conformal-coating', 'hr-coating-id', 'hr-esd', 'hr-pad-repair', 'hr-turret', 'hr-hook-tab', 'hr-solder-cup', 'hr-clinched-leads', 'hr-final-practical'] as const;

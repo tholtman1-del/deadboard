@@ -61,7 +61,7 @@ export const DEFAULT_LIMITS: ProcessLimits = {
 
 export type ReworkEventKind = 'molten' | 'reflowed' | 'wetted' | 'dull-joint' | 'pad-lifted' | 'part-overheated' | 'mlcc-cracked' | 'part-displaced'
   | 'filled' | 'no-solder' | 'extracted' | 'sweat' | 'wick-surface' | 'not-molten'
-  | 'overheated-joint' | 'slow-melt' | 'wire-soldered' | 'wire-starved';
+  | 'overheated-joint' | 'slow-melt' | 'wire-soldered' | 'wire-starved' | 'clinched';
 export interface ReworkEvent { kind: ReworkEventKind; ref: string; pad?: number; detail: string }
 
 /**
@@ -214,8 +214,16 @@ export class ReworkMonitor {
       if (c.state.oxidized?.includes(pi)) { const left = c.state.oxidized.filter((x) => x !== pi); c.state.oxidized = left.length ? left : undefined; }
       if (!c.state.cold.includes(pi)) c.state.cold = [...c.state.cold, pi].sort((a, b) => a - b);
     };
-    if (!molten) e = { kind: 'not-molten', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: the solder is not molten — nothing came out', where) };
-    else if (mode === 'vacuum' || !plated) {
+    const clinched = !!c.state.clinch?.[pi];
+    if (clinched && mode !== 'wick') {
+      // the bent lead lies over the pad: an extractor tip cannot fit over it (T.O. 00-25-259 07-5.4)
+      e = { kind: 'clinched', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: the lead is clinched over the pad, so the extractor tip cannot fit over it. Wick the surface solder off, break the sweat joint and straighten the lead first.', where) };
+    } else if (!molten) e = { kind: 'not-molten', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: the solder is not molten — nothing came out', where) };
+    else if (clinched) {
+      // wicking a clinched lead takes the surface solder: a sweat joint still bonds the bent lead to the pad
+      if (!c.state.surfaceWicked?.includes(pi)) c.state.surfaceWicked = [...(c.state.surfaceWicked ?? []), pi].sort((a, b) => a - b);
+      e = { kind: 'wick-surface', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: surface solder wicked off; a sweat joint still holds the clinched lead. Break it by turning the lead 15° and straighten it (Lead pliers).', where) };
+    } else if (mode === 'vacuum' || !plated) {
       clear();
       e = { kind: 'extracted', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: hole clear, the lead is free', where) };
     } else if (mode === 'wick') {

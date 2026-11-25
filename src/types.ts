@@ -105,6 +105,14 @@ export interface ComponentState {
   /** Table 3-1 preferred-order rank of the removal method used, and the best one possible here. */
   coatMethodRank?: number;
   coatBestRank?: number;
+  /**
+   * Leads bent over their pad on the solder side (src/clinch.ts): pad index → style, length in pad
+   * diameters, along the conductor or not. A clinched lead must be straightened before its hole
+   * can be cleared.
+   */
+  clinch?: Record<number, import('./clinch').Clinch>;
+  /** Clinched leads whose surface solder was wicked off: only a sweat joint holds them to the pad. */
+  surfaceWicked?: number[];
   /** Intermittent faults driven by temperature / board flex (see src/intermittent.ts). */
   intermittent?: import('./intermittent').IntermittentSpec[];
 }

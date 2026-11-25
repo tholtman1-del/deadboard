@@ -1,6 +1,7 @@
 import type { Board, Component, Side, V2 } from '../types';
 import { DEG, triangulate, type V3 } from '../geom';
 import { TERM_GEOM, WIRE, form } from '../terminals';
+import { clinchDir } from '../clinch';
 import { BAND_RGB, GOLD_RGB, LED_INFO, padWorld, resistorBands } from '../model';
 import type { Conn } from '../connectivity';
 import type { Sim } from '../sim';
@@ -1035,6 +1036,15 @@ export class Renderer {
           // Clipped component lead protruding slightly on opposite side of board
           const leadZ = c.side === 'F' ? -ht - 0.42 : ht + 0.42;
           op.cyl.pushTRS(padPos[0], padPos[1], leadZ, Math.min(0.55, p.drill * 0.65), Math.min(0.55, p.drill * 0.65), 0.72, 0, 0.82, 0.84, 0.88, 1, 0, 0.95, 0.2);
+        }
+        // A clinched lead: bent over its pad on the solder side, flat (full, 90°) or rising at 45° (semi)
+        const clinch = c.state.clinch?.[pi];
+        if (!both && clinch && c.state.populated && p.drill) {
+          const dir = clinchDir(board, c, pi, clinch), L = clinch.len * Math.max(p.size[0], p.size[1]);
+          const sg = c.side === 'F' ? -1 : 1, z0 = sg * (ht + 0.14), run = clinch.style === 'full' ? L : L * Math.SQRT1_2;
+          const end = mpt([pw.at[0] + dir[0] * run, pw.at[1] + dir[1] * run], c.side);
+          const ld = Math.min(0.55, p.drill * 0.65);
+          op.cyl.pushSeg3D([padPos[0], padPos[1], z0], [end[0], end[1], z0 + sg * (clinch.style === 'full' ? 0 : L * Math.SQRT1_2)], ld, ld, 0.82, 0.84, 0.88, 1, 0, 0.95, 0.2);
         }
         // A replaced pad: the eyelet's tin-plated flange on both faces (NEETS fig. 3-25)
         if (!both && !thermal && c.state.padRepaired?.includes(pi)) {

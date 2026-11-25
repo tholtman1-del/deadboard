@@ -43,6 +43,7 @@ const P: Record<string, string> = {
   eyelet: '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3"/><path d="M12 19v3"/>',
   probe: '<circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L21 21"/><path d="M8 10h4"/>',
   staple: '<path d="M5 15V8h14v7"/><path d="M3 15h4"/><path d="M17 15h4"/>',
+  pliers: '<path d="M4 4l7 7"/><path d="M4 9l5 2"/><path d="M11 11l4 4"/><path d="M15 15l5 1"/><path d="M15 15l1 5"/>',
   hookup: '<circle cx="17" cy="8" r="3"/><path d="M17 11v10"/><path d="M3 8h6"/><path d="M9 8h5"/><path d="M20 8a3 3 0 0 1-3 3"/>',
   clip: '<path d="M7 3l3 8"/><path d="M17 3l-3 8"/><path d="M8 11h8l-1 10H9z"/><path d="M10 15h4"/>',
   rosin: '<path d="M9 3h6"/><path d="M10 3v4L6 13v6a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-6l-4-6V3"/><path d="M7 15h10"/>',

@@ -497,6 +497,37 @@ CONTENT.push(
   },
 );
 
+// Clinched leads: NEETS Module 14 (termination styles, removal, refitting) and the 2M manual's
+// procedure for freeing a clinched lead on a double-sided board and its full-clinch standard.
+CONTENT.push({
+  scenario: 'hr-clinched-leads',
+  source: { ...TO_SOURCE, pages: '07-5.4, 07-5.11.3, 07-6.17 – 07-6.18' },
+  points: [
+    tk('A clinched lead is bent over its pad on the solder side: fully (90°) or semi (45°). It holds the part while it is soldered, and it holds it during rework too.'),
+    tk('To free it on a double-sided board: wick the surface solder until only a sweat joint remains, break that joint by turning the lead 15° with duckbill pliers, straighten the lead with a non-metallic tool, then clear the hole with continuous vacuum. Never pull a lead still soldered over its pad: the pad comes off.'),
+    tk('Refit the replacement the way the original was fitted. A full clinch is formed in the direction of the conductor and cut to one pad diameter: at least one pad radius, at most two diameters, never past the edge of the pad or its conductor.'),
+    tk('A lead on an isolated pad is not fully clinched: use a semi-clinch there. NEETS (1998) allowed no clinch past the pad at all; the current manual\'s limits are graded here.'),
+  ],
+  numbers: [
+    { label: tk('Full clinch'), value: tk('90°; 75° at least') },
+    { label: tk('Clinched length'), value: tk('1 pad diameter; ½ to 2 acceptable') },
+    { label: tk('Sweat joint'), value: tk('break by turning the lead 15°') },
+  ],
+  figure: { src: 'lessons/neets14/fig-3-5a.png', more: ['lessons/neets14/fig-3-5b.png'], caption: tk('NEETS 14, figure 3-5. Fully clinched (left) and semiclinched (right) leads; the scan prints "(A) FULLY CLINCHED" under both.') },
+  original: [
+    'Both clinched-lead types, FULLY CLINCHED and SEMICLINCHED (figure 3-5), provide component stability. Like the fully clinched lead, the semi-clinched lead also provides stability during assembly. However, this termination can be easily straightened to allow removal of the solder joint should rework or repair be required. Note that the fully clinched lead is bent 90 degrees while the semiclinched lead is bent 45 degrees. (NEETS 14, p. 3-9)',
+    'Working with clinched leads on uncoated boards requires that all sweat joints be removed and that the leads be unclinched before removal. (NEETS 14, p. 3-19)',
+    'Use the Wicking Procedure or the Continuous Vacuum Extraction Procedure to remove surface solder until only a sweat joint remains. Break the surface sweat joint by using duckbill pliers to rotate the clinched lead 15°. Straighten the component lead using a non-metallic tool, being careful not to apply pressure to the plated-through hole. (T.O. 00-25-259, 07-5.4)',
+    'When clinching is required, leads on single- and double-sided boards are securely clinched in the direction of the printed wiring connected to the pad. The leads are clipped so that their minimum clinched length is equal to the radius of the pad. (NEETS 14, p. 3-22)',
+    'The lead length after termination equal to one pad diameter. The clinched lead is formed in the direction of the connecting conductor. The clinch angle is 90°. (Defect: a clinched lead extends beyond the edge of the pad or the edge of a connecting conductor; a lead terminating on an isolated pad is fully clinched.) (T.O. 00-25-259, 07-6.18)',
+  ],
+  task: tk('R2 burned open. Free both of its clinched leads (wick, Lead pliers, then the extractor), take it out, and fit a new 330 Ω resistor with a full clinch along its runs, one pad diameter long (Bench → Lead termination). Solder, clean, and run the tests.'),
+  questions: [
+    { ref: 'Q7', q: tk('Name two types of through-hole termination.'), a: tk('Clinched lead, straight-through, and offset pad.'), page: '3-14' },
+    { ref: 'Q18', q: tk('In what direction are component leads clinched on single- and double-sided boards?'), a: tk('In the direction of the run.'), page: '3-22' },
+  ],
+});
+
 /** The whole lesson (meta and content) for a board. */
 export function lessonFor(scenarioId: string): Lesson | undefined {
   const m = LESSON_META.find((l) => l.scenario === scenarioId), c = CONTENT.find((l) => l.scenario === scenarioId);

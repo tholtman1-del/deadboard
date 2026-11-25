@@ -31,7 +31,7 @@ for (const m of index.mods) {
   assert(m.example === m.file.startsWith('examples/') && m.code === !!mf.code, `${m.id}: example / code flags`);
   assert(m.bench.fail === 0, `${m.id}: listed with a failing bench check`);
 }
-assert(index.mods.some((m) => m.id === 'board-notes' && m.contents.knowledge === 34 && !m.code), 'board-notes is listed: 34 knowledge packs (one per shipped board), data only');
+assert(index.mods.some((m) => m.id === 'board-notes' && m.contents.knowledge === 35 && !m.code), 'board-notes is listed: 35 knowledge packs (one per shipped board), data only');
 assert(index.mods.find((m) => m.id === 'night-light-extras')?.requires['starter-kit'], 'dependencies are listed (installed together)');
 
 // ---- the reader leaves bad entries out ----
