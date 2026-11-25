@@ -1,4 +1,4 @@
-# DEADBOARD — handoff (updated end of 2026-11-24: design pass live — PRODUCT.md / DESIGN.md, keyboard + screen-reader bench, picker list, lesson pointer, learner homepage; next: read the data from 11-27)
+# DEADBOARD — handoff (updated end of 2026-11-25: 2M soldering course, 19 boards, live — see the first Status bullet; analytics: read the data from 11-27)
 
 Goal: make DEADBOARD (formerly PCB//FIX) a realistic board-repair trainer, as close to a real bench as possible,
 **universal** (any board, not just the MacBook), with honest provenance for every value.
@@ -7,9 +7,81 @@ No reference hardware is available, so realism is validated against *design inte
 
 ## Status (start here)
 
-- **High-reliability soldering track: Phase 1 pushed (`8fb70ba`, live); Phase 2 (`fd53b00`) and
-  lessons 6–18 (`4d036fd` … ) committed locally, NOT pushed (the auto-mode
-  permission check refused `git push`; the user pushes, or allows it).** A separate learning path after NEETS Module 14 (NAVEDTRA 14186, Navy 2M
+- **2M SOLDERING COURSE — START HERE (written end of 2026-11-25).** Everything is pushed and live
+  (`8d0a3b1`, Pages deploy green, checked on deadboard.org). The detailed build log follows in the next
+  bullet; this one is the map.
+  - **What it is:** a learning path ("High-reliability soldering", 19 boards) modelled 1:1 on the Navy
+    2M material, all Distribution A / public domain: **NEETS Module 14** (NAVEDTRA 14186, the main
+    text), **T.O. 00-25-259 / NAVAIR 01-1A-23** (the 2M workmanship manual, Rev 4 2013: accept /
+    reject criteria), the **2M certification manual** (NAVSEA TE000-AA-MAN-010/2M, Appendix C = the
+    miniature practical), and **NEETS Module 4** (NAVEDTRA 14176, wiring: some review questions).
+    Each lesson: a brief before (points, °F + °C numbers, a NEETS figure, tables rebuilt from data,
+    the original text folded), the board, then a debrief (verdict, findings with citations, joints
+    table, wire-end table, the textbooks' review questions with answers).
+  - **Order (board id · source):** 1 `hr-solder-flux` · 2 `hr-heat-time` · 3 `hr-clean-inspect` ·
+    4 `hr-desoldering` · 5 `hr-thermal-shunt` · 6 `hr-skipping-pattern` · 7 `hr-conductor-repair`
+    (staple) · 8 `hr-conformal-coating` (Table 3-1) · 9 `hr-coating-id` (T.O. Fig. 06-1) · 10 `hr-esd`
+    (Table 3-2) · 11 `hr-pad-repair` (eyelet) · 12 `hr-turret` · 13 `hr-hook-tab` · 14
+    `hr-solder-cup` · 15 `hr-clinched-leads` · 16 `hr-laminate` (surface patch) · 17
+    `hr-to-package` (TO-39 on a spacer) · 18 `hr-flat-pack` · 19 `hr-final-practical` (every
+    Appendix C project on one coated DIP card: coating ID + removal, DIP-16 out and in in a skipping
+    pattern, pad + eyelet, staple over a nick, double wire on a turret + hook + pierced tab, clinched
+    R5 over a burn, ESD, recoat). Order lives in `SOLDERING_TRACK_IDS` (soldering.ts) and
+    `LESSON_META` (track.ts); levels in `BOARD_INFO` (catalog.ts).
+  - **Where things are:** boards `src/scenarios/soldering.ts` · lesson bench data (station, bench,
+    graded rules) `src/lessons/track.ts` · lesson text `src/lessons/neets14.ts` (lazy chunk; `CONTENT`
+    plus `CONTENT.push` blocks for later lessons) · lesson UI `src/ui/lesson-ui.ts` · rules
+    `src/workmanship.ts` (`RULES`, `inspect`; NEETS page + T.O. paragraph per rule; only the
+    lesson's `grades` fail it) · physics `src/thermal.ts`, `src/rework.ts` · one module per technique:
+    `coating.ts`, `esd.ts`, `terminals.ts` (+ `ui/wire-ui.ts`), `clinch.ts`, `laminate.ts`
+    (+ `ui/laminate-ui.ts`), `flatpack.ts` · figures `public/lessons/neets14/` · tests
+    `test/soldering|terminals|clinch|laminate|flatpack.test.ts`.
+  - **Tools added for the course** (key): extractor X, thermal shunt S, staple K, pad repair E,
+    coating test Q, coating removal U, conformal coating J, hook-up wire W, lead pliers L (also lifts
+    a flat-pack lead while the iron holds it), laminate repair A. Bench settings: station (316 / 350 /
+    400 °C, + flux), extractor mode, ESD strap, humidity, coating test / identified as / removal
+    method / coating type, lead termination + clinched length + direction, TO mounting, flat pack leads.
+  - **Universal model changes made for the course (affect every board in realistic rework):**
+    THT joint nodes and per-cell copper; alloys with solidus/liquidus (SN63, SN60, SAC305); oxidation
+    and "long heating" count the tip's **dwell** on a molten joint, not cooling time; **solder volume**
+    on new joints (`FEED_RATE`, `FILL_LIMITS`: insufficient < 0.75 / plated hole < 1 / excess > 2.5;
+    readout names the fillet); **icicles** from a reflow with no flux; a tip on one lead of a
+    **multi-lead SMD** heats only that lead's land; terminals, clinches, burns (char leaks across the
+    part above), TO mounting, flat-pack leads — all saved by `io/format.ts`.
+  - **How to add a lesson (the checklist every lesson so far followed):** builder + `finalize()` in
+    soldering.ts (reference board = the fixed one; sabotage after) → `SOLDERING_TRACK_IDS` +
+    `solderingScenarios()` → `BOARD_INFO` entry (level, symptom, teaches) → `LESSON_META` (station,
+    grades) → `CONTENT.push` (source, points, numbers, figure, verbatim `original` with page, task,
+    questions with page `\d-\d+`, `module: 4` for NEETS 4) → a playthrough test (good passes, the
+    shortcut fails) → `test/generate.test.ts` FIXES entry → counts in `solve.test.ts` (boards),
+    `modcode.test.ts` (boards + the "differs" title list), `community.test.ts` (packs) → a
+    board-notes knowledge pack in `examples/mods/board-notes/mod.json` (readings from a SPICE run;
+    bump version) → `npm run example-mod` (then `git checkout -- examples/mods/starter-kit/boards/
+    night-light-repair.pcbfix.json public/examples/starter-kit.zip`), `npm run community`,
+    `npm run docs`, `npm run thumbs -- --only <id> --base http://localhost:5199` (dev server on
+    5199) → Russian for every new string (dump missing/stale with a copy of `test/i18n.test.ts`) →
+    `npm test`, `npm run build` → screenshot it in Chrome (playwright-core + `?automation=1`,
+    `window.deadboard.open/pad/toScreen/focus`).
+  - **Sources on disk (local only, never commit):** `ideas/manuals/` (T.O. + cert manual PDFs),
+    `ideas/navy-2m-soldering.md` (research + plan). Text extracts used this session lived in the
+    scratchpad (gone next session): re-extract with `pdftotext -layout`; NEETS 14 PDF from
+    archive.org `NEETSModules` (“NEETS Module 14 - Introduction to Microelectronics.pdf”), NEETS 4
+    likewise; figures with `pdfimages -png -f <page> -l <page>`.
+  - **Estimates to remember (marked in code):** wire M22759/16-22 dims are datasheet values, but
+    terminal sizes, the 2.5 mm cup depth, `FEED_RATE`, `FP_PRETIN`, flat-pack land/lead sizes, the
+    4.7 kΩ char leak, oxidation thresholds (6 s dwell, 3rd reflow) are estimates; devicelib 2N2219A,
+    2N7000, 4116R-2-331, FP10-5R-331 (generic) are unverified.
+  - **Known nits:** silkscreen numbers drifted after inserts — `hr-coating-id` has none, `hr-esd`
+    says 9 (is 10th), `hr-pad-repair` says 10 (is 11th); fix the label + re-render the thumbnail.
+    `solve.test.ts` "100x pickAt" 25 ms budget fails ~1 in 3 runs when the machine is loaded (rerun).
+    GitHub Actions warns the Pages actions target Node 20 (update action versions some day).
+  - **Open from the manuals (not built):** pinholes / blowholes (no cause modelled); two-wire rules
+    (overlap, alternating directions on a hook); bifurcated terminals (08-6.8); resistive tweezers for
+    solder cups; clipping a dead part's leads (NEETS Q24); TO tab orientation; embedded TOs; icicles
+    from lifting the iron before the solder (solder wire is not modelled separately). The user has
+    **not yet playtested** the course: next session, ask for their play-through notes first.
+
+- **High-reliability soldering track — build log** (all pushed, live since 2026-11-25). A separate learning path after NEETS Module 14 (NAVEDTRA 14186, Navy 2M
   soldering; Distribution A, public domain). Research and the 3-phase plan: `ideas/navy-2m-soldering.md`
   (local only). User's choices: lesson card + original text before, workmanship debrief + the module's
   review questions after, realism applies to every board in realistic rework (track forces it), phases.
@@ -198,11 +270,8 @@ No reference hardware is available, so realism is validated against *design inte
   - **Next from the manuals:** pinholes / blowholes (flux outgassing: no cause modelled yet);
     two-wire rules (overlap, alternating directions on a hook); bifurcated terminals (08-6.8);
     resistive tweezers for cups; clipping a dead part's leads (NEETS Q24); TO tab orientation.
-  - **Follow-ups:** flat packs (3-29)
-    and TO-5 cans (3-27) need new footprints; read the 2M certification manual + T.O. 00-25-259
-    (the user downloads them) and compare the practical's grading with ours.
 
-- **NEXT SESSION — START HERE (written end of 2026-11-24).** All code up to `c789ba5` is pushed and
+- **Analytics / design pass — START HERE for that work (written end of 2026-11-24).** All code up to `c789ba5` is pushed and
   live; the local `.claude/` folder (skills, settings) is untracked on purpose, never commit it.
   - **What happened on 11-24 (design pass with the Impeccable skill, in this order):**
     1. `PRODUCT.md` (product truth, user's answers): primary users = **learners and schools**
