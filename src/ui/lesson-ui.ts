@@ -4,6 +4,24 @@
 import { t } from '../i18n';
 import type { Lesson } from '../lessons/neets14';
 import { BEST_JOINT_C, DWELL_LIMIT_S, RULES, type Inspection } from '../workmanship';
+import { COATINGS, METHODS, TABLE_3_1 } from '../coating';
+
+/** NEETS 14 Table 3-1, from the data the bench uses: preferred order per coating, with the table's notes. */
+function table31Html(esc: Esc): string {
+  const mark = (c: NonNullable<(typeof TABLE_3_1)['epoxy']['hotair']>) => {
+    const notes = [c.some && 'A', c.thick && 'B', c.thin && 'C', c.noGrind && 'D', c.organic && 'E', c.drillTip && 'F'].filter(Boolean).join('');
+    return `${c.rank}${c.ids ? '*' : ''}${notes ? ` <small>${notes}</small>` : ''}`;
+  };
+  return `
+    <div class="lesson-table">
+      <div class="sub">${t('Table 3-1. Conformal coating removal techniques')}</div>
+      <div class="lt-scroll"><table>
+        <thead><tr><th></th>${METHODS.map((m) => `<th>${esc(t(m.name))}</th>`).join('')}</tr></thead>
+        <tbody>${COATINGS.map((c) => `<tr><th>${esc(t(c.name))}</th>${METHODS.map((m) => { const cell = TABLE_3_1[c.id][m.id]; return `<td class="mono">${cell ? mark(cell) : ''}</td>`; }).join('')}</tr>`).join('')}</tbody>
+      </table></div>
+      <p class="muted">${t('1 = least damaging, try it first. * identifies the coating type. A: specific compositions only. B: thick coatings only (0.025 in and thicker). C: thin coatings only. D: do not grind to the board surface. E: organic solvents are best. F: modified drill bit for the tip, about 500° at the tip.')}</p>
+    </div>`;
+}
 
 type Esc = (s: string) => string;
 
@@ -15,6 +33,7 @@ export function lessonBriefHtml(l: Lesson, esc: Esc, base: string, phone: boolea
   const rules = `
       <ul class="lesson-points">${l.points.map((p) => `<li>${esc(t(p))}</li>`).join('')}</ul>
       ${l.numbers.length ? `<dl class="lesson-nums">${l.numbers.map((n) => `<div><dt>${esc(t(n.label))}</dt><dd class="mono">${esc(t(n.value))}</dd></div>`).join('')}</dl>` : ''}
+      ${l.table === 'table-3-1' ? table31Html(esc) : ''}
       ${l.figure ? `<figure class="lesson-fig"><img src="${esc(base + l.figure.src)}" alt="${esc(t(l.figure.caption))}" loading="lazy" /><figcaption>${esc(t(l.figure.caption))}</figcaption></figure>` : ''}`;
   const task = `<div class="lesson-task"><b>${t('On this board')}</b><span>${esc(t(l.task))}</span></div>`;
   // phones: the task first, the rules folded (the text keeps its size; it is folded, not shrunk)

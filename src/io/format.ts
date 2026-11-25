@@ -8,6 +8,7 @@ export function normalizeBoard(b: Partial<Board>): Board {
     zones: arr(b.zones), silk: arr(b.silk), texts: arr(b.texts), nextId: num(b.nextId, 1),
     ...(Array.isArray(b.hiddenCopperNets) && { hiddenCopperNets: b.hiddenCopperNets.filter((n) => typeof n === 'string') }),
     ...(b.estimatedPads === true && { estimatedPads: true }),
+    ...(b.coating && ['parylene', 'epoxy', 'acrylic', 'polyurethane', 'varnish', 'rtv'].includes(b.coating.type) && { coating: { type: b.coating.type, thick: !!b.coating.thick, ...(b.coating.solventSoluble && { solventSoluble: true }) } }),
     ...(Array.isArray(b.nicks) && { nicks: b.nicks.filter((n) => n && typeof n.id === 'string' && isPt(n.at) && (n.layer === 'F' || n.layer === 'B') && [n.len, n.depth, n.rot, n.width].every((x) => typeof x === 'number' && isFinite(x))) }),
     ...(b.inner && typeof b.inner === 'object' && {
       inner: {
@@ -45,6 +46,8 @@ function normalizeComponent(c: Component): Component {
         residue: { amount: Math.min(1, c.state.residue.amount), ...(c.state.residue.leaky && { leaky: true }), ...(Array.isArray(c.state.residue.pads) && { pads: c.state.residue.pads.filter((x) => Number.isInteger(x)) }) },
       }),
       ...(c.state?.holes && typeof c.state.holes === 'object' && { holes: Object.fromEntries(Object.entries(c.state.holes).filter(([k, v]) => Number.isInteger(Number(k)) && (v === 'clear' || v === 'sweat'))) }),
+      ...(typeof c.state?.coating === 'string' && ['removed', 'parylene', 'epoxy', 'acrylic', 'polyurethane', 'varnish', 'rtv'].includes(c.state.coating) && { coating: c.state.coating }),
+      ...(c.state?.coatCharred === true && { coatCharred: true }),
       ...(Array.isArray(c.state?.shunts) && { shunts: c.state.shunts.filter((x) => Number.isInteger(x)) }),
       ...(Array.isArray(c.state?.fluxResidue) && { fluxResidue: c.state.fluxResidue.filter((x) => Number.isInteger(x)) }),
       ...(Array.isArray(c.state?.intermittent) && { intermittent: c.state.intermittent.filter((f) => f && typeof f.threshold === 'number' && ['thermal-open', 'thermal-leak', 'flex-open', 'flex-close'].includes(f.kind)) }),

@@ -55,6 +55,7 @@ import type { PowerStateName } from '../spice/sequencer';
 import { HOTAIR_H, IRON_G, PREHEAT_H, ReworkMonitor, VACUUM_SECONDS, heldPads, isThroughHole, limitsFor, type ExtractMode, type ReworkEvent, type ReworkHistory } from '../rework';
 import { inspect, type Inspection } from '../workmanship';
 import { lessonFor } from '../lessons/neets14';
+import { COATINGS, METHODS, applyCoating, coatingName, methodName, removeCoating, workable, type CoatMethod, type CoatingType } from '../coating';
 import { SOLDERING_TRACK_IDS } from '../scenarios/soldering';
 import { debriefHtml, lessonAccepted, lessonBriefHtml } from './lesson-ui';
 import { Renderer, type RendererKind, type VizMode } from '../render/renderer';
@@ -75,7 +76,7 @@ import { beginnerPrimerHtml, CHALLENGE_TRACK_IDS, lessonDock, TUTORIAL_SCENARIO_
 import { TOOL_SHORT, TOOL_TIP_PHONE, TouchGestures, splitLead, touchCopy, wantsMobileLayout } from './touch';
 import { cursorStops, describeAt, stepToward } from './boardcursor';
 
-type ToolId = 'inspect' | 'dmm' | 'iron' | 'wick' | 'flip180' | 'jumper' | 'knife' | 'replace' | 'freeze' | 'ipa' | 'press' | 'hotair' | 'scope' | 'rosin' | 'extract' | 'shunt' | 'staple';
+type ToolId = 'inspect' | 'dmm' | 'iron' | 'wick' | 'flip180' | 'jumper' | 'knife' | 'replace' | 'freeze' | 'ipa' | 'press' | 'hotair' | 'scope' | 'rosin' | 'extract' | 'shunt' | 'staple' | 'decoat' | 'coat';
 type PanelTab = 'mission' | 'inspect' | 'studio' | 'mods';
 type DmmMode = 'V' | 'OHM' | 'DIODE' | 'CAP' | 'AMP';
 
@@ -103,6 +104,8 @@ const TOOLS: { id: ToolId; key: string; ico: string; lbl: string; tip: string }[
   { id: 'press', key: 'b', ico: 'hand', lbl: tk('Press / flex'), tip: tk('Press on the board for 2.5 s: reveals cracked joints that open or close under flex') },
   { id: 'extract', key: 'x', ico: 'extract', lbl: tk('Solder extractor'), tip: tk('Desoldering a through-hole joint: hold the heated tip on it until the solder is sucked out (Bench: continuous vacuum or a manual plunger)') },
   { id: 'staple', key: 'k', ico: 'staple', lbl: tk('Clinched staple'), tip: tk('Repair a broken or nicked conductor the high-reliability way: click the copper on one side of the damage, then the other (same side of the board)') },
+  { id: 'decoat', key: 'u', ico: 'scrape', lbl: tk('Coating removal'), tip: tk('Take the conformal coating off a part\'s leads and pads (click the part); the method is set in Bench, as in NEETS Table 3-1') },
+  { id: 'coat', key: 'j', ico: 'coat', lbl: tk('Conformal coating'), tip: tk('Put conformal coating back on a part after the repair (the type is set in Bench)') },
   { id: 'shunt', key: 's', ico: 'clip', lbl: tk('Thermal shunt'), tip: tk('Clip a heat sink on a through-hole lead (click its pad) so the part stays cool while you solder; click again to take it off') },
 ];
 
@@ -222,6 +225,9 @@ export class PcbApp {
   private reworkMode: { realistic: boolean; ironTemp: number; flux: boolean } = { realistic: false, ironTemp: 350, flux: true };
   /** Solder extractor: a motorized continuous vacuum, or a one-shot manual plunger. */
   private extractMode: 'vacuum' | 'plunger' = 'vacuum';
+  /** Coating removal method and the coating type put back (Bench). */
+  private coatMethod: CoatMethod = 'solvent';
+  private coatType: CoatingType = 'acrylic';
   /** First end of a clinched staple being placed. */
   private stapleStart: { a: V2; side: Side } | null = null;
   /** A timed desoldering action (plunger shot or wick) that fires when its heating is done (thermal time). */
@@ -851,6 +857,12 @@ export class PcbApp {
             <label class="bench-row"><span>${t('Extractor')}</span><select id="extract-mode" title="${t('Solder extractor: continuous vacuum (motorized) or a one-shot manual plunger')}">
               <option value="vacuum">${t('Continuous vacuum')}</option>
               <option value="plunger">${t('Manual plunger')}</option>
+            </select></label>
+            <label class="bench-row"><span>${t('Coating removal')}</span><select id="coat-method" title="${t('Method for taking conformal coating off (NEETS Table 3-1)')}">
+              ${METHODS.map((m) => `<option value="${m.id}">${t(m.name)}</option>`).join('')}
+            </select></label>
+            <label class="bench-row"><span>${t('Conformal coating')}</span><select id="coat-type" title="${t('Coating type to put back after a repair')}">
+              ${COATINGS.map((c) => `<option value="${c.id}" ${c.id === 'acrylic' ? 'selected' : ''}>${t(c.name)}</option>`).join('')}
             </select></label>
             <label class="bench-row"><span>${t('Preheater')}</span><select id="preheat" title="${t('Bottom preheater')}">
               <option value="0">${t('No preheat')}</option>
@@ -3089,6 +3101,8 @@ export class PcbApp {
       this.setRework(sel.value);
       if (this.reworkMode.realistic) this.toast(t('Realistic rework: joints melt, pads lift and parts crack from the actual heat you apply. Watch the Thermal view.'), 'info');
     });
+    q('#coat-method').addEventListener('change', (e) => { this.coatMethod = (e.target as HTMLSelectElement).value as CoatMethod; });
+    q('#coat-type').addEventListener('change', (e) => { this.coatType = (e.target as HTMLSelectElement).value as CoatingType; });
     q('#extract-mode').addEventListener('change', (e) => {
       this.extractMode = (e.target as HTMLSelectElement).value === 'plunger' ? 'plunger' : 'vacuum';
     });
@@ -3631,6 +3645,7 @@ export class PcbApp {
     const hit = pickAt(this.board, pt, side, this.vizMode === 'xray');
     if (hit?.kind !== 'pad' || !hit.comp.state.populated) return false;
     if (vacuum && !isThroughHole(hit.comp)) return false;
+    if (!workable(this.board, hit.comp)) { this.coatingInTheWay(hit.comp, !vacuum); return true; }
     this.endIronHold();
     this.noteOnce('tool');
     this.attempts?.tool(this.activeTool);
@@ -3694,8 +3709,23 @@ export class PcbApp {
     this.renderUI();
   }
 
+  /**
+   * A tool on a joint still under conformal coating. The iron chars the coating (NEETS 14 p. 3-4:
+   * irons are never used to remove it); anything else waits until the coating is off.
+   */
+  private coatingInTheWay(c: Component, iron: boolean) {
+    if (iron) {
+      this.pushUndo();
+      c.state.coatCharred = true;
+      sfxCut();
+      this.toast(t('The iron charred the conformal coating on {ref}: coating is never taken off with a soldering iron. Remove it with a proper method first (Coating removal, U).', { ref: c.ref }), 'danger');
+      this.renderUI();
+    } else this.toast(t('{ref} is under conformal coating: take it off the leads and pads first (Coating removal, U).', { ref: c.ref }), 'info');
+  }
+
   /** A plunger shot or a wick pass: heat the joint for 2 s through the tool, then take the solder. */
   private startTimedExtract(c: Component, pad: number, pos: V2, side: Side, mode: ExtractMode) {
+    if (!workable(this.board, c)) { this.coatingInTheWay(c, false); return; }
     if (!this.thermal) this.updateThermalPower();
     this.pushUndo();
     if (this.reworkMode.flux || mode === 'wick') this.rework!.applyFlux(pos[0], pos[1], 2); // wick comes impregnated with flux
@@ -3713,6 +3743,7 @@ export class PcbApp {
    * Returns false (and says why) when the bench does not allow the action.
    */
   private benchAllows(c: Component, action: 'remove' | 'replace' | 'reflow'): boolean {
+    if (c.state.populated && !workable(this.board, c)) { this.coatingInTheWay(c, false); return false; }
     if (!this.reworkMode.realistic || !isThroughHole(c)) return true;
     if (action === 'reflow') { this.toast(t('Realistic rework: hold the Soldering iron (3) on each joint.'), 'info'); return false; }
     if (!c.state.populated) return true;
@@ -4182,6 +4213,36 @@ export class PcbApp {
       return;
     }
 
+    if (this.activeTool === 'decoat' || this.activeTool === 'coat') {
+      const c = hit?.kind === 'pad' || hit?.kind === 'comp' ? hit.comp : null;
+      if (!this.board.coating) { this.toast(t('This board has no conformal coating.'), 'info'); return; }
+      if (!c) { this.toast(t('Click a part: coating is taken off and put back part by part.'), 'info'); return; }
+      if (this.activeTool === 'coat') {
+        if (c.state.coating !== 'removed') { this.toast(t('{ref} still has its coating.', { ref: c.ref }), 'info'); return; }
+        this.pushUndo();
+        applyCoating(this.board, c, this.coatType);
+        sfxClick();
+        this.toast(t('{coat} coating applied over {ref}.', { coat: t(coatingName(this.coatType)), ref: c.ref }), 'success');
+        this.renderUI();
+        return;
+      }
+      if (c.state.coating && c.state.coating !== 'removed') { this.toast(t('{ref} was coated again after the repair.', { ref: c.ref }), 'info'); return; }
+      const r = removeCoating(this.board, c, this.coatMethod, true);
+      if (r.ok) {
+        this.pushUndo();
+        removeCoating(this.board, c, this.coatMethod);
+        sfxCut();
+        this.toast(t('Coating off {ref}\'s leads and pads ({method}).', { ref: c.ref, method: t(methodName(this.coatMethod)) }), 'success');
+        if (r.identifies) this.toast(t('This method identifies the coating positively: {coat}.', { coat: t(coatingName(this.board.coating.type)) }), 'info');
+      } else {
+        this.toast(r.why === 'already' ? t('The coating is already off {ref}.', { ref: c.ref })
+          : r.why === 'thin-only' ? t('{method} is for thin coatings only: this coating is thick.', { method: t(methodName(this.coatMethod)) })
+          : r.why === 'thick-only' ? t('{method} is for thick coatings only (0.025 in and thicker).', { method: t(methodName(this.coatMethod)) })
+          : t('{method} does nothing to this coating: Table 3-1 does not list it for this type.', { method: t(methodName(this.coatMethod)) }), 'info');
+      }
+      this.renderUI();
+      return;
+    }
     if (this.activeTool === 'staple') {
       // NEETS 14 p. 3-32, fig. 3-24: holes either side of the damage, staple through them, clinched against the conductor and soldered
       const n = netAt(this.board, this.conn, pt, side, xray);

@@ -13,7 +13,8 @@ const src = (page: string): RuleSource => ({ doc: NEETS14, page });
 
 export type FindingKind =
   | 'pad-lifted' | 'part-overheated' | 'mlcc-cracked' | 'part-displaced' | 'dull-joint'
-  | 'flux-residue' | 'loose-solder' | 'long-dwell' | 'wire-repair' | 'no-shunt' | 'skip-pattern' | 'nick';
+  | 'flux-residue' | 'loose-solder' | 'long-dwell' | 'wire-repair' | 'no-shunt' | 'skip-pattern' | 'nick'
+  | 'coating-charred' | 'coating-missing' | 'coating-mismatch' | 'coating-method';
 
 /**
  * `procedural`: about how the work was done, which the finished board does not show; listed only
@@ -33,6 +34,10 @@ export const RULES: Record<FindingKind, Rule> = {
   'long-dwell': { kind: 'long-dwell', severity: 'note', title: tk('Long heating'), rule: tk('Bring the joint to about 550 °F (288 °C) rapidly and hold it there briefly: in most cases the soldering action is complete within 2 or 3 seconds.'), source: src('3-23') },
   'no-shunt': { kind: 'no-shunt', severity: 'note', procedural: true, title: tk('No thermal shunt'), rule: tk('Before heat is applied to solder the joint, a thermal shunt is attached to sensitive component leads (diodes, transistors, and ICs) to conduct heat away from the component.'), source: src('3-23') },
   'skip-pattern': { kind: 'skip-pattern', severity: 'note', procedural: true, title: tk('Neighbouring pins heated in a row'), rule: tk('When multilead components such as ICs are soldered or desoldered, a skipping pattern is used: never heat two pads next to each other, to prevent heat build-up in one area.'), source: src('3-26, 3-30') },
+  'coating-charred': { kind: 'coating-charred', severity: 'reject', title: tk('Charred coating'), rule: tk('Soldering irons should never be used for coating removal: the high temperatures char the coating, possibly damaging the board materials.'), source: src('3-4') },
+  'coating-missing': { kind: 'coating-missing', severity: 'reject', title: tk('Coating not replaced'), rule: tk('Once the required repairs have been completed, the conformal coating must be replaced.'), source: src('3-6') },
+  'coating-mismatch': { kind: 'coating-mismatch', severity: 'reject', title: tk('Wrong coating type'), rule: tk('To ensure the same protective characteristics, use the same type of replacement coating as that removed.'), source: src('3-6') },
+  'coating-method': { kind: 'coating-method', severity: 'note', procedural: true, title: tk('Not the gentlest removal method'), rule: tk('Removal techniques are listed in ascending order of their damageability: always try the method which causes the least amount of damage first.'), source: src('3-3, Table 3-1') },
   'nick': { kind: 'nick', severity: 'reject', title: tk('Nicked conductor'), rule: tk('Nicks or scratches in a conductor must be repaired if over one-tenth of its cross-sectional area is affected, as its current-carrying capability is reduced.'), source: src('3-31') },
   'wire-repair': { kind: 'wire-repair', severity: 'note', title: tk('Wire repair'), rule: tk('A wire lap-soldered across a break is stronger than a solder bridge but not highly reliable; the clinched staple is the preferred repair of a broken conductor.'), source: src('3-32') },
 };
@@ -99,6 +104,15 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
     if (n.depth <= 0.1) continue;
     const bridged = staples.some((j) => j.la === n.layer && distToSeg(n.at, j.a, j.b) < 1 && Math.hypot(j.a[0] - n.at[0], j.a[1] - n.at[1]) > 0.8 && Math.hypot(j.b[0] - n.at[0], j.b[1] - n.at[1]) > 0.8);
     if (!bridged) add({ kind: 'nick', where: `${n.at[0].toFixed(1)}, ${n.at[1].toFixed(1)} mm`, detail: `${Math.round(n.depth * 100)} %` });
+  }
+
+  // conformal coating: taken off where needed, never charred, put back with the same type
+  if (board.coating) for (const c of board.components) {
+    const st = c.state.coating;
+    if (c.state.coatCharred) add({ kind: 'coating-charred', where: c.ref });
+    if (st === 'removed') add({ kind: 'coating-missing', where: c.ref });
+    else if (st && st !== board.coating.type) add({ kind: 'coating-mismatch', where: c.ref, detail: st });
+    if (c.state.coatMethodRank !== undefined && c.state.coatBestRank !== undefined && c.state.coatMethodRank > c.state.coatBestRank) add({ kind: 'coating-method', where: c.ref, detail: `#${c.state.coatMethodRank}` });
   }
 
   // how the joints were heated

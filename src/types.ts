@@ -78,6 +78,16 @@ export interface ComponentState {
   holes?: Record<number, 'clear' | 'sweat'>;
   /** Through-hole leads (pad indices) with a thermal shunt clipped on (a bench accessory). */
   shunts?: number[];
+  /**
+   * Conformal coating at this part on a coated board (`Board.coating`): absent = the original coat;
+   * 'removed' = taken off the leads and pads (workable); a coating type = put back after the repair.
+   */
+  coating?: 'removed' | import('./coating').CoatingType;
+  /** An iron was put on this part's coating and charred it (NEETS 14 p. 3-4): board damage. */
+  coatCharred?: true;
+  /** Table 3-1 preferred-order rank of the removal method used, and the best one possible here. */
+  coatMethodRank?: number;
+  coatBestRank?: number;
   /** Intermittent faults driven by temperature / board flex (see src/intermittent.ts). */
   intermittent?: import('./intermittent').IntermittentSpec[];
 }
@@ -134,6 +144,11 @@ export interface Board {
   jumpers: Jumper[];
   /** Nicked conductors (cosmetic to the circuit, not to an inspector). */
   nicks?: Nick[];
+  /**
+   * Conformal coating over the assembly (NEETS 14 pp. 3-2 – 3-7): its type, whether it is thick
+   * (0.025 in or more), and whether it is one of the compositions a solvent takes off.
+   */
+  coating?: { type: import('./coating').CoatingType; thick: boolean; solventSoluble?: boolean };
   zones: Zone[];
   silk: SilkLine[];
   texts: SilkText[];

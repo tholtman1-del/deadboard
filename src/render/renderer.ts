@@ -1086,6 +1086,22 @@ export class Renderer {
         }
       }
 
+      // Conformal coating: a thin glossy film over the part and its pads on both faces, tinted by type
+      // (gone where it was taken off); an iron on it leaves a dark scorch on the solder side
+      if (!thermal && !both && board.coating) {
+        let x0 = -c.body.w / 2 + (c.body.off?.[0] ?? 0), x1 = c.body.w / 2 + (c.body.off?.[0] ?? 0);
+        let y0 = -c.body.h / 2 + (c.body.off?.[1] ?? 0), y1 = c.body.h / 2 + (c.body.off?.[1] ?? 0);
+        for (const p of c.pads) { x0 = Math.min(x0, p.at[0] - p.size[0] / 2); x1 = Math.max(x1, p.at[0] + p.size[0] / 2); y0 = Math.min(y0, p.at[1] - p.size[1] / 2); y1 = Math.max(y1, p.at[1] + p.size[1] / 2); }
+        const ctr = localToWorld((x0 + x1) / 2, (y0 + y1) / 2), w = x1 - x0 + 1.2, h = y1 - y0 + 1.2;
+        const st = c.state.coating ?? board.coating.type;
+        if (st !== 'removed') {
+          const tint: Record<string, [number, number, number]> = { parylene: [0.85, 0.9, 0.95], epoxy: [0.9, 0.7, 0.3], acrylic: [0.7, 0.85, 1], polyurethane: [0.95, 0.85, 0.45], varnish: [0.85, 0.6, 0.25], rtv: [0.95, 0.95, 0.92] };
+          const col = tint[st] ?? [0.9, 0.9, 0.9];
+          for (const zs of [1, -1]) al.box.pushTRS(ctr[0], ctr[1], zs * (ht + 0.09), w, h, 0.02, dispRot, col[0], col[1], col[2], st === 'rtv' ? 0.45 : 0.22, 0, 0.1, 0.08);
+        }
+        if (c.state.coatCharred) al.box.pushTRS(ctr[0], ctr[1], (c.side === 'F' ? -1 : 1) * (ht + 0.1), w * 0.8, h * 0.8, 0.02, dispRot, 0.16, 0.09, 0.04, 0.85, 0, 0, 0.9);
+      }
+
       // Visible damage: scorched laminate under a part that burned, liquid-damage crust at its pins
       if (!thermal) {
         if (c.state.burnt && c.state.populated) {

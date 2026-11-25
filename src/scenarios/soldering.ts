@@ -235,9 +235,28 @@ function conductorRepair() {
   });
 }
 
+async function conformalCoating(): Promise<Scenario> {
+  const k = ledRows(64, 34, [{ color: 'red', y: 11 }, { color: 'yellow', y: 23 }], 'HI-REL 8  CONFORMAL COATING');
+  // the whole assembly is coated; the coating is known from the board's drawing
+  k.b.coating = { type: 'polyurethane', thick: false };
+  return finalize('hr-conformal-coating', {
+    title: 'Conformal Coating',
+    author: 'DEADBOARD',
+    difficulty: 3,
+    description: 'A coated board: thin polyurethane over both sides, according to its drawing. D2 is dark because R2 pad 2 never bonded. The coating has to come off that joint first, and go back on afterwards.',
+    hints: [
+      'Flip to the bottom (F): R2 pad 2 is dull, under the clear coating.',
+      'Never take coating off with the soldering iron: it chars. Set Bench → Coating removal to the least damaging method Table 3-1 lists for polyurethane (number 1), then use Coating removal (U) on R2.',
+      'Reflow the joint with flux, clean it with Isopropyl, then put polyurethane back with Conformal coating (J): the same type as removed.',
+    ],
+    par: 4,
+  }, k.b, [lit('D1'), lit('D2')], 'PCB{s4m3_c04t1ng_b4ck_0n}',
+  (b) => { b.components.find((c) => c.ref === 'R2')!.state.cold = [pad(b, 'R2', '2')]; });
+}
+
 export async function solderingScenarios(): Promise<Scenario[]> {
-  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern(), conductorRepair()]);
+  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern(), conductorRepair(), conformalCoating()]);
 }
 
 /** The track's boards, in order. */
-export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern', 'hr-conductor-repair'] as const;
+export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern', 'hr-conductor-repair', 'hr-conformal-coating'] as const;

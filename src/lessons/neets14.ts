@@ -21,6 +21,8 @@ export interface Lesson {
   numbers: { label: string; value: string }[];
   /** A figure from the module (public/lessons/…), caption translated. */
   figure?: { src: string; caption: string };
+  /** A table from the module rebuilt from data (`table-3-1`: conformal coating removal techniques). */
+  table?: 'table-3-1';
   /** The module's own paragraphs (English quote). */
   original: string[];
   /** What to do on this board. */
@@ -259,6 +261,44 @@ export const LESSONS: Lesson[] = [
       { ref: 'Q30', q: tk('What is the preferred method of repairing cracked runs on boards?'), a: tk('Clinched staple.'), page: '3-37' },
       { ref: 'Q31', q: tk('Damaged or missing termination pads are replaced using what procedure?'), a: tk('Epoxy a replacement pad to the board, set an eyelet, and solder it.'), page: '3-37' },
       { ref: 'Q29', q: tk('List three causes of damage to printed circuit boards.'), a: tk('Operational failures, repairs by untrained personnel, repair using improper tools, mishandling, improper shipping, packaging, and storage.'), page: '3-37' },
+    ],
+  },
+  {
+    scenario: 'hr-conformal-coating',
+    title: tk('Conformal coating'),
+    source: { ...NEETS14_SOURCE, pages: '3-2 – 3-7' },
+    points: [
+      tk('Conformal coatings (epoxy, parylene, silicone, polyurethane, varnish, lacquer) protect an assembly from corrosion, moisture and stress.'),
+      tk('Before any work, remove the coating from all lead and pad areas of the part, down to the widest point of its body. The whole board is not stripped.'),
+      tk('Identify the coating from the documentation (technical manual, drawing); otherwise by its hardness, transparency, thickness and solvent solubility.'),
+      tk('Choose the removal method by coating type (Table 3-1) and always try the least damaging one first. Never use a soldering iron: it chars the coating.'),
+      tk('After the repair, replace the coating with the same type that was removed.'),
+    ],
+    numbers: [
+      { label: tk('Thin vs thick coating'), value: tk('thick = 0.025 in (0.64 mm) and more') },
+      { label: tk('Solvents for thin acrylic'), value: tk('isopropyl alcohol, xylene, trichloroethane') },
+    ],
+    table: 'table-3-1',
+    figure: { src: 'lessons/neets14/fig-3-2.png', caption: tk('Figure 3-2. Hot air jet conformal coating removal.') },
+    original: [
+      'Conformal coatings are protective material applied to electronic assemblies to prevent damage from corrosion, moisture, and stress. These coatings include epoxy, parylene, silicone, polyurethane, varnish, and lacquer. Coatings are applied in a liquid form; when dry, they exhibit characteristics that improve reliability.',
+      'Because of the characteristics that conformal coatings exhibit, they must be removed before any work can be done on printed circuit boards. The coating must be removed from all lead and pad/eyelet areas of the component. It should also be removed to or below the widest point of the component body. Complete removal of the coating from the board is not done.',
+      'Methods of coating removal are thermal, mechanical, and chemical. The method of removal depends on the type of coating used. Table 3-1 shows suggested methods of removal of some types. Note that most of the methods are variations of mechanical removal.',
+      'The coating material can best be identified through proper documentation; for example, technical manuals and engineering drawings. If this information is not available, the experienced technician can usually determine the type of material by testing the hardness, transparency, thickness, and solvent solubility of the coating. The thermal (heat) properties may also be tested to determine the ease of removal of the coating by heat. The methods of removal discussed here describe the basic concept, but not the step-by-step "how to" procedures.',
+      'THERMAL REMOVAL.—Thermal removal consists of using controlled heat through specially shaped tips attached to a handpiece. Soldering irons should never be used for coating removal because the high temperatures will cause the coatings to char, possibly damaging the board materials. Modified tips or cutting blades heated by soldering irons also are not used; they may not have proper heat capacity or allow the hand control necessary for effective removal. Also, the thin plating of the circuit may be damaged by scraping.',
+      'HOT-AIR JET REMOVAL.—In principle, the hot-air jet method of coating removal uses controlled, temperature-regulated air to soften or break down the coating, as shown in figure 3-2. By controlling the temperature, flow rate, and shape of the jet, you may remove coatings from almost any workpiece configuration without causing any damage. When you use the hot-air jet, you do not allow it to contact the workpiece surface physically. Delicate work, handled in this manner, permits you to observe the removal process.',
+      'CHEMICAL REMOVAL.—Chemical removal uses solvents to break down the coatings. General application is not recommended as the solvent may cause damage to the boards by dissolving the adhesive materials that bond the circuits to the boards. These solvents may also dissolve the POTTING COMPOUNDS (insulating material that completely seals a component or assembly) used on other parts or assemblies. Only thin acrylic coatings (less than 0.025 inch) are readily removable by solvents. Mild solvents, such as ISOPROPYL ALCOHOL, XYLENE, or TRICHLOROETHANE, may be used to remove soluble coatings on a spot basis.',
+      'Evaluations show that many tool and technique combinations have proven to be reliable and effective in coating removal; no single method is the best in all situations. When the technician is determining the best method of coating removal to use, the first consideration is the effect that it will have on the equipment.',
+      'Once the required repairs have been completed, the conformal coating must be replaced. To ensure the same protective characteristics, you should use the same type of replacement coating as that removed.',
+    ],
+    task: tk('The drawing says: thin polyurethane coating. Set Bench → Coating removal to Table 3-1\'s first choice for it and take the coating off R2 (U). Reflow R2 pad 2 with flux, clean with Isopropyl (0), then set Bench → Conformal coating to polyurethane and coat R2 again (J).'),
+    station: 'r350f',
+    grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'coating-charred', 'coating-missing', 'coating-mismatch', 'coating-method'],
+    questions: [
+      { ref: 'Q1', q: tk('What material is applied to electronic assemblies to prevent damage from corrosion, moisture, and stress?'), a: tk('Conformal coating.'), page: '3-7' },
+      { ref: 'Q2', q: tk('What three methods are used to remove protective material?'), a: tk('Chemical, mechanical, and thermal.'), page: '3-7' },
+      { ref: 'Q4', q: tk('Abrasion, cutting, and peeling are examples of what type of protective material removal?'), a: tk('Mechanical.'), page: '3-7' },
+      { ref: 'Q5', q: tk('Why should the coating material be replaced once the required repair has been completed?'), a: tk('To ensure protective characteristics are maintained.'), page: '3-7' },
     ],
   },
 ];

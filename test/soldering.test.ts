@@ -6,6 +6,7 @@ import { ThermalModel, copperThickness, THERMAL_DEFAULTS } from '../src/thermal'
 import { ALLOYS, IRON_G, ReworkMonitor, heldPads, limitsFor, type ReworkEvent } from '../src/rework';
 import { cleanFluxWithIpa, fluxResidueNear } from '../src/residue';
 import { RULES, inspect } from '../src/workmanship';
+import { TABLE_3_1, applyCoating, removeCoating, workable } from '../src/coating';
 import { LESSONS, lessonFor } from '../src/lessons/neets14';
 import { lessonAccepted } from '../src/ui/lesson-ui';
 import { SOLDERING_TRACK_IDS, solderingScenarios } from '../src/scenarios/soldering';
@@ -277,6 +278,45 @@ async function main() {
     assert(staple.works && lessonAccepted(l7, staple.ins), `clinched staples across both pass (${JSON.stringify(staple.ins.findings)})`);
     const one = check((b) => addJumper(b, [34, 11], 'F', [40, 11], 'F', 'staple'));
     assert(one.works && !lessonAccepted(l7, one.ins), 'the nick left alone still fails');
+  }
+
+  // ---- conformal coating (pp. 3-2 – 3-7, Table 3-1) ----
+  {
+    const sc = scs.find((x) => x.id === 'hr-conformal-coating')!;
+    const l8 = lessonFor('hr-conformal-coating')!;
+    const fresh = () => { const b = structuredClone(sc.board); return { b, r2: b.components.find((c) => c.ref === 'R2')! }; };
+    {
+      const { b, r2 } = fresh();
+      assert(!workable(b, r2), 'a coated part cannot be worked on');
+      assert(!removeCoating(b, r2, 'ballmill').ok && !removeCoating(b, r2, 'peel').ok, 'methods Table 3-1 does not list for polyurethane do nothing');
+      assert(!removeCoating(b, r2, 'solvent').ok, 'solvent only for specific polyurethane compositions (A): not this one');
+      const r = removeCoating(b, r2, 'hotair');
+      assert(r.ok && r.rank === 1 && r.best === 1 && r.identifies && workable(b, r2), 'hot air jet: first choice for polyurethane, and it identifies the coating');
+    }
+    {
+      const b: Board = structuredClone(sc.board); b.coating = { type: 'epoxy', thick: true };
+      const c = b.components[1];
+      const r = removeCoating(b, c, 'brush');
+      assert(!r.ok && r.why === 'thin-only', 'a rotary brush only takes thin epoxy (C)');
+      const m = removeCoating(b, c, 'ballmill');
+      assert(m.ok && m.rank === 5 && m.best === 2, `thick epoxy: ball mill works (B) but the thermal parting tool ranks first (best ${m.ok && m.best})`);
+    }
+    assert(TABLE_3_1.rtv.peel?.rank === 1 && TABLE_3_1.acrylic.solvent?.rank === 1 && TABLE_3_1.parylene.parting?.rank === 1, 'Table 3-1 first choices: peel RTV, solvent on acrylic, thermal parting tool on parylene');
+    // a whole repair: method 1, reflow, clean, same coating back
+    const repair = (method: 'hotair' | 'brush', back: 'polyurethane' | 'acrylic' | null) => {
+      const { b, r2 } = fresh();
+      removeCoating(b, r2, method);
+      r2.state.cold = [];
+      if (back) applyCoating(b, r2, back);
+      return { works: evaluateObjectives(b, buildConnectivity(b), sc.objectives, 'spice').allPassed, ins: inspect(b, referenceBoard(sc)!, [], []) };
+    };
+    const good = repair('hotair', 'polyurethane');
+    assert(good.works && lessonAccepted(l8, good.ins), `lesson 8: method 1 and the same coating back pass (${JSON.stringify(good.ins.findings)})`);
+    assert(repair('hotair', null).ins.findings.some((f) => f.kind === 'coating-missing'), 'coating left off: rejected');
+    assert(repair('hotair', 'acrylic').ins.findings.some((f) => f.kind === 'coating-mismatch'), 'a different coating type: rejected');
+    const rough = repair('brush', 'polyurethane');
+    assert(rough.ins.findings.some((f) => f.kind === 'coating-method') && !lessonAccepted(l8, rough.ins), 'a rotary brush (3rd choice) when hot air (1st) works: fails lesson 8');
+    { const { b, r2 } = fresh(); r2.state.coatCharred = true; assert(inspect(b, referenceBoard(sc)!, [], []).findings.some((f) => f.kind === 'coating-charred'), 'an iron on the coating chars it: rejected'); }
   }
 
   // ---- lesson data ----

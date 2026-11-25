@@ -7,8 +7,9 @@ No reference hardware is available, so realism is validated against *design inte
 
 ## Status (start here)
 
-- **High-reliability soldering track: Phase 1 pushed (`8fb70ba`, live), Phase 2 committed locally
-  (2026-11-24 night, NOT pushed: waiting for the user's review).** A separate learning path after NEETS Module 14 (NAVEDTRA 14186, Navy 2M
+- **High-reliability soldering track: Phase 1 pushed (`8fb70ba`, live); Phase 2 (`fd53b00`) and
+  lessons 6–8 (`4d036fd`, `b15380c`, + conformal coating) committed locally, NOT pushed (the auto-mode
+  permission check refused `git push`; the user pushes, or allows it).** A separate learning path after NEETS Module 14 (NAVEDTRA 14186, Navy 2M
   soldering; Distribution A, public domain). Research and the 3-phase plan: `ideas/navy-2m-soldering.md`
   (local only). User's choices: lesson card + original text before, workmanship debrief + the module's
   review questions after, realism applies to every board in realistic rework (track forces it), phases.
@@ -56,9 +57,19 @@ No reference hardware is available, so realism is validated against *design inte
     `hr-thermal-shunt` (Q1 cold base + collector, transistor switch with TP1/TP2). «Where to look?» is
     hidden on lesson boards and they are left out of its recall tests (resistive joints at J1 / Q1
     ranked 4th there; an engine limit, not fixed). Played end to end in Chrome (both Accepted).
-  - **Next:** skipping-pattern board (needs a multi-lead part the solver models: e.g. a 7-segment
-    display from LED units, or a DIP part); conformal coating, eyelets/clinched staple trace repair,
-    ESD (Phase 3); read the 2M certification manual + T.O. 00-25-259 (the user downloads them).
+  - **Lessons 6–8 (2026-11-25):** 6 Skipping Pattern — `hr-skipping-pattern`, a DIP-16 resistor
+    network (devicelib gained `res` units + Bourns 4116R-2-331, unverified; `Builder.dip`), pins 1–4
+    cold; the `skip-pattern` rule fails 1,2,3,4 and passes 2,4,1,3. 7 Conductor Repair —
+    `hr-conductor-repair`, cut track + 50 % nick (`Board.nicks`); Clinched staple tool (K) =
+    `Jumper.kind 'staple'`, drawn per fig. 3-24; solder bridge / wire work but fail, staples pass;
+    `nick` rule (> 1/10 of the width). 8 Conformal Coating — `hr-conformal-coating`, thin
+    polyurethane (`Board.coating`); `src/coating.ts` = NEETS Table 3-1 as data (ranks, * identifies,
+    footnotes A–F), rebuilt as a table in the lesson card; tools Coating removal (U, method in Bench)
+    and Conformal coating (J, type in Bench); iron on coating chars it (`coatCharred`); rules
+    charred / missing / mismatch / gentlest-method. Lesson grading is now simply "graded = fails".
+  - **Next:** ESD (NEETS 3-38 – 3-40: Table 3-2 static voltages by humidity, MOS 35 V, bipolar
+    < 3000 V, latent damage) as lesson 9; eyelet and replacement-pad repairs; read the 2M
+    certification manual + T.O. 00-25-259 (the user downloads them).
 
 - **NEXT SESSION — START HERE (written end of 2026-11-24).** All code up to `c789ba5` is pushed and
   live; the local `.claude/` folder (skills, settings) is untracked on purpose, never commit it.

@@ -1809,3 +1809,12 @@ body.is-mobile .loadout-bar select { flex: 1 1 auto; width: auto; max-width: non
   .lesson, .inspection { padding: 12px; max-height: 70vh; }
   .lesson-nums { grid-template-columns: 1fr 1fr; }
 }
+.lesson-table { display: grid; gap: 6px; }
+.lt-scroll { overflow-x: auto; }
+.lesson-table table { border-collapse: collapse; font-size: 11.5px; }
+.lesson-table th, .lesson-table td { border: 1px solid var(--border); padding: 4px 6px; text-align: center; }
+.lesson-table thead th { font-weight: 500; color: var(--muted); vertical-align: bottom; max-width: 92px; }
+.lesson-table tbody th { text-align: left; font-weight: 500; color: var(--text-2); white-space: nowrap; }
+.lesson-table td { color: var(--text); }
+.lesson-table td small { color: var(--muted); }
+.lesson-table p { margin: 0; font-size: 11.5px; }
