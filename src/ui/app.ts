@@ -6035,7 +6035,7 @@ export class PcbApp {
     const idx = this.scenarios.findIndex((x) => x.id === nextId);
     if (idx < 0) return '';
     const n = ids.filter((id) => this.trackAccepted.has(id)).length;
-    const sub = this.mobile ? t('Based on a public-domain US Navy textbook') : t('Solder, heat, cleaning and inspection, after NEETS Module 14 (a public-domain US Navy textbook)');
+    const sub = this.mobile ? t('Based on public-domain US Navy training') : t('Soldering, rework and inspection after the US Navy\'s public-domain 2M training material');
     return `
       <div class="bp-daily bp-solder-track">
         <div class="bp-cal"><small>${t('Track')}</small><b>${n}/${ids.length}</b></div>
@@ -7093,7 +7093,7 @@ export class PcbApp {
           <button class="btn sm" data-lesson="brief">${icon('book', 12)}<span>${t('Lesson: {title}', { title: this.esc(t(title)) })}</span></button>
           ${ins ? `<button class="btn sm" data-lesson="debrief"><span class="badge ${ok ? 'pass' : 'fail'}">${ok ? t('Accepted') : t('Rejected')}</span><span>${t('Inspection')}</span></button>` : ''}
         </div>
-        <div class="muted">${t('Based on NEETS Module 14, a public-domain US Navy textbook. A board counts as done when it works and passes inspection.')}</div>
+        <div class="muted">${t('Based on NEETS Module 14 and the Navy\'s 2M repair and certification manuals, all public domain. A board counts as done when it works and passes inspection.')}</div>
         <div class="stack">${this.trackRowsHtml(ids, this.activeScenario.id, this.trackAccepted)}</div>
       </div>`;
   }

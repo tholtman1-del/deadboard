@@ -184,7 +184,8 @@ async function thermalShunt(): Promise<Scenario> {
  * A DIP-16 resistor network (8 × 330 Ω isolated) driving four LEDs: resistor n sits between pin n
  * (bottom row, to the LED) and pin 17 − n (top row, on +5V). Pins 1–4 never bonded.
  */
-async function skippingPattern(): Promise<Scenario> {
+/** The DIP-16 network board (lessons 6 and the final practical). */
+function dipNetworkBoard(label: string) {
   const k = new Builder(64, 46);
   const j1 = k.header('J1', 5, [6, 22], 0, '5V DC');
   const rn = k.dip('RN1', '4116R-2-331', [32, 22], 16);
@@ -200,7 +201,12 @@ async function skippingPattern(): Promise<Scenario> {
   k.track('B', [k.pad(leds[0], '1'), [ledX[0], 42], [ledX[3], 42], k.pad(leds[3], '1')], 0.9, 'GND');
   for (const i of [1, 2]) k.track('B', [k.pad(leds[i], '1'), [ledX[i], 42]], 0.9, 'GND');
   k.track('B', [[ledX[0], 42], [6, 42], k.pad(j1, '2')], 0.9, 'GND');
-  k.text([16, 4], 'HI-REL 6  SKIPPING PATTERN', 1.4);
+  k.text([16, 4], label, 1.4);
+  return { k, leds };
+}
+
+async function skippingPattern(): Promise<Scenario> {
+  const { k, leds } = dipNetworkBoard('HI-REL 6  SKIPPING PATTERN');
   const sc = await finalize('hr-skipping-pattern', {
     title: 'Skipping Pattern',
     author: 'DEADBOARD',
@@ -335,31 +341,35 @@ function padRepair() {
 }
 
 /**
- * The final practical: everything at once on the coated transistor switch. Q1 burned out and must be
- * replaced (coating off, desoldered, refitted grounded in dry air, soldered with shunts), the
- * collector track carries a deep nick, and the coating goes back on.
+ * The final practical, after the 2M miniature performance test (certification manual Appendix C):
+ * on the DIP-16 network board under an unidentified coating (hard polyurethane), RN1 burned out and
+ * is replaced whole (coating identified and taken off, 16 pins desoldered and soldered in a skipping
+ * pattern), the pad under RN1 pin 1 has lifted (new pad + eyelet), the +5V run carries a deep nick
+ * (staple), and the same coating goes back on.
  */
 async function finalPractical(): Promise<Scenario> {
-  const k = transistorSwitchBoard('HI-REL 11  FINAL PRACTICAL');
-  k.b.coating = { type: 'acrylic', thick: false };
-  const sw = (on: boolean) => ({ SW1: on });
+  const { k, leds } = dipNetworkBoard('HI-REL  FINAL PRACTICAL');
+  k.b.coating = { type: 'polyurethane', thick: false };
   const sc = await finalize('hr-final-practical', {
     title: 'Final Practical',
     author: 'DEADBOARD',
     difficulty: 4,
-    description: 'The whole course on one card. Pressing SW1 lights nothing: Q1 (2N3904) burned out. The card is coated with thin acrylic, the air is dry, and the inspector checks everything you have learned. Replace Q1, repair what else you find, and leave the card as the textbook demands.',
+    description: 'The course\'s practical, like the 2M miniature performance test. All four LEDs are dark: RN1, the DIP-16 resistor network, burned out. The card is coated (no drawing), and the inspector checks everything you have learned. Replace RN1, repair what else you find, and leave the card as the manuals demand.',
     hints: [
-      'Order of work: coating off Q1 (Table 3-1\'s first choice for acrylic), Q1\'s three holes cleared with continuous vacuum, Q1 out, wrist strap on, new Q1 in.',
-      'Solder the new Q1 with a thermal shunt on each lead, clean the flux with Isopropyl, and look at the collector track between D1 and Q1: a nick over a tenth of it needs a staple.',
-      'Last: acrylic coating back on Q1 (and on any other part you uncoated), then run the tests.',
+      'Order of work: identify the coating by test and record it, take it off RN1 with Table 3-1\'s first choice, then clear all 16 holes with continuous vacuum in a skipping pattern (never two neighbouring pins in a row).',
+      'RN1 out: the pad under pin 1 has lifted, replace it (Pad repair, E). Fit a new RN1, solder all 16 pins in a skipping pattern, clean the flux. The +5V run has a deep nick: staple it (K).',
+      'Last: the same coating back on RN1, then run the tests.',
     ],
-    par: 14,
-  }, k.b, [{ type: 'led', ref: 'D1', on: true, switches: sw(true) }, { type: 'led', ref: 'D2', on: true, switches: sw(true) }, { type: 'led', ref: 'D1', on: false, switches: sw(false) }, { type: 'led', ref: 'D2', on: false, switches: sw(false) }], 'PCB{2m_pr4ct1c4l_p4ss3d}',
+    par: 40,
+  }, k.b, leds.map((d) => lit(d.ref)), 'PCB{2m_pr4ct1c4l_p4ss3d}',
   (b) => {
-    b.components.find((c) => c.ref === 'Q1')!.state.burnt = true;
-    const t = b.traces.find((x) => x.net === 'COLLECTOR' && x.layer === 'F' && Math.abs(x.a[1] - 38) < 0.01 && Math.abs(x.b[1] - 38) < 0.01)!;
-    const depth = 0.4, x = 52; // on the collector run, clear of TP2 (x 62)
-    b.nicks = [{ id: 'n' + (b.nextId++).toString(36), at: [x, 38 - t.w / 2 + (depth * t.w) / 2], layer: 'F', len: 0.6, depth, rot: 0, width: t.w }];
+    const rn = b.components.find((c) => c.ref === 'RN1')!;
+    rn.state.burnt = true;
+    rn.state.lifted = [0];
+    rn.state.cold = [0];
+    const t = b.traces.find((x) => x.net === '+5V' && x.layer === 'F' && Math.abs(x.a[1] - 12) < 0.01 && Math.abs(x.b[1] - 12) < 0.01 && Math.abs(x.b[0] - x.a[0]) > 10)!;
+    const depth = 0.4;
+    b.nicks = [{ id: 'n' + (b.nextId++).toString(36), at: [18, 12 - t.w / 2 + (depth * t.w) / 2], layer: 'F', len: 0.6, depth, rot: 0, width: t.w }];
   });
   sc.solver = 'spice';
   return sc;

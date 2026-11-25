@@ -42,6 +42,12 @@ export const TO_SOURCE = {
   url: 'https://www.robins.af.mil/Portals/59/12%20April_TO%2000-25-259.pdf',
 };
 
+/** The 2M certification manual (Distribution A): its Appendix C is the miniature practical. */
+export const CERT_SOURCE = {
+  doc: 'NAVSEA TE000-AA-MAN-010/2M, Certification Manual for the 2M MTR Program (Rev 2, 2011)',
+  url: 'https://www.navsea.navy.mil/Portals/103/Documents/MARMC/2MMTR%20Certification%20Manual%20SEP2011.pdf',
+};
+
 export const NEETS14_SOURCE = {
   doc: 'NEETS Module 14, Introduction to Microelectronics (NAVEDTRA 14186)',
   url: 'https://archive.org/details/NEETSModules',
@@ -341,23 +347,27 @@ export const CONTENT: LessonContent[] = [
   },
   {
     scenario: 'hr-final-practical',
-    source: { ...NEETS14_SOURCE, pages: '3-1, 3-20, 3-26 – 3-28' },
+    source: { ...CERT_SOURCE, pages: 'Appendix C' },
     points: [
-      tk('A repaired assembly is restored at least to the original manufacturer\'s standards: parts remounted in the same position, with the same terminations.'),
-      tk('Work in order: coating off where needed, desolder cleanly, fit the new part grounded, solder with shunts on sensitive leads, clean, repair the board, coating back on.'),
-      tk('The two final steps of any repair: inspect and test.'),
+      tk('Modelled on the 2M miniature recertification performance test: identify and remove a conformal coating, remove and replace a 16-lead DIP, replace a pad with an eyelet, repair a conductor, in an ESD-safe, orderly work area.'),
+      tk('Every project is graded against the workmanship standards of the 2M manual (T.O. 00-25-259): solder acceptability and post-solder cleanliness included.'),
+      tk('A repaired assembly is restored at least to the original manufacturer\'s standards. The two final steps of any repair: inspect and test.'),
       tk('Every rule of the earlier lessons is graded here.'),
     ],
     numbers: [
-      { label: tk('Coating on this card'), value: tk('thin acrylic lacquer') },
-      { label: tk('Air'), value: tk('dry (10–20 % relative humidity)') },
+      { label: tk('Recertification'), value: tk('every 18 months, all projects within three days') },
+      { label: tk('This card'), value: tk('coated (no drawing), DIP-16 network, dry air') },
     ],
     original: [
-      'As you progress in your training as a technician, you will find that the skill and knowledge levels required to maintain electronic systems become more demanding. The increased use of miniature and microminiature electronic circuits, circuit complexity, and new manufacturing techniques will make your job more challenging. To maintain and repair equipment effectively, you will have to duplicate with limited facilities what was accomplished in the factory with extensive facilities. Printed circuit boards that were manufactured completely by machine will have to be repaired by hand.',
-      'CAUTION: THIS SECTION IS NOT, IN ANY WAY, TO BE USED BY YOU AS AUTHORIZATION TO ATTEMPT THESE TYPES OF REPAIRS WITHOUT OFFICIAL 2M CERTIFICATION.',
-      'The 2M technician should restore the electronic assembly at least to the original manufacturer\'s standards. Parts should always be remounted or reassembled in the same position and with termination methods used by the original manufacturer. This approach ensures a continuation of the original reliability of the system.',
+      'The Miniature Electronic Repair Technician must satisfactorily complete the projects listed below. All specifications are contained in NAVAIR 01-1A-23, NAVSEA SE004-AK-TRS-010/2M (work package references are noted below). All work must comply with the workmanship standards listed in the respective work package sections.',
+      'Identify four of five and remove two of the following conformal coating types: AR, ER, SR, UR, or XY',
+      'Conductor repair: pad replacement with a flat-set eyelet',
+      'Remove and replace a 14/16 lead dual in-line package (DIP)',
+      'During the recertification, the technician observed all safety precautions and maintained a clean, orderly, and electrostatic discharge (ESD) safe work area. [SAT/UNSAT]',
+      'A technician shall satisfactorily complete all required recertification tasks within a three-day period. All recertification projects must meet minimum acceptance criteria.',
+      'CAUTION (NEETS Module 14, p. 3-1): THIS SECTION IS NOT, IN ANY WAY, TO BE USED BY YOU AS AUTHORIZATION TO ATTEMPT THESE TYPES OF REPAIRS WITHOUT OFFICIAL 2M CERTIFICATION.',
     ],
-    task: tk('Q1 burned out on a card coated with thin acrylic, in dry air. Replace Q1 and repair whatever else you find, the way the course taught: every rule is graded. The hints list the order of work if you need it.'),
+    task: tk('RN1 burned out on a coated card with no drawing. Identify the coating, replace RN1 (16 pins out and in, always in a skipping pattern), repair what else you find, and put the same coating back. Every rule is graded; the hints give the order of work if you need it.'),
     questions: [
       { ref: 'Q14', q: tk('To what standards should a technician restore electronic assemblies?'), a: tk('Manufacturer\'s standards.'), page: '3-22' },
       { ref: 'Q36', q: tk('What is the cause of most accidents?'), a: tk('Deviation from prescribed safe operating procedures.'), page: '3-46' },

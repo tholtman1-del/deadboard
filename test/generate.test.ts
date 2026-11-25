@@ -50,7 +50,7 @@ const FIXES: Record<string, (b: Board) => void> = {
   'hr-coating-id': (b) => toggleCold(part(b, 'R1'), 0),
   'hr-esd': (b) => installPart(part(b, 'Q1')),
   'hr-pad-repair': (b) => { const r2 = part(b, 'R2'); r2.state.lifted = undefined; r2.state.cold = []; },
-  'hr-final-practical': (b) => installPart(part(b, 'Q1')),
+  'hr-final-practical': (b) => { const rn = part(b, 'RN1'); rn.state.lifted = undefined; installPart(rn); },
 };
 
 async function fixed(sc: Scenario, solver: Solver): Promise<Board> {

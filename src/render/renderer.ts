@@ -1114,8 +1114,9 @@ export class Renderer {
       // Visible damage: scorched laminate under a part that burned, liquid-damage crust at its pins
       if (!thermal) {
         if (c.state.burnt && c.state.populated) {
-          const d = Math.max(c.body.w, c.body.h) * 1.5 + 0.6;
-          op.cyl.pushTRS(dispPos[0], dispPos[1], sgn * (ht + 0.014), d, d * 0.85, 0.004, dispRot, 0.11, 0.075, 0.045, 1, 0, 0, 0.95);
+          // the scorch follows the part's outline (a long package scorches along its length, not in a big disc)
+          const sx = c.body.w * 1.3 + 0.6, sy = Math.max(c.body.h * 1.3 + 0.6, Math.min(sx * 0.85, c.body.h + 3));
+          op.cyl.pushTRS(dispPos[0], dispPos[1], sgn * (ht + 0.014), sx, sy, 0.004, dispRot, 0.11, 0.075, 0.045, 1, 0, 0, 0.95);
         }
         const res = c.state.residue;
         if (res) {

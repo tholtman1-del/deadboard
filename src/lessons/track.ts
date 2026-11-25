@@ -28,7 +28,7 @@ export const LESSON_META: LessonMeta[] = [
   { scenario: 'hr-coating-id', title: tk('Coating identification'), station: 'r316f', grades: ['coating-id', 'coating-id-order', 'coating-charred', 'coating-missing', 'coating-mismatch', 'coating-method', 'dull-joint', 'flux-residue', 'pad-lifted', 'overheated-joint'] },
   { scenario: 'hr-esd', title: tk('Electrostatic discharge'), station: 'r350f', bench: { grounded: false, humidity: 'low' }, grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'esd-damage', 'esd-handling', 'overheated-joint'] },
   { scenario: 'hr-pad-repair', title: tk('Pad repair'), station: 'r350f', grades: ['pad-lifted', 'wire-repair', 'loose-solder', 'dull-joint', 'flux-residue', 'part-overheated', 'overheated-joint'] },
-  { scenario: 'hr-final-practical', title: tk('Final practical'), station: 'r350f', bench: { grounded: false, humidity: 'low' }, grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'mlcc-cracked', 'flux-residue', 'loose-solder', 'wire-repair', 'nick', 'no-shunt', 'coating-charred', 'coating-missing', 'coating-mismatch', 'coating-method', 'esd-damage', 'esd-handling', 'overheated-joint', 'slow-melt'] },
+  { scenario: 'hr-final-practical', title: tk('Final practical'), station: 'r316f', bench: { grounded: false, humidity: 'low' }, grades: ['coating-id', 'coating-id-order', 'coating-charred', 'coating-missing', 'coating-mismatch', 'coating-method', 'skip-pattern', 'dull-joint', 'overheated-joint', 'slow-melt', 'pad-lifted', 'part-overheated', 'flux-residue', 'loose-solder', 'wire-repair', 'nick', 'esd-damage', 'esd-handling'] },
 ];
 
 export function lessonMeta(scenarioId: string): LessonMeta | undefined {

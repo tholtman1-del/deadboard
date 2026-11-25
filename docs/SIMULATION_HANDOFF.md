@@ -95,10 +95,22 @@ No reference hardware is available, so realism is validated against *design inte
     dull fillet; cleared only by extracting and fresh solder; thresholds are estimates, the T.O.
     05-4.2.5/6 gives none) and `slow-melt` (procedural: no melt in 3 s, T.O. 03-5.4); station option
     316 °C (600 °F, the T.O.'s starting point for tin-lead).
-  - **Next from the manuals:** coating identification (Appendix C: identify 4 of 5) instead of being
-    told the type; DIP removal + replacement in the final practical; a wire-terminal mini-track
-    (turret, hook, pierced tab, solder cup — a third of the real practical); remaining 05-6.1
-    defects need a solder-volume model (convex fillet, icicles, solder balls).
+  - **Coating identification + final practical per Appendix C (2026-11-25):** 9 Coating
+    Identification — `hr-coating-id` (thin epoxy, not named; R1 pad 1 cold). `src/coating.ts`
+    gained the T.O.'s five types (`ID_TYPES` AR/ER/SR/UR/XY) and the three tests (`COAT_TESTS`
+    press / alcohol / heat ≤ 361 °F, `observe()` = the manual's descriptions 06-4.2.1–5); Coating
+    test tool (Q, test in Bench), Bench "Identified as" sets `board.coatingId` (undoable); removing
+    before identifying marks `coatRemovedBlind`. Rules `coating-id` (wrong type) and
+    `coating-id-order` (procedural: removed before identifying); Figure 06-1 rebuilt as a flowchart
+    in the card. The track is now 12 lessons. 12 Final Practical rebuilt after the 2M performance
+    test: `dipNetworkBoard` (shared with lesson 6) under unidentified hard polyurethane, RN1 (DIP-16)
+    burnt with pin 1's pad lifted + cold, a 40 % nick on the +5V run; station 316 °C, dry air, strap
+    off. Identify → remove → extract 16 joints in a skipping pattern → pad repair → new DIP → nick
+    staple → clean → recoat. Burn scorch now follows the part outline (renderer). Lesson text quotes
+    the certification manual (`CERT_SOURCE`, NAVSEA TE000-AA-MAN-010/2M).
+  - **Next from the manuals:** a wire-terminal mini-track (turret, hook, pierced tab, solder cup — a
+    third of the real practical); remaining 05-6.1 defects need a solder-volume model (convex
+    fillet, icicles, solder balls).
   - **Follow-ups:** flat packs (3-29)
     and TO-5 cans (3-27) need new footprints; read the 2M certification manual + T.O. 00-25-259
     (the user downloads them) and compare the practical's grading with ours.

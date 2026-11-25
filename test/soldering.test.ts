@@ -425,34 +425,39 @@ async function main() {
   }
 
   {
-    // lesson 11, the final practical, played through on the model: every step the course taught
+    // the final practical (Appendix C), played through on the model: every step the course taught
     const sc = scs.find((x) => x.id === 'hr-final-practical')!;
-    const l11 = lessonFor('hr-final-practical')!;
-    const b = structuredClone(sc.board), q = b.components.find((c) => c.ref === 'Q1')!;
+    const lf = lessonFor('hr-final-practical')!;
+    const b = structuredClone(sc.board), rn = b.components.find((c) => c.ref === 'RN1')!;
     const m = new ThermalModel(b), rw = new ReworkMonitor(b, m, limitsFor('sn63'));
     const heat = (pi: number, feed: boolean) => {
-      rw.applyFlux(q.at[0], q.at[1], 6);
-      if (feed) rw.feedSolder(q, pi);
-      m.addSource({ kind: 'iron', x: 0, y: 0, temp: 350, g: IRON_G.flux, pmax: 60, until: m.time + 1.5, partId: q.id, pad: pi });
+      rw.applyFlux(rn.at[0], rn.at[1], 14);
+      if (feed) rw.feedSolder(rn, pi);
+      m.addSource({ kind: 'iron', x: 0, y: 0, temp: 316, g: IRON_G.flux, pmax: 60, until: m.time + 1.5, partId: rn.id, pad: pi });
       for (let t = 0; t < 1.5; t += 0.05) { m.step(0.05); rw.update(0.05); }
     };
-    const cool = () => { for (let t = 0; t < 15; t += 0.1) { m.step(0.1); rw.update(0.1); } };
-    assert(removeCoating(b, q, 'solvent').ok, 'acrylic: solvent comes off first');
-    for (const pi of [0, 2, 1]) { heat(pi, false); rw.extract(q, pi, 'vacuum'); cool(); }
-    assert(heldPads(q).length === 0, 'all three holes clear');
-    removePart(q); installPart(q, { value: q.value });
-    q.state.holes = { 0: 'clear', 1: 'clear', 2: 'clear' }; q.state.cold = [0, 1, 2];
-    assert(handleEsd(q, true, 'low') === 'protected', 'fitted grounded');
-    q.state.shunts = [0, 1, 2];
-    for (const pi of [0, 2, 1]) { heat(pi, true); cool(); }
-    q.state.shunts = undefined;
+    const cool = () => { for (let t = 0; t < 4; t += 0.1) { m.step(0.1); rw.update(0.1); } };
+    // a skipping pattern over both rows: evens then odds in each row (pins 1,3,5,7, 2,4,6,8, 9,11,…)
+    const order = [0, 2, 4, 6, 1, 3, 5, 7, 8, 10, 12, 14, 9, 11, 13, 15];
+    b.coatingId = 'polyurethane';
+    assert(removeCoating(b, rn, 'hotair').ok, 'polyurethane: hot air first');
+    for (const pi of order) { heat(pi, false); if (!rn.state.lifted?.includes(pi)) rw.extract(rn, pi, 'vacuum'); cool(); }
+    rn.state.holes = { ...(rn.state.holes ?? {}), 0: 'clear' }; // the lifted pad's hole is empty too
+    assert(heldPads(rn).length === 0, 'all 16 holes clear');
+    removePart(rn);
+    rn.state.lifted = undefined; rn.state.padRepaired = [0]; // pad repair (new pad + eyelet)
+    installPart(rn, { value: rn.value });
+    rn.state.holes = Object.fromEntries(rn.pads.map((_, i) => [i, 'clear' as const])); rn.state.cold = rn.pads.map((_, i) => i);
+    for (const pi of order) { heat(pi, true); cool(); }
     for (const c of b.components) c.state.fluxResidue = undefined;
-    const n = b.nicks![0];
-    addJumper(b, [n.at[0] - 3, 38], 'F', [n.at[0] + 3, 38], 'F', 'staple');
-    applyCoating(b, q, 'acrylic');
+    addJumper(b, [15, 12], 'F', [21, 12], 'F', 'staple');
+    applyCoating(b, rn, 'polyurethane');
     const ins = inspect(b, referenceBoard(sc)!, rw.episodes, rw.log);
-    assert(evaluateObjectives(b, buildConnectivity(b), sc.objectives, 'spice').allPassed, 'the final card works');
-    assert(lessonAccepted(l11, ins), `…and passes the final inspection (${JSON.stringify(ins.findings)})`);
+    assert(evaluateObjectives(b, buildConnectivity(b), sc.objectives, 'spice').allPassed, `the final card works (${JSON.stringify(rn.state)})`);
+    assert(lessonAccepted(lf, ins), `…and passes the final inspection (${JSON.stringify(ins.findings)})`);
+    // the same work with the pins taken in order fails on the skipping pattern
+    const inRow = inspect(b, referenceBoard(sc)!, rw.episodes.map((e, i) => ({ ...e, pad: i % 16, t: i * 2 })), []);
+    assert(inRow.findings.some((f) => f.kind === 'skip-pattern'), 'pins heated one after the other are caught');
   }
 
   // ---- lesson data ----
@@ -460,7 +465,7 @@ async function main() {
   assert(LESSONS.length === SOLDERING_TRACK_IDS.length && LESSONS.every((l, i) => l.scenario === SOLDERING_TRACK_IDS[i]), 'one lesson per board, in order');
   for (const l of LESSONS) {
     assert(l.points.length >= 3 && l.original.length >= 1 && l.questions.length >= 1, `${l.scenario}: rules, original text and review questions`);
-    assert(l.original.every((p) => p.length > 80 && !/-\s$/.test(p)), `${l.scenario}: whole quoted paragraphs`);
+    assert(l.original.every((p) => p.length > 30 && !/-\s$/.test(p)), `${l.scenario}: whole quoted paragraphs or list entries`);
     assert(l.grades.every((g) => g in RULES), `${l.scenario}: grades known rules`);
     if (l.bench) assert(['low', 'high'].includes(l.bench.humidity), `${l.scenario}: bench humidity`);
     assert(['r350', 'r316f', 'r350f', 'r400f'].includes(l.station), `${l.scenario}: a station the bench offers`);
