@@ -175,6 +175,8 @@ export interface Board {
    * Conformal coating over the assembly (NEETS 14 pp. 3-2 – 3-7): its type, whether it is thick
    * (0.025 in or more), and whether it is one of the compositions a solvent takes off.
    */
+  /** Burned laminate (src/laminate.ts): charred areas, their leak, and the surface patch repair. */
+  burns?: import('./laminate').Burn[];
   coating?: { type: import('./coating').CoatingType; thick: boolean; solventSoluble?: boolean; /** polyurethane: the soft kind (T.O. 06-4.2.4) */ soft?: boolean };
   /** The coating type the technician identified (before removing any): graded against `coating.type`. */
   coatingId?: import('./coating').CoatingType;

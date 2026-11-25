@@ -6,6 +6,7 @@ import { tk } from './i18n';
 import type { Board } from './types';
 import { isHeatSensitive, type JointEpisode, type ReworkEvent } from './rework';
 import { judgeClinch, terminationName, terminationOf } from './clinch';
+import { judgeBurn, type LamArea } from './laminate';
 import { isWire, judge, type Check, type CheckArea, type TerminalType } from './terminals';
 
 /** Where a rule comes from (public-domain source, page as printed). */
@@ -22,7 +23,8 @@ export type FindingKind =
   | 'coating-charred' | 'coating-missing' | 'coating-mismatch' | 'coating-method' | 'esd-damage' | 'esd-handling'
   | 'overheated-joint' | 'slow-melt' | 'coating-id' | 'coating-id-order'
   | 'wire-strip' | 'wire-tinning' | 'wire-clearance' | 'wire-forming' | 'wire-solder'
-  | 'clinch' | 'termination-style';
+  | 'clinch' | 'termination-style'
+  | 'laminate-burn' | 'laminate-excavation' | 'epoxy-fill' | 'buttercoat';
 
 /**
  * `procedural`: about how the work was done, which the finished board does not show; listed only
@@ -60,6 +62,10 @@ export const RULES: Record<FindingKind, Rule> = {
   'wire-solder': { kind: 'wire-solder', severity: 'reject', title: tk('Wire solder connection'), rule: tk('A discernible solder fillet covers 100 % of the wire and terminal contact area, the contour of the wire still visible. A solder cup is filled at least 75 % of its cutout, with complete wetting between the wire and the cup.'), source: to('08-6.12, 09-6.1') },
   'clinch': { kind: 'clinch', severity: 'reject', title: tk('Clinched lead'), rule: tk('A clinched lead is cut to one pad diameter (at least one pad radius, at most two) and formed in the direction of the connecting conductor; it must not extend beyond the edge of the pad or of the conductor. A lead on an isolated pad is not fully clinched.'), source: src('3-22'), also: [to('07-6.17, 07-6.18')] },
   'termination-style': { kind: 'termination-style', severity: 'reject', title: tk('Not terminated like the original'), rule: tk('The replacement component should be mounted in the same manner as the original: if the manufacturer clinched the leads (full or semi), the replacement part is reinstalled with clinched leads.'), source: src('3-22'), also: [to('07-5.5')] },
+  'laminate-burn': { kind: 'laminate-burn', severity: 'reject', title: tk('Burned laminate'), rule: tk('Burns that physically damage the surface of the laminate, or extend through it, are defects; all of them are repaired. Slight discoloration is acceptable.'), source: src('3-36'), also: [to('11-6.1, 11-5.1.3')] },
+  'laminate-excavation': { kind: 'laminate-excavation', severity: 'reject', title: tk('Laminate excavation'), rule: tk('All burnt laminate is removed. For a surface patch the excavation is 75 % of the laminate thickness deep, its walls straight and perpendicular, undercut about 50 % of the thickness, and the top edge beveled one laminate thickness wide.'), source: src('3-37'), also: [to('11-6.2, 11-5.2')] },
+  'epoxy-fill': { kind: 'epoxy-fill', severity: 'reject', title: tk('Epoxy fill'), rule: tk('The undercut is filled with bubble-free epoxy, the excavation overfilled by about 5 % of the thickness, cured, and restored to the original laminate level. No voids over 20 % of the thickness, no uncured epoxy.'), source: src('3-37'), also: [to('11-6.3')] },
+  'buttercoat': { kind: 'buttercoat', severity: 'reject', title: tk('Buttercoat'), rule: tk('A thin, smooth, continuous layer of cured epoxy covers and overlaps the exposed fiber weave in the repair area.'), source: to('11-6.4') },
   'wire-repair': { kind: 'wire-repair', severity: 'note', title: tk('Wire repair'), rule: tk('A wire lap-soldered across a break is stronger than a solder bridge but not highly reliable; the clinched staple is the preferred repair of a broken conductor.'), source: src('3-32') },
 };
 
@@ -160,6 +166,15 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
     for (const pi of Object.keys(c.state.clinch ?? {}).map(Number)) for (const ck of judgeClinch(board, c, pi)) if (ck.verdict === 'defect') add({ kind: 'clinch', where: padName(c.ref, pi), detail: ck.what });
     const orig = reference?.components.find((x) => x.id === c.id);
     if (orig && terminationOf(orig) !== terminationOf(c)) add({ kind: 'termination-style', where: c.ref, detail: `${terminationName(terminationOf(c))} ≠ ${terminationName(terminationOf(orig))}` });
+  }
+
+  // burned laminate and its surface patch (11-6.1 – 11-6.4)
+  const lamRule: Record<LamArea, FindingKind> = { burn: 'laminate-burn', excavation: 'laminate-excavation', fill: 'epoxy-fill', buttercoat: 'buttercoat' };
+  for (const b of board.burns ?? []) {
+    const where = `${b.at[0].toFixed(1)}, ${b.at[1].toFixed(1)} mm`;
+    const bad = new Map<FindingKind, string[]>();
+    for (const ck of judgeBurn(b)) if (ck.verdict === 'defect') bad.set(lamRule[ck.area], [...(bad.get(lamRule[ck.area]) ?? []), ck.what]);
+    for (const [kind, what] of bad) add({ kind, where, detail: what.join('; ') });
   }
 
   // hook-up wires on terminals, end by end, to the T.O.'s workmanship standards

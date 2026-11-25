@@ -57,6 +57,8 @@ import { inspect, type Inspection } from '../workmanship';
 import { lessonMeta } from '../lessons/track';
 import { handle as handleEsd, type Humidity } from '../esd';
 import { clinchFitted, straighten, type Termination } from '../clinch';
+import { applyLeak, charRemoved, excavate, fillBurn, partsOver, type Burn, type Excavation, type Fill } from '../laminate';
+import { START_EX, START_FILL, lamDialogHtml, lamPreviewSvg } from './laminate-ui';
 import { addWire, endsAt, terminalType, type TerminalType, type WirePrep } from '../terminals';
 import { START_PREP, wireMeasureHtml, wirePrepHtml, wirePreviewSvg } from './wire-ui';
 import { COATINGS, COAT_TESTS, ID_TYPES, METHODS, applyCoating, coatingName, methodName, observe, removeCoating, workable, type CoatMethod, type CoatTest, type CoatingType } from '../coating';
@@ -80,7 +82,7 @@ import { beginnerPrimerHtml, CHALLENGE_TRACK_IDS, lessonDock, TUTORIAL_SCENARIO_
 import { TOOL_SHORT, TOOL_TIP_PHONE, TouchGestures, splitLead, touchCopy, wantsMobileLayout } from './touch';
 import { cursorStops, describeAt, stepToward } from './boardcursor';
 
-type ToolId = 'inspect' | 'dmm' | 'iron' | 'wick' | 'flip180' | 'jumper' | 'knife' | 'replace' | 'freeze' | 'ipa' | 'press' | 'hotair' | 'scope' | 'rosin' | 'extract' | 'shunt' | 'staple' | 'decoat' | 'coat' | 'padfix' | 'coatest' | 'hookup' | 'pliers';
+type ToolId = 'inspect' | 'dmm' | 'iron' | 'wick' | 'flip180' | 'jumper' | 'knife' | 'replace' | 'freeze' | 'ipa' | 'press' | 'hotair' | 'scope' | 'rosin' | 'extract' | 'shunt' | 'staple' | 'decoat' | 'coat' | 'padfix' | 'coatest' | 'hookup' | 'pliers' | 'laminate';
 type PanelTab = 'mission' | 'inspect' | 'studio' | 'mods';
 type DmmMode = 'V' | 'OHM' | 'DIODE' | 'CAP' | 'AMP';
 
@@ -114,6 +116,7 @@ const TOOLS: { id: ToolId; key: string; ico: string; lbl: string; tip: string }[
   { id: 'coat', key: 'j', ico: 'coat', lbl: tk('Conformal coating'), tip: tk('Put conformal coating back on a part after the repair (the type is set in Bench)') },
   { id: 'hookup', key: 'w', ico: 'hookup', lbl: tk('Hook-up wire'), tip: tk('Wire terminals together the 2M way (turret, hook, pierced tab, solder cup): click a terminal and prepare that end, then the other terminal') },
   { id: 'pliers', key: 'l', ico: 'pliers', lbl: tk('Lead pliers'), tip: tk('Straighten a clinched lead (click its pad): duckbill pliers turn it 15° to break the sweat joint, then it is straightened. Wick its surface solder off first') },
+  { id: 'laminate', key: 'a', ico: 'mill', lbl: tk('Laminate repair'), tip: tk('Repair burned board laminate with a surface patch (click the burn): excavate with a ball mill, straight-wall, undercut and bevel, then fill with epoxy, cure, level and buttercoat') },
   { id: 'shunt', key: 's', ico: 'clip', lbl: tk('Thermal shunt'), tip: tk('Clip a heat sink on a through-hole lead (click its pad) so the part stays cool while you solder; click again to take it off') },
 ];
 
@@ -288,6 +291,10 @@ export class PcbApp {
   private wirePrep: WirePrep = { ...START_PREP };
   private wireStart: { comp: Component; prep: WirePrep } | null = null;
   private wireDialog: { comp: Component; type: TerminalType } | null = null;
+  /** Laminate repair: the last excavation / fill chosen, and the burn whose dialog is open. */
+  private lamEx: Excavation = { ...START_EX };
+  private lamFill: Fill = { ...START_FILL };
+  private lamDialog: Burn | null = null;
 
   private lastVerify: VerifyResult | null = null;
   private revealedFlag: string | null = null;
@@ -3849,6 +3856,8 @@ export class PcbApp {
     this.leadsUnsoldered(c);
     // the bench's lead termination (straight-through leaves the leads as they are)
     if (isThroughHole(c)) clinchFitted(c, this.leadTerm, this.leadLen, this.leadAlong);
+    // a part fitted over charred laminate: the char still leaks between its pads
+    for (const b of this.board.burns ?? []) if (b.comp === c.id) applyLeak(this.board, b);
     const out = handleEsd(c, this.grounded, this.humidity);
     if (out === 'gate-ruptured') this.toast(t('Zap: you were not grounded and carried about {v} V. {ref}\'s gate broke down and now leaks to its source.', { v: this.humidity === 'low' ? '6 000' : '100', ref: c.ref }), 'danger');
     else if (out === 'latent') this.toast(t('Zap: you were not grounded and carried about {v} V into {ref}. Nothing shows yet, but a part hit by static can fail early.', { v: this.humidity === 'low' ? '6 000' : '100', ref: c.ref }), 'warn');
@@ -3937,8 +3946,9 @@ export class PcbApp {
       this.renderBoardsModal();
       return;
     }
-    if (e.key === 'Escape' && (this.showBoards || this.showHelp || this.showFeedback || this.showMods || this.showLesson || this.wireDialog)) {
+    if (e.key === 'Escape' && (this.showBoards || this.showHelp || this.showFeedback || this.showMods || this.showLesson || this.wireDialog || this.lamDialog)) {
       this.wireDialog = null;
+      this.lamDialog = null;
       this.showLesson = null;
       this.showBoards = false;
       this.bpSel = null;
@@ -4322,6 +4332,18 @@ export class PcbApp {
       sfxSolder();
       this.recompute(false);
       this.renderUI();
+      return;
+    }
+
+    if (this.activeTool === 'laminate') {
+      // T.O. 00-25-259 11-5.2: the surface patch, on burned laminate only
+      const burn = (this.board.burns ?? []).find((b) => Math.hypot(b.at[0] - pt[0], b.at[1] - pt[1]) <= b.r + 1.5);
+      if (!burn) { this.toast(t('Click a burned area of the board.'), 'info'); return; }
+      if (burn.ex && burn.fill) { this.toast(t('This burn is already repaired.'), 'info'); return; }
+      const over = partsOver(this.board, burn);
+      if (over.length) { this.toast(t('Take out the parts over the burn first: {refs}.', { refs: over.map((c) => c.ref).join(', ') }), 'info'); return; }
+      this.lamDialog = burn;
+      this.renderModal();
       return;
     }
 
@@ -7070,6 +7092,53 @@ export class PcbApp {
     this.toast(t('Saved {file}: check the name, author and licence in mod.json before sharing.', { file: `${manifest.id}.zip` }) + lockNote, lockNote ? 'info' : 'success');
   }
 
+  /** The laminate repair dialog: excavation, then fill and finish. */
+  private renderLamDialog() {
+    const burn = this.lamDialog!, ex = this.lamEx, fill = this.lamFill, th = this.board.thickness;
+    this.modalRootEl.innerHTML = this.txt(lamDialogHtml(burn, th, ex, fill));
+    const q = <T extends HTMLElement>(id: string) => this.modalRootEl.querySelector<T>('#' + id);
+    const redraw = () => {
+      q('lp-svg')!.innerHTML = lamPreviewSvg(burn, th, burn.ex ?? ex, burn.ex ? fill : null);
+      const dv = q('lp-dia-v'); if (dv) dv.textContent = `${ex.dia.toFixed(1)} mm`;
+    };
+    const on = (id: string, f: (el: HTMLInputElement & HTMLSelectElement) => void) => {
+      const el = q<HTMLInputElement & HTMLSelectElement>(id);
+      el?.addEventListener('input', () => { f(el); redraw(); });
+    };
+    on('lp-depth', (el) => { ex.depth = Number(el.value); });
+    on('lp-dia', (el) => { ex.dia = Number(el.value); });
+    on('lp-straight', (el) => { ex.straight = el.checked; });
+    on('lp-undercut', (el) => { ex.undercut = Number(el.value); });
+    on('lp-bevel', (el) => { ex.bevel = Number(el.value); });
+    on('lp-bubble', (el) => { fill.bubbleFree = el.checked; });
+    on('lp-over', (el) => { fill.overfill = Number(el.value); });
+    on('lp-cured', (el) => { fill.cured = el.checked; });
+    on('lp-level', (el) => { fill.leveled = el.checked; });
+    on('lp-butter', (el) => { fill.buttercoat = el.checked; });
+    const close = () => { this.lamDialog = null; this.renderModal(); };
+    q('lp-cancel')?.addEventListener('click', close);
+    q('lp-cancel2')?.addEventListener('click', close);
+    q('lp-close-bg')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) close(); });
+    q('lp-go')?.addEventListener('click', () => {
+      this.pushUndo();
+      // the undo snapshot copied the board: work on this board's own burn
+      const b = (this.board.burns ?? []).find((x) => x.id === burn.id)!;
+      if (!b.ex) {
+        excavate(this.board, b, ex);
+        this.toast(charRemoved(b) ? t('Excavated: the charred laminate is gone. Clean it, then fill and finish (click the area again).') : t('Excavated, but charred laminate is still there: it was not deep or wide enough.'), charRemoved(b) ? 'success' : 'warn');
+      } else {
+        fillBurn(b, fill);
+        this.toast(t('Filled with epoxy and finished.'), 'success');
+      }
+      sfxClick();
+      this.noteOnce('tool');
+      close();
+      this.recompute(false);
+      this.renderUI();
+    });
+    q<HTMLButtonElement>('lp-go')?.focus();
+  }
+
   /** The hook-up wire's prep dialog for one end; placing the second end puts the wire on the board. */
   private renderWirePrep() {
     const d = this.wireDialog!;
@@ -7143,6 +7212,10 @@ export class PcbApp {
     }
     if (this.wireDialog) {
       this.renderWirePrep();
+      return;
+    }
+    if (this.lamDialog) {
+      this.renderLamDialog();
       return;
     }
     if (!this.showHelp) {

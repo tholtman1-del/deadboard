@@ -528,6 +528,37 @@ CONTENT.push({
   ],
 });
 
+// Burned laminate: NEETS Module 14 "Burned Board Repair" and the 2M manual's surface patch.
+CONTENT.push({
+  scenario: 'hr-laminate',
+  source: { ...TO_SOURCE, pages: '11-5.1.3, 11-5.2, 11-6.1 – 11-6.4' },
+  points: [
+    tk('Burns that damage the surface of the laminate are repaired; slight discoloration is acceptable. Charred epoxy conducts, so a burn is a fault in the circuit, not just a mark.'),
+    tk('A surface patch is for damage that does not go through the board. Take out the parts over it, then excavate all the damaged laminate with a ball mill in a crosshatch: at least 75 % of the thickness, so the undercut has room.'),
+    tk('Straight-wall the sides, undercut them about 50 % of the thickness with a slotting saw, centred in the wall, and bevel the top edge one laminate thickness wide: the undercut and bevel hold the repair material.'),
+    tk('Fill the undercut first with bubble-free epoxy, then the excavation, overfilling about 5 %. Cure it, abrade it back to the original level, and buttercoat the exposed fiber weave.'),
+  ],
+  numbers: [
+    { label: tk('Excavation depth'), value: tk('75 % of the laminate thickness') },
+    { label: tk('Undercut'), value: tk('about 50 % of the thickness, deep and wide') },
+    { label: tk('Bevel'), value: tk('one laminate thickness wide') },
+    { label: tk('Overfill'), value: tk('about 5 % of the thickness, then level') },
+  ],
+  figure: { src: 'lessons/neets14/fig-3-29.png', caption: tk('NEETS 14, figure 3-29. Repair of burned boards.') },
+  original: [
+    'Scorched, charred, or deeply burned boards should be inspected to determine the size of the discolored area and to identify melted or blackened conductors and burned, melted, or blackened components. The depth of the damage, which may range from a slight surface discoloration to a hole burned through the circuit board, should also be determined. Damage not extending through the board may be repaired by patching (figure 3-28). (NEETS 14, p. 3-36)',
+    'After all damaged board material is removed, the edge of the removed area is beveled and undercut to provide holding points for the repair material. A compound of epoxy and powdered fiberglass is mixed and used to fill the cutaway area. (NEETS 14, p. 3-37)',
+    'Excavate damaged laminated material using a ball mill or other suitable tool, working across the surface in one direction, then turning the CCA 90° making a crosshatch pattern. Repeat until all damaged laminate material is removed. Note: To facilitate the undercut the excavation must be at least 75% of the thickness of the laminate. (T.O. 00-25-259, 11-5.2)',
+    'Undercut the excavated area on the damaged laminate using a slotting saw. The undercut should be centered in the straight wall of the excavation. Enlarge the undercut to a depth and width of approximately 50% of the laminate thickness with a ball mill in a pin vise. Bevel the top edges of the excavated area to a width equal to the laminate thickness. (T.O. 00-25-259, 11-5.2)',
+    'Fill the excavated area with epoxy, overfilling the repair area by about 5% of the laminate thickness and covering the entire bevel area. Restore the fill area to the original laminate level using abrasive methods. Apply a thin layer of epoxy (buttercoat) to the repair area covering and overlapping the exposed fiber weave in the repair area. (T.O. 00-25-259, 11-5.2)',
+  ],
+  task: tk('Take R2 out, repair the burned laminate under it with a surface patch (Laminate repair, A: excavate, then fill and finish), fit a new 330 Ω R2, solder, clean, and run the tests.'),
+  questions: [
+    { ref: 'Q33', q: tk('What combination of materials is used to patch or build up damaged areas of boards?'), a: tk('Epoxy and fiberglass powder.'), page: '3-37' },
+    { ref: 'Q32', q: tk('How is board damage caused by technicians?'), a: tk('Repairs by untrained personnel and technicians using improper tools.'), page: '3-37' },
+  ],
+});
+
 /** The whole lesson (meta and content) for a board. */
 export function lessonFor(scenarioId: string): Lesson | undefined {
   const m = LESSON_META.find((l) => l.scenario === scenarioId), c = CONTENT.find((l) => l.scenario === scenarioId);

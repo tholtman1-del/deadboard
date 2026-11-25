@@ -1844,3 +1844,12 @@ body.is-mobile .loadout-bar select { flex: 1 1 auto; width: auto; max-width: non
 .wp-measure { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; }
 .wp-actions { margin-top: 14px; gap: 8px; }
 @media (max-width: 640px) { .wp-grid { grid-template-columns: 1fr; } .wp-view { order: -1; } }
+/* laminate repair cross-section (src/ui/laminate-ui.ts) */
+.wp-svg .lp-board { fill: #2f6b3f; }
+.wp-svg .lp-mask { stroke: #1f8f4e; stroke-width: 3; }
+.wp-svg .lp-char { fill: #2a1a10; }
+.wp-svg .lp-hole { fill: var(--float); stroke: #c9c3a6; stroke-width: 1; }
+.wp-svg .lp-epoxy { fill: #c9a24a; opacity: 0.9; }
+.wp-svg .lp-butter { fill: #e8d48a; }
+.wp-svg .lp-tick { stroke: var(--text-2); stroke-width: 1; }
+.wp-svg .lp-lbl { fill: var(--text-2); font: 11px var(--mono); }

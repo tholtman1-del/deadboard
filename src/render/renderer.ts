@@ -2,6 +2,7 @@ import type { Board, Component, Side, V2 } from '../types';
 import { DEG, triangulate, type V3 } from '../geom';
 import { TERM_GEOM, WIRE, form } from '../terminals';
 import { clinchDir } from '../clinch';
+import { charRemoved } from '../laminate';
 import { BAND_RGB, GOLD_RGB, LED_INFO, padWorld, resistorBands } from '../model';
 import type { Conn } from '../connectivity';
 import type { Sim } from '../sim';
@@ -788,6 +789,26 @@ export class Renderer {
         map: (x: number, y: number) => mpt([x, y], f as Side),
       }));
       this.pushThermalSurface({ nx: th.nx, ny: th.ny, dx: th.dx, T: th.T }, faces);
+    }
+
+    // 5a. Burned laminate (src/laminate.ts) and its surface patch: char, the excavation, epoxy, buttercoat
+    for (const b of board.burns ?? []) {
+      if (!both && camera.side !== 'F' && camera.mode === '2d') continue;
+      const p = mpt(b.at, 'F');
+      const disc = (d: number, z: number, rgb: [number, number, number], a = 1, rough = 0.8) => (a < 1 ? al : op).cyl.pushTRS(p[0], p[1], z, d, d, 0.02, 0, rgb[0], rgb[1], rgb[2], a, 0, 0.05, rough);
+      if (!b.ex) {
+        disc(b.r * 2.8, ht + 0.055, [0.33, 0.22, 0.1], 0.55); // discoloured halo
+        disc(b.r * 2, ht + 0.065, [0.14, 0.09, 0.05]);      // char
+        continue;
+      }
+      const d = b.ex.dia + 2 * b.ex.bevel * board.thickness;
+      if (!b.fill) {
+        disc(d, ht + 0.05, [0.78, 0.74, 0.6]);               // bare fiber weave
+        if (!charRemoved(b)) disc(Math.min(b.r * 2, b.ex.dia * 0.9), ht + 0.06, [0.18, 0.11, 0.06]);
+        continue;
+      }
+      disc(d, ht + 0.06, b.fill.cured ? [0.7, 0.56, 0.28] : [0.82, 0.7, 0.4], 1, b.fill.leveled ? 0.35 : 0.7);
+      if (b.fill.buttercoat) disc(d + 1, ht + 0.075, [0.9, 0.82, 0.55], 0.45, 0.1);
     }
 
     // 5b. Nicks: a notch out of the copper, in the solder mask's colour

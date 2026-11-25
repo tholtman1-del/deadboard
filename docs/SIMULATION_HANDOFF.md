@@ -8,7 +8,7 @@ No reference hardware is available, so realism is validated against *design inte
 ## Status (start here)
 
 - **High-reliability soldering track: Phase 1 pushed (`8fb70ba`, live); Phase 2 (`fd53b00`) and
-  lessons 6–15 (`4d036fd` … ) committed locally, NOT pushed (the auto-mode
+  lessons 6–16 (`4d036fd` … ) committed locally, NOT pushed (the auto-mode
   permission check refused `git push`; the user pushes, or allows it).** A separate learning path after NEETS Module 14 (NAVEDTRA 14186, Navy 2M
   soldering; Distribution A, public domain). Research and the 3-phase plan: `ideas/navy-2m-soldering.md`
   (local only). User's choices: lesson card + original text before, workmanship debrief + the module's
@@ -145,8 +145,22 @@ No reference hardware is available, so realism is validated against *design inte
     resistor runs on B (via from the bus); R1/R2 full-clinched, R2 burnt. NEETS fig. 3-5 (the scan
     labels both views "(A)", said in the caption), Q7 + Q18. Test `test/clinch.test.ts`.
     Not modelled: the 1/16 in clearance of a semi-clinch to neighbours, clinch angle (always 45/90).
-  - **Next from the manuals:** the surface patch laminate repair (last Appendix C project without
-    a lesson); then perhaps a clinched axial part in the final practical; two-wire rules (overlap, alternating directions on a hook) are not modelled (the tool stacks
+  - **Burned laminate (2026-11-25), lesson 16 `hr-laminate` (track: 17):** `src/laminate.ts`
+    (universal): `Board.burns` (centre, radius, char depth as a share of the thickness, the part
+    above, `leakOhms`). The char leaks across that part's first two pads (its own `state.leak`, so
+    SPICE models it and the flag's topology token `R!L` locks the flag until the char is gone);
+    `applyLeak` puts it back when a part is fitted over an unrepaired burn (`afterFit`).
+    Laminate repair tool (A) → dialog in two stages with a to-scale cross-section (height ×2):
+    excavation (depth 25/50/75/100 %, diameter, straight wall, undercut %, bevel × thickness),
+    then fill and finish (bubble-free, overfill, cure, level, buttercoat); refused while a part
+    sits over the burn (11-5.2 step 5). `judgeBurn` = 11-6.1 – 11-6.4; rules `laminate-burn`,
+    `laminate-excavation`, `epoxy-fill`, `buttercoat`. Board: R2 burned open over a 4 mm burn,
+    40 % deep, 4.7 kΩ (estimate: charred FR-4 varies widely; chosen so D2 stays under the 2 mA
+    lit threshold with R2 open), SPICE solver. NEETS fig. 3-29, Q32 + Q33. `io/format.ts` now
+    keeps burns and clinch state. Test `test/laminate.test.ts`.
+    Every Appendix C (miniature) project now has a lesson.
+  - **Next from the manuals:** perhaps a clinched axial part and a burn in the final practical
+    (Appendix C has both); two-wire rules (overlap, alternating directions on a hook) are not modelled (the tool stacks
     wires); bifurcated terminals (08-6.8); resistive tweezers for cups; remaining 05-6.1 defects
     need a solder-volume model (convex fillet, icicles, solder balls).
   - **Follow-ups:** flat packs (3-29)

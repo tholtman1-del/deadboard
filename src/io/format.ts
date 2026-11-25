@@ -11,6 +11,7 @@ export function normalizeBoard(b: Partial<Board>): Board {
     ...(b.coating && ['parylene', 'epoxy', 'acrylic', 'polyurethane', 'varnish', 'rtv'].includes(b.coating.type) && { coating: { type: b.coating.type, thick: !!b.coating.thick, ...(b.coating.solventSoluble && { solventSoluble: true }), ...(b.coating.soft && { soft: true }) } }),
     ...(typeof b.coatingId === 'string' && ['parylene', 'epoxy', 'acrylic', 'polyurethane', 'varnish', 'rtv'].includes(b.coatingId) && { coatingId: b.coatingId }),
     ...(Array.isArray(b.nicks) && { nicks: b.nicks.filter((n) => n && typeof n.id === 'string' && isPt(n.at) && (n.layer === 'F' || n.layer === 'B') && [n.len, n.depth, n.rot, n.width].every((x) => typeof x === 'number' && isFinite(x))) }),
+    ...(Array.isArray(b.burns) && { burns: b.burns.filter((x) => x && typeof x.id === 'string' && isPt(x.at) && [x.r, x.depth].every((v) => typeof v === 'number' && isFinite(v) && v > 0)).map((x) => ({ id: x.id, at: x.at, r: x.r, depth: Math.min(1, x.depth), ...(typeof x.comp === 'string' && { comp: x.comp }), ...(typeof x.leakOhms === 'number' && x.leakOhms > 0 && { leakOhms: x.leakOhms }), ...(x.ex && { ex: x.ex }), ...(x.ex && x.fill && { fill: x.fill }) })) }),
     ...(b.inner && typeof b.inner === 'object' && {
       inner: {
         traces: arr(b.inner.traces).filter((t) => t && Number.isInteger(t.layer) && isPt(t.a) && isPt(t.b) && typeof t.w === 'number'),
@@ -55,6 +56,8 @@ function normalizeComponent(c: Component): Component {
       ...(Array.isArray(c.state?.padRepaired) && { padRepaired: c.state.padRepaired.filter((x) => Number.isInteger(x)) }),
       ...(c.state?.esdDamaged === true && { esdDamaged: true }),
       ...(Array.isArray(c.state?.shunts) && { shunts: c.state.shunts.filter((x) => Number.isInteger(x)) }),
+      ...(c.state?.clinch && typeof c.state.clinch === 'object' && { clinch: Object.fromEntries(Object.entries(c.state.clinch).filter(([k, v]) => Number.isInteger(Number(k)) && v && (v.style === 'semi' || v.style === 'full') && typeof v.len === 'number' && isFinite(v.len) && v.len > 0).map(([k, v]) => [k, { style: v.style, len: v.len, along: !!v.along }])) }),
+      ...(Array.isArray(c.state?.surfaceWicked) && { surfaceWicked: c.state.surfaceWicked.filter((x) => Number.isInteger(x)) }),
       ...(Array.isArray(c.state?.fluxResidue) && { fluxResidue: c.state.fluxResidue.filter((x) => Number.isInteger(x)) }),
       ...(Array.isArray(c.state?.intermittent) && { intermittent: c.state.intermittent.filter((f) => f && typeof f.threshold === 'number' && ['thermal-open', 'thermal-leak', 'flex-open', 'flex-close'].includes(f.kind)) }),
     },

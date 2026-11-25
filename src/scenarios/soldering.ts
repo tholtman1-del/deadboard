@@ -7,6 +7,7 @@ import { lockFlag, topology } from '../crypto';
 import { addBlob, cutTrace, removePart } from '../ops';
 import { Builder } from './builder';
 import { clinchFitted } from '../clinch';
+import { applyLeak } from '../laminate';
 import { addWire, targetEnd, terminalType, type TerminalType } from '../terminals';
 import { setReference } from './reference';
 
@@ -385,6 +386,35 @@ function clinchedLeads() {
 }
 
 /**
+ * Burned laminate (T.O. 00-25-259 11-5.2, NEETS 14 fig. 3-29): R2 overheated, burned open and charred
+ * the board under its body. The char conducts (4.7 kΩ across R2's pads: an estimate, charred FR-4
+ * varies widely), so a new R2 alone leaves the damage in the circuit; the surface patch removes it.
+ */
+async function burnedLaminate(): Promise<Scenario> {
+  const k = ledRows(64, 34, [{ color: 'red', y: 11 }, { color: 'green', y: 23 }], 'HI-REL 16  BURNED LAMINATE');
+  const sc = await finalize('hr-laminate', {
+    title: 'Burned Laminate',
+    author: 'DEADBOARD',
+    difficulty: 4,
+    description: 'D2 is dark: R2 overheated, burned open, and scorched the board under its body. The char is not just cosmetic: charred laminate conducts. Replace R2, and repair the board under it with a surface patch, the way the 2M manual says.',
+    hints: [
+      'Take R2 out first (extractor, X, on both leads): the burn is under its body, and the repair needs the area clear.',
+      'Laminate repair (A) on the burn: excavate at least 75 % of the thickness and wider than the char, straight walls, a 50 % undercut, a bevel one laminate thickness wide. Then click it again: bubble-free fill, overfill, cure, level, buttercoat.',
+      'Fit a new 330 Ω R2, solder both leads with "+ flux", clean the flux off, run the tests.',
+    ],
+    par: 9,
+  }, k.b, [lit('D1'), lit('D2')], 'PCB{3xc4v4t3_und3rcut_b3v3l}',
+  (b) => {
+    const r2 = b.components.find((c) => c.ref === 'R2')!;
+    r2.state.burnt = true;
+    b.burns = [{ id: 'burn' + (b.nextId++).toString(36), at: [r2.at[0], r2.at[1]], r: 2, depth: 0.4, comp: r2.id, leakOhms: 4700 }];
+    applyLeak(b, b.burns[0]);
+  });
+  sc.solver = 'spice'; // the char's leak is a SPICE element
+  return sc;
+}
+
+/**
  * Point-to-point wiring on terminals (T.O. 00-25-259 WP 008 00 / 009 00): +5V from J1 reaches
  * terminal E1; each LED row is fed from its own terminal (E2, E3 …); hook-up wires join them as
  * `wires` lists. The good board carries target wires (one diameter clearance, 180°, cut flush,
@@ -512,8 +542,8 @@ async function finalPractical(): Promise<Scenario> {
 }
 
 export async function solderingScenarios(): Promise<Scenario[]> {
-  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern(), conductorRepair(), conformalCoating(), coatingId(), esdBoard(), padRepair(), turretTerminals(), hookAndTab(), solderCups(), clinchedLeads(), finalPractical()]);
+  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern(), conductorRepair(), conformalCoating(), coatingId(), esdBoard(), padRepair(), turretTerminals(), hookAndTab(), solderCups(), clinchedLeads(), burnedLaminate(), finalPractical()]);
 }
 
 /** The track's boards, in order. */
-export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern', 'hr-conductor-repair', 'hr-conformal-coating', 'hr-coating-id', 'hr-esd', 'hr-pad-repair', 'hr-turret', 'hr-hook-tab', 'hr-solder-cup', 'hr-clinched-leads', 'hr-final-practical'] as const;
+export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern', 'hr-conductor-repair', 'hr-conformal-coating', 'hr-coating-id', 'hr-esd', 'hr-pad-repair', 'hr-turret', 'hr-hook-tab', 'hr-solder-cup', 'hr-clinched-leads', 'hr-laminate', 'hr-final-practical'] as const;

@@ -7,6 +7,7 @@ import { repairedDemo } from '../src/scenarios/demoRepairs';
 import { generateProblem } from '../src/scenarios/generate';
 import { addBlob, cutTrace, installPart, toggleCold } from '../src/ops';
 import { addWire, targetEnd, terminalType } from '../src/terminals';
+import { excavate, fillBurn } from '../src/laminate';
 import { buildConnectivity } from '../src/connectivity';
 import { evaluateObjectives, verifyScenario, type Solver } from '../src/verify';
 import { importScenarioOrPcb } from '../src/io/kicad';
@@ -62,6 +63,7 @@ const FIXES: Record<string, (b: Board) => void> = {
   'hr-hook-tab': (b) => wire(b, [['E1', 'E2'], ['E1', 'E3']]),
   'hr-solder-cup': (b) => wire(b, [['E1', 'E2'], ['E1', 'E3']]),
   'hr-clinched-leads': (b) => installPart(part(b, 'R2'), { value: 330 }),
+  'hr-laminate': (b) => { excavate(b, b.burns![0], { depth: 0.75, dia: 5, straight: true, undercut: 0.5, bevel: 1 }); fillBurn(b.burns![0], { bubbleFree: true, overfill: 0.05, cured: true, leveled: true, buttercoat: true }); installPart(part(b, 'R2'), { value: 330 }); },
   'hr-final-practical': (b) => { const rn = part(b, 'RN1'); rn.state.lifted = undefined; installPart(rn); wire(b, [['E1', 'E2'], ['E1', 'E3']]); },
 };
 
