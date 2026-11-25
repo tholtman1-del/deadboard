@@ -1067,6 +1067,12 @@ export class Renderer {
           const leadZ = c.side === 'F' ? -ht - 0.42 : ht + 0.42;
           op.cyl.pushTRS(padPos[0], padPos[1], leadZ, Math.min(0.55, p.drill * 0.65), Math.min(0.55, p.drill * 0.65), 0.72, 0, 0.82, 0.84, 0.88, 1, 0, 0.95, 0.2);
         }
+        // A solder projection (icicle) off a joint reflowed without flux (T.O. 05-4.2.12)
+        if (!both && !thermal && c.state.populated && c.state.projection?.includes(pi) && !isCold) {
+          const solderSide = p.drill ? (c.side === 'F' ? 'B' : 'F') : dPadSide;
+          const sg = solderSide === 'B' ? -1 : 1, d = Math.min(p.size[0], p.size[1]);
+          op.cyl.pushSeg3D([padPos[0], padPos[1], sg * (ht + 0.4)], [padPos[0] + 0.25 * d, padPos[1] + 0.1 * d, sg * (ht + 0.4 + 1.1 * d)], 0.22, 0.22, 0.8, 0.82, 0.86, 1, 0, 0.9, 0.2);
+        }
         // A clinched lead: bent over its pad on the solder side, flat (full, 90°) or rising at 45° (semi)
         const clinch = c.state.clinch?.[pi];
         if (!both && clinch && c.state.populated && p.drill) {

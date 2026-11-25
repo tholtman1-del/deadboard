@@ -26,7 +26,7 @@ export type FindingKind =
   | 'wire-strip' | 'wire-tinning' | 'wire-clearance' | 'wire-forming' | 'wire-solder'
   | 'clinch' | 'termination-style'
   | 'laminate-burn' | 'laminate-excavation' | 'epoxy-fill' | 'buttercoat'
-  | 'solder-insufficient' | 'solder-excess' | 'mounting-style' | 'flatpack-leads';
+  | 'solder-insufficient' | 'solder-excess' | 'mounting-style' | 'flatpack-leads' | 'solder-projection';
 
 /**
  * `procedural`: about how the work was done, which the finished board does not show; listed only
@@ -72,6 +72,7 @@ export const RULES: Record<FindingKind, Rule> = {
   'solder-excess': { kind: 'solder-excess', severity: 'reject', title: tk('Excessive solder'), rule: tk('Too much solder hides the parts being joined: the fillet is convex and their outline is not discernible. The solder must be removed and the joint resoldered.'), source: to('05-4.2.10, 05-6.1') },
   'mounting-style': { kind: 'mounting-style', severity: 'reject', title: tk('Not mounted like the original'), rule: tk('TOs are mounted flush, on a spacer or over an air gap, as the manufacturer chose (heat dissipation, short-circuit protection, support): the technician replaces them the same way.'), source: src('3-27') },
   'flatpack-leads': { kind: 'flatpack-leads', severity: 'reject', title: tk('Flat pack leads'), rule: tk('Replacement flat pack leads are tinned, formed with two distinct bends and cut to length: the lead on the land is 50–80 % of the land length, never shorter than the lead width, and its toe never overhangs the land.'), source: src('3-30'), also: [to('18-6.6, 18-5.7')] },
+  'solder-projection': { kind: 'solder-projection', severity: 'reject', title: tk('Solder projection'), rule: tk('A solder projection (icicle) sticks out of the joint: it comes from reflowing a joint without flux, or lifting the iron before the solder. It is a defect and must be reflowed, with flux.'), source: to('05-4.2.12, 05-6.1') },
   'wire-repair': { kind: 'wire-repair', severity: 'note', title: tk('Wire repair'), rule: tk('A wire lap-soldered across a break is stronger than a solder bridge but not highly reliable; the clinched staple is the preferred repair of a broken conductor.'), source: src('3-32') },
 };
 
@@ -167,6 +168,9 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
     else if (st && st !== board.coating.type) add({ kind: 'coating-mismatch', where: c.ref, detail: st });
     if (c.state.coatMethodRank !== undefined && c.state.coatBestRank !== undefined && c.state.coatMethodRank > c.state.coatBestRank) add({ kind: 'coating-method', where: c.ref, detail: `#${c.state.coatMethodRank}` });
   }
+
+  // icicles: joints reflowed with no flux (05-4.2.12)
+  for (const c of board.components) if (c.state.populated) for (const pi of c.state.projection ?? []) if (!c.state.cold.includes(pi)) add({ kind: 'solder-projection', where: padName(c.ref, pi) });
 
   // flat packs: how the replacement's leads were formed and cut (18-6.6)
   for (const c of board.components) {

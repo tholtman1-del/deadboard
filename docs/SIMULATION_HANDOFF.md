@@ -8,7 +8,7 @@ No reference hardware is available, so realism is validated against *design inte
 ## Status (start here)
 
 - **High-reliability soldering track: Phase 1 pushed (`8fb70ba`, live); Phase 2 (`fd53b00`) and
-  lessons 6–16 (`4d036fd` … ) committed locally, NOT pushed (the auto-mode
+  lessons 6–18 (`4d036fd` … ) committed locally, NOT pushed (the auto-mode
   permission check refused `git push`; the user pushes, or allows it).** A separate learning path after NEETS Module 14 (NAVEDTRA 14186, Navy 2M
   soldering; Distribution A, public domain). Research and the 3-phase plan: `ideas/navy-2m-soldering.md`
   (local only). User's choices: lesson card + original text before, workmanship debrief + the module's
@@ -191,10 +191,13 @@ No reference hardware is available, so realism is validated against *design inte
     whole body (`multiLead`), and such a lead's joint temperature is 0.25 body + 0.75 land: a flat
     pack lead melts on its own and its neighbour stays at ~65 °C (before: the body heated and every
     lead melted together). NEETS fig. 3-22, Q26 – Q28.
-  - **Next from the manuals:** icicles (05-4.2.12: lifting the iron before the solder, or reflowing
-    without flux), pinholes / blowholes; two-wire rules (overlap, alternating directions on a hook) are not modelled (the tool stacks
-    wires); bifurcated terminals (08-6.8); resistive tweezers for cups; remaining 05-6.1 defects
-    need a solder-volume model (convex fillet, icicles, solder balls).
+  - **Icicles (2026-11-25, all boards):** a joint that melts with no active flux and no fresh solder
+    gets `state.projection` (drawn as a spike off the fillet); a reflow with flux clears it. Rule
+    `solder-projection` (05-4.2.12, 05-6.1), graded in every lesson; lesson 1 gained the point. The
+    other cause (lifting the iron before the solder) is not modelled: solder wire is not separate.
+  - **Next from the manuals:** pinholes / blowholes (flux outgassing: no cause modelled yet);
+    two-wire rules (overlap, alternating directions on a hook); bifurcated terminals (08-6.8);
+    resistive tweezers for cups; clipping a dead part's leads (NEETS Q24); TO tab orientation.
   - **Follow-ups:** flat packs (3-29)
     and TO-5 cans (3-27) need new footprints; read the 2M certification manual + T.O. 00-25-259
     (the user downloads them) and compare the practical's grading with ours.

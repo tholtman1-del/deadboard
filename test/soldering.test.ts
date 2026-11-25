@@ -527,6 +527,15 @@ async function main() {
     assert(!lessonAccepted(lesson, flush.ins) && flush.ins.findings.some((f) => f.kind === 'mounting-style'), 'refitted flush: not like the original');
   }
 
+  // ---- icicles: a reflow with no flux (T.O. 05-4.2.12) ----
+  {
+    const b1 = lone(), dry = solder(b1, 'R1', '1', { hold: 2, flux: false });
+    assert(dry.c.state.projection?.includes(dry.pi), 'reflowed with no flux: a solder projection');
+    assert(inspect(b1, undefined, dry.rw.episodes, dry.rw.log).findings.some((f) => f.kind === 'solder-projection' && f.where === 'R1.1'), 'the inspector sees the icicle');
+    const wet = solder(lone(), 'R1', '1', { hold: 2 });
+    assert(!wet.c.state.projection?.length, 'reflowed with flux: no projection');
+  }
+
   // ---- solder volume on new joints (T.O. 07-6.20, 05-4.2.10) ----
   {
     const sc = scs.find((x) => x.id === 'hr-desoldering')!;

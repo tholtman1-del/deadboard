@@ -62,6 +62,7 @@ export const CONTENT: LessonContent[] = [
       tk('63/37 is eutectic: it goes from solid straight to liquid at one temperature. 60/40 passes through a plastic state, and a joint moved while it cools is damaged.'),
       tk('Oxides form fast on hot metal and stop solder from wetting. Flux removes them and keeps them off while you solder.'),
       tk('Only rosin flux is used on electronics. Chloride (acid) and organic fluxes are corrosive and must never be used.'),
+      tk('Reflowing a joint with no flux at all also draws the solder out into a point, an icicle: a defect that must be reflowed with flux (T.O. 05-4.2.12).'),
       tk('Feed the solder to the joint, not to the iron. With too little heat the solder never replaces the flux and the joint is poor.'),
     ],
     numbers: [

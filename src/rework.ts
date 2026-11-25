@@ -331,6 +331,14 @@ export class ReworkMonitor {
               ev.push({ kind: 'filled', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: soldered, the hole filled', { ref: c.ref, pad: p.name }) });
             } else if (!js.fed) ev.push({ kind: 'no-solder', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: the hole is empty — feed fresh solder (Bench → Rework "+ flux": flux-cored solder)', { ref: c.ref, pad: p.name }) });
           } else {
+          // reflowed with no flux at all (no rosin, no flux-cored solder): the solder draws out into a
+          // projection (icicle) as the tip leaves (T.O. 00-25-259 05-4.2.12); a reflow with flux clears it
+          if (!lifted0(c, pi)) {
+            const dry = ps.flux <= 0 && !js.fed;
+            const has = !!c.state.projection?.includes(pi);
+            if (dry && !has) c.state.projection = [...(c.state.projection ?? []), pi].sort((a, b) => a - b);
+            else if (!dry && has) { const left = c.state.projection!.filter((x) => x !== pi); c.state.projection = left.length ? left : undefined; }
+          }
           // rosin flux breaks down at soldering temperature and stays behind as residue (NEETS p. 3-25: remove it with alcohol)
           if (ps.flux > 0 && !lifted0(c, pi) && !c.state.fluxResidue?.includes(pi)) c.state.fluxResidue = [...(c.state.fluxResidue ?? []), pi].sort((a, b) => a - b);
           if (!c.state.cold.includes(pi) && !c.state.intermittent?.some((f) => f.pad === pi)) ev.push({ kind: 'wetted', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: solder flowed', { ref: c.ref, pad: p.name }) });

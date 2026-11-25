@@ -2240,6 +2240,9 @@ const ru: Catalog = {
   "FP1's leads lie on lands on the top. Hold the iron on a lead until the solder is completely molten, then, with the tip still on it, press L (on a phone: the Lift lead button) to lift it. Lifting early tears the land.": "Выводы FP1 лежат на площадках сверху. Держите паяльник на выводе, пока припой полностью не расплавится, затем, не убирая жало, нажмите L (на телефоне — кнопку «Поднять вывод»), чтобы поднять его. Поднять раньше — оторвать площадку.",
   "Work round the leads in a skipping pattern (never the neighbour next). With every lead off its land, lift FP1 away (wick, 4, or Inspector).": "Обходите выводы вразбивку (никогда не соседний следующим). Когда все выводы сняты с площадок, снимите FP1 (оплётка, 4, или Инспектор).",
   "Bench → Flat pack leads: formed, 50–80 % of the land long. Fit a new FP1, hold the iron with \"+ flux\" on each lead in a skipping pattern until the fillet is full, then clean.": "Стенд → Выводы плоского корпуса: отформованы, 50–80 % длины площадки. Поставьте новую FP1, держите паяльник с «+ флюс» на каждом выводе вразбивку, пока галтель не станет полной, затем очистите.",
+  "Solder projection": "Сосулька припоя",
+  "A solder projection (icicle) sticks out of the joint: it comes from reflowing a joint without flux, or lifting the iron before the solder. It is a defect and must be reflowed, with flux.": "Сосулька (выступ) припоя торчит из соединения: она появляется при перепайке без флюса или если убрать паяльник раньше припоя. Это дефект, соединение нужно перепаять с флюсом.",
+  "Reflowing a joint with no flux at all also draws the solder out into a point, an icicle: a defect that must be reflowed with flux (T.O. 05-4.2.12).": "Перепайка совсем без флюса ещё и вытягивает припой в острие — сосульку: это дефект, его перепаивают с флюсом (T.O. 05-4.2.12).",
 };
 
 export default ru;

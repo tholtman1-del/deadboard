@@ -125,6 +125,8 @@ export interface ComponentState {
    * Absent = flush. A replacement is mounted the way the manufacturer mounted the original.
    */
   mount?: 'flush' | 'spacer' | 'gap';
+  /** Joints reflowed without any flux: a solder projection (icicle) stands off the fillet (T.O. 05-4.2.12). */
+  projection?: number[];
   /** Flat pack: leads lifted off their lands during removal (src/flatpack.ts). */
   leadsLifted?: number[];
   /** Flat pack: how the fitted part's leads were prepared (formed, length on the land). */
