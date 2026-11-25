@@ -159,8 +159,11 @@ No reference hardware is available, so realism is validated against *design inte
     lit threshold with R2 open), SPICE solver. NEETS fig. 3-29, Q32 + Q33. `io/format.ts` now
     keeps burns and clinch state. Test `test/laminate.test.ts`.
     Every Appendix C (miniature) project now has a lesson.
-  - **Next from the manuals:** perhaps a clinched axial part and a burn in the final practical
-    (Appendix C has both); two-wire rules (overlap, alternating directions on a hook) are not modelled (the tool stacks
+  - **Final practical complete (2026-11-25):** the wired DIP board also carries a power indicator:
+    R5 (330 Ω, full-clinched along bottom runs from a via on VBUS2) and green D5. On the practical
+    R5 is burned open over a 4 mm burn (4.7 kΩ char): coating off, free the clinched leads, patch the
+    laminate, refit clinched, recoat. Every Appendix C miniature project is now on the card; par 52.
+  - **Next from the manuals:** two-wire rules (overlap, alternating directions on a hook) are not modelled (the tool stacks
     wires); bifurcated terminals (08-6.8); resistive tweezers for cups; remaining 05-6.1 defects
     need a solder-volume model (convex fillet, icicles, solder balls).
   - **Follow-ups:** flat packs (3-29)

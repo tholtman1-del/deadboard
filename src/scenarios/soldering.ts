@@ -214,6 +214,16 @@ function dipNetworkBoard(label: string, wired = false) {
       const j = addWire(k.b, a, targetEnd(a, terminalType(a)!), z, targetEnd(z, terminalType(z)!));
       for (const e of j.ends!) e.soldered = 'ok';
     }
+    // a power indicator: R5 mounted horizontally with full-clinched leads along its bottom runs
+    // (a via down from VBUS2), feeding green D5 (Appendix C: the full-clinch axial part)
+    const r5 = k.resistor('R5', 330, [52, 10]);
+    const d5 = k.led('D5', 'green', [60, 20], -90); // anode 18.73, cathode 21.27
+    setNets(r5, { '1': 'VBUS2', '2': 'LED5_A' }); setNets(d5, { '2': 'LED5_A', '1': 'GND' });
+    k.b.vias.push({ id: 'v' + (k.b.nextId++).toString(36), at: [40, 10], d: 1.2, drill: 0.6, net: 'VBUS2' });
+    k.track('B', [[40, 10], k.pad(r5, '1')], 0.8, 'VBUS2');
+    k.track('B', [k.pad(r5, '2'), [60, 10], k.pad(d5, '2')], 0.8, 'LED5_A');
+    k.track('B', [k.pad(d5, '1'), [60, 42], [50, 42]], 0.9, 'GND');
+    clinchFitted(r5, 'full', 1, true);
   } else k.track('F', [k.pad(j1, '1'), [6, 12], [30.73, 12]], 0.9, '+5V');
   for (const n of [16, 15, 14, 13]) { const p = k.pad(rn, String(n)); k.track('F', [[p[0], 12], p], 0.8, bus(n)); }
   const pin = (n: number) => k.pad(rn, String(n));
@@ -518,15 +528,16 @@ async function finalPractical(): Promise<Scenario> {
     title: 'Final Practical',
     author: 'DEADBOARD',
     difficulty: 4,
-    description: 'The course\'s practical, like the 2M miniature performance test. All four LEDs are dark: RN1, the DIP-16 resistor network, burned out, and the supply wires from turret E1 to hook E2 and tab E3 were never fitted. The card is coated (no drawing), and the inspector checks everything you have learned. Replace RN1, wire the terminals, repair what else you find, and leave the card as the manuals demand.',
+    description: 'The course\'s practical, like the 2M miniature performance test. All five LEDs are dark: RN1, the DIP-16 resistor network, burned out; R5, the power indicator\'s resistor, burned open and scorched the board under it; and the supply wires from turret E1 to hook E2 and tab E3 were never fitted. The card is coated (no drawing), and the inspector checks everything you have learned. Replace RN1 and R5, repair the board, wire the terminals, and leave the card as the manuals demand.',
     hints: [
       'Order of work: identify the coating by test and record it, take it off RN1 with Table 3-1\'s first choice, then clear all 16 holes with continuous vacuum in a skipping pattern (never two neighbouring pins in a row).',
       'RN1 out: the pad under pin 1 has lifted, replace it (Pad repair, E). Fit a new RN1, solder all 16 pins in a skipping pattern, clean the flux. The +5V run has a deep nick: staple it (K).',
       'Wire E1 to E2 and E1 to E3 (Hook-up wire, W): a double wire on the turret, the hook wire in the arc, the tab wire through the eye. Solder E1 with both wires on it, then clean.',
-      'Last: the same coating back on RN1, then run the tests.',
+      'R5 (bottom right): its leads are full-clinched on the bottom. Coating off, wick the surface solder, straighten the leads (Lead pliers, L), extract, take it out. Patch the burned laminate under it (Laminate repair, A), then fit a new 330 Ω R5 with a full clinch along its runs (Bench → Lead termination) and solder it.',
+      'Last: the same coating back on RN1 and R5, then run the tests.',
     ],
-    par: 40,
-  }, k.b, leds.map((d) => lit(d.ref)), 'PCB{2m_pr4ct1c4l_p4ss3d}',
+    par: 52,
+  }, k.b, [...leds.map((d) => lit(d.ref)), lit('D5')], 'PCB{2m_pr4ct1c4l_p4ss3d}',
   (b) => {
     const rn = b.components.find((c) => c.ref === 'RN1')!;
     rn.state.burnt = true;
@@ -536,6 +547,11 @@ async function finalPractical(): Promise<Scenario> {
     const depth = 0.4;
     b.nicks = [{ id: 'n' + (b.nextId++).toString(36), at: [18, 12 - t.w / 2 + (depth * t.w) / 2], layer: 'F', len: 0.6, depth, rot: 0, width: t.w }];
     b.jumpers = []; // the supply wires from E1 to E2 and E3 are not fitted yet
+    // R5 overheated: burned open, the laminate under its body charred (and conducting)
+    const r5 = b.components.find((c) => c.ref === 'R5')!;
+    r5.state.burnt = true;
+    b.burns = [{ id: 'burn' + (b.nextId++).toString(36), at: [r5.at[0], r5.at[1]], r: 2, depth: 0.4, comp: r5.id, leakOhms: 4700 }];
+    applyLeak(b, b.burns[0]);
   });
   sc.solver = 'spice';
   return sc;

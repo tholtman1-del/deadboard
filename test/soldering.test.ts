@@ -18,6 +18,8 @@ import { evaluateObjectives } from '../src/verify';
 import { BOARD_INFO, PATH_ORDER } from '../src/scenarios/catalog';
 import { addBlob, addJumper, installPart, removePart } from '../src/ops';
 import { addWire, targetEnd, terminalType } from '../src/terminals';
+import { clinchFitted, straighten } from '../src/clinch';
+import { excavate, fillBurn } from '../src/laminate';
 
 function assert(c: unknown, m: string): asserts c { if (!c) throw new Error(m); }
 
@@ -462,7 +464,29 @@ async function main() {
       for (let t = 0; t < 1.6; t += 0.05) { m.step(0.05); rw.update(0.05); }
       for (let t = 0; t < 8; t += 0.1) { m.step(0.1); rw.update(0.1); }
     }
+    // R5: coating off, the clinched leads freed (wick, straighten, extract), the burn patched, refitted clinched
+    const r5 = term('R5');
+    assert(removeCoating(b, r5, 'hotair').ok, 'R5: coating off');
+    const heatR5 = (pi: number, feed: boolean) => {
+      rw.applyFlux(r5.at[0], r5.at[1], 8); if (feed) rw.feedSolder(r5, pi);
+      m.addSource({ kind: 'iron', x: 0, y: 0, temp: 371, g: IRON_G.flux, pmax: 60, until: m.time + 1.3, partId: r5.id, pad: pi });
+      for (let t = 0; t < 1.3; t += 0.05) { m.step(0.05); rw.update(0.05); }
+    };
+    for (const pi of [0, 1]) {
+      heatR5(pi, false); rw.extract(r5, pi, 'wick'); cool();
+      assert(straighten(r5, pi) === 'freed', `R5 pad ${pi}: freed`);
+      heatR5(pi, false); rw.extract(r5, pi, 'vacuum'); cool();
+    }
+    assert(heldPads(r5).length === 0, 'R5 holes clear');
+    removePart(r5);
+    excavate(b, b.burns![0], { depth: 0.75, dia: 5, straight: true, undercut: 0.5, bevel: 1 });
+    fillBurn(b.burns![0], { bubbleFree: true, overfill: 0.05, cured: true, leveled: true, buttercoat: true });
+    installPart(r5, { value: 330 });
+    clinchFitted(r5, 'full', 1, true);
+    r5.state.holes = { 0: 'clear', 1: 'clear' }; r5.state.cold = [0, 1];
+    for (const pi of [0, 1]) { heatR5(pi, true); cool(); }
     for (const c of b.components) c.state.fluxResidue = undefined;
+    applyCoating(b, r5, 'polyurethane');
     applyCoating(b, rn, 'polyurethane');
     const ins = inspect(b, referenceBoard(sc)!, rw.episodes, rw.log);
     assert(evaluateObjectives(b, buildConnectivity(b), sc.objectives, 'spice').allPassed, `the final card works (${JSON.stringify(rn.state)})`);
