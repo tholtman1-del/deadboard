@@ -2,7 +2,7 @@
   "format": "deadboard-mod/2",
   "id": "board-notes",
   "name": "Board notes (knowledge packs for the shipped boards)",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "author": "Biga73 (idea) · DEADBOARD",
   "description": "An example data mod: a knowledge pack for every board that ships with DEADBOARD. Rails, where each one comes from, what to expect at which pin, and what a low reading usually means, each marked documented, derived or estimated. The packs describe the working board and point at likely causes, the way the board's hints do; they don't name the planted faults. Based on the device knowledge pack RFC by Biga73.",
   "license": "CC0-1.0",
@@ -1086,6 +1086,45 @@
       "powerUp": [ "+5V" ],
       "notes": [
         "The board carries a thin polyurethane conformal coating on both sides (per its drawing). Probe on bare test pads or pierce the coating; take it off a part's leads and pads before rework, and put the same type back afterwards (NEETS Module 14 pp. 3-2 – 3-6).",
+        "Soldered with 63/37 tin-lead (melts at 183 °C, 361 °F), as in NEETS Module 14 (public-domain US Navy textbook)."
+      ]
+    },
+    {
+      "id": "hr-esd",
+      "board": "official-boards/boards/hr-esd",
+      "title": "ESD",
+      "provenance": { "kind": "board design + simulator", "where": "part values from the board; readings from DEADBOARD's simulator (SPICE, 2N7000 model, unverified typical values) on the working board", "confidence": "derived" },
+      "rails": [
+        {
+          "net": "+5V",
+          "nominal": 5.0,
+          "domain": "always on",
+          "source": { "ref": "J1", "kind": "5 V DC input header" },
+          "checks": [
+            { "at": "J1", "pin": "1", "expect": "≈5.00 V (≈9 mA with SW1 pressed)", "readsLowIf": "the bench supply is off or current-limited" }
+          ]
+        },
+        {
+          "net": "GATE",
+          "domain": "while SW1 is pressed",
+          "source": { "ref": "R1", "kind": "1 kΩ gate resistor, 100 kΩ pull-down R2" },
+          "checks": [
+            { "at": "Q1", "pin": "2", "expect": "≈4.95 V pressed, 0 V released", "readsLowIf": "near 0 V while pressed: the gate leaks to the source (a ruptured gate oxide, e.g. from static) or SW1 / R1 is open" }
+          ]
+        },
+        {
+          "net": "DRAIN",
+          "domain": "D1's cathode, switched to GND by Q1",
+          "source": { "ref": "Q1", "kind": "2N7000 N-MOSFET (TO-92)" },
+          "checks": [
+            { "at": "Q1", "pin": "3", "expect": "≈0.03 V pressed (Q1 on, D1 lit at ≈9 mA)", "readsLowIf": "it reads high instead: Q1 is not switching on (missing, a lead not soldered, or a damaged gate)" }
+          ],
+          "notes": "Q1's pins: 1 source, 2 gate, 3 drain."
+        }
+      ],
+      "powerUp": [ "+5V" ],
+      "notes": [
+        "Q1 is a MOS device: static from an ungrounded hand (thousands of volts in dry air) can rupture its gate from about 35 V (NEETS Module 14 p. 3-39). Wear a grounded wrist strap when fitting it.",
         "Soldered with 63/37 tin-lead (melts at 183 °C, 361 °F), as in NEETS Module 14 (public-domain US Navy textbook)."
       ]
     }

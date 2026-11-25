@@ -55,6 +55,7 @@ import type { PowerStateName } from '../spice/sequencer';
 import { HOTAIR_H, IRON_G, PREHEAT_H, ReworkMonitor, VACUUM_SECONDS, heldPads, isThroughHole, limitsFor, type ExtractMode, type ReworkEvent, type ReworkHistory } from '../rework';
 import { inspect, type Inspection } from '../workmanship';
 import { lessonFor } from '../lessons/neets14';
+import { handle as handleEsd, type Humidity } from '../esd';
 import { COATINGS, METHODS, applyCoating, coatingName, methodName, removeCoating, workable, type CoatMethod, type CoatingType } from '../coating';
 import { SOLDERING_TRACK_IDS } from '../scenarios/soldering';
 import { debriefHtml, lessonAccepted, lessonBriefHtml } from './lesson-ui';
@@ -225,6 +226,10 @@ export class PcbApp {
   private reworkMode: { realistic: boolean; ironTemp: number; flux: boolean } = { realistic: false, ironTemp: 350, flux: true };
   /** Solder extractor: a motorized continuous vacuum, or a one-shot manual plunger. */
   private extractMode: 'vacuum' | 'plunger' = 'vacuum';
+  /** ESD: a grounded wrist strap and mat, and the air's relative humidity (Bench; NEETS 14 Table 3-2). */
+  private grounded = true;
+  private humidity: Humidity = 'high';
+  private savedEsd: { grounded: boolean; humidity: Humidity } | null = null;
   /** Coating removal method and the coating type put back (Bench). */
   private coatMethod: CoatMethod = 'solvent';
   private coatType: CoatingType = 'acrylic';
@@ -857,6 +862,14 @@ export class PcbApp {
             <label class="bench-row"><span>${t('Extractor')}</span><select id="extract-mode" title="${t('Solder extractor: continuous vacuum (motorized) or a one-shot manual plunger')}">
               <option value="vacuum">${t('Continuous vacuum')}</option>
               <option value="plunger">${t('Manual plunger')}</option>
+            </select></label>
+            <label class="bench-row"><span>${t('ESD protection')}</span><select id="esd-mode" title="${t('Grounded wrist strap and bench mat (NEETS p. 3-40)')}">
+              <option value="on">${t('Wrist strap on')}</option>
+              <option value="off">${t('No strap')}</option>
+            </select></label>
+            <label class="bench-row"><span>${t('Humidity')}</span><select id="humidity" title="${t('Relative humidity of the room: dry air lets far more static build up (NEETS Table 3-2)')}">
+              <option value="high">${t('High (65–90 %)')}</option>
+              <option value="low">${t('Low (10–20 %)')}</option>
             </select></label>
             <label class="bench-row"><span>${t('Coating removal')}</span><select id="coat-method" title="${t('Method for taking conformal coating off (NEETS Table 3-1)')}">
               ${METHODS.map((m) => `<option value="${m.id}">${t(m.name)}</option>`).join('')}
@@ -2329,9 +2342,12 @@ export class PcbApp {
     if (lesson) {
       if (!this.savedRework) this.savedRework = { ...this.reworkMode };
       this.setRework(lesson.station);
+      if (!this.savedEsd) this.savedEsd = { grounded: this.grounded, humidity: this.humidity };
+      this.setEsd(lesson.bench ?? this.savedEsd);
       this.showLesson = 'brief';
     } else {
       if (this.savedRework) { this.reworkMode = this.savedRework; this.savedRework = null; this.setRework(this.reworkValue()); }
+      if (this.savedEsd) { this.setEsd(this.savedEsd); this.savedEsd = null; }
       if (this.showLesson) this.showLesson = null;
     }
   }
@@ -3101,6 +3117,8 @@ export class PcbApp {
       this.setRework(sel.value);
       if (this.reworkMode.realistic) this.toast(t('Realistic rework: joints melt, pads lift and parts crack from the actual heat you apply. Watch the Thermal view.'), 'info');
     });
+    q('#esd-mode').addEventListener('change', (e) => { this.grounded = (e.target as HTMLSelectElement).value === 'on'; });
+    q('#humidity').addEventListener('change', (e) => { this.humidity = (e.target as HTMLSelectElement).value === 'low' ? 'low' : 'high'; });
     q('#coat-method').addEventListener('change', (e) => { this.coatMethod = (e.target as HTMLSelectElement).value as CoatMethod; });
     q('#coat-type').addEventListener('change', (e) => { this.coatType = (e.target as HTMLSelectElement).value as CoatingType; });
     q('#extract-mode').addEventListener('change', (e) => {
@@ -3754,6 +3772,26 @@ export class PcbApp {
       ? t('Take the old {ref} out first: its leads are still soldered (pads {pads}).', { ref: c.ref, pads: names })
       : t('{ref} is still held at pads {pads}: clear those holes first (Solder extractor, X). Pulling it now would tear the pads.', { ref: c.ref, pads: names }), 'warn');
     return false;
+  }
+
+  private setEsd(b: { grounded: boolean; humidity: Humidity }) {
+    this.grounded = b.grounded;
+    this.humidity = b.humidity;
+    const m = this.mount.querySelector<HTMLSelectElement>('#esd-mode'), h = this.mount.querySelector<HTMLSelectElement>('#humidity');
+    if (m) m.value = b.grounded ? 'on' : 'off';
+    if (h) h.value = b.humidity;
+  }
+
+  /**
+   * A part fitted from the parts bin: its leads go into empty holes (realistic rework), and an
+   * ESD-sensitive part takes the technician's static charge unless they are grounded (src/esd.ts).
+   */
+  private afterFit(c: Component) {
+    this.leadsUnsoldered(c);
+    const out = handleEsd(c, this.grounded, this.humidity);
+    if (out === 'gate-ruptured') this.toast(t('Zap: you were not grounded and carried about {v} V. {ref}\'s gate broke down and now leaks to its source.', { v: this.humidity === 'low' ? '6 000' : '100', ref: c.ref }), 'danger');
+    else if (out === 'latent') this.toast(t('Zap: you were not grounded and carried about {v} V into {ref}. Nothing shows yet, but a part hit by static can fail early.', { v: this.humidity === 'low' ? '6 000' : '100', ref: c.ref }), 'warn');
+    else if (out === 'safe') this.toast(t('{ref} is static-sensitive: you handled it without a ground strap. Humid air kept the charge low this time.', { ref: c.ref }), 'info');
   }
 
   /** A new through-hole part in realistic rework: leads through empty holes, every joint still to make. */
@@ -5375,7 +5413,7 @@ export class PcbApp {
       if (!this.benchAllows(c, 'replace')) return;
       this.pushUndo();
       installPart(c, { ...(c.value > 0 && { value: c.value }) });
-      this.leadsUnsoldered(c);
+      this.afterFit(c);
       sfxSolder();
       this.recompute(false);
       this.toast(t('Fitted a new {ref}', { ref: c.ref }), 'success');
@@ -5395,7 +5433,7 @@ export class PcbApp {
         if (!this.benchAllows(c, 'replace')) return;
         this.pushUndo();
         installPart(c, { value: v, reversed: c.state.reversed });
-        this.leadsUnsoldered(c);
+        this.afterFit(c);
         sfxSolder();
         this.recompute(false);
         this.renderInspectTab();
@@ -5408,7 +5446,7 @@ export class PcbApp {
       if (!this.benchAllows(c, 'replace')) return;
       this.pushUndo();
       installPart(c, { value: v, reversed: c.state.reversed });
-      this.leadsUnsoldered(c);
+      this.afterFit(c);
       sfxSolder();
       this.recompute(false);
       this.renderInspectTab();
@@ -5418,7 +5456,7 @@ export class PcbApp {
       if (!this.benchAllows(c, 'replace')) return;
       this.pushUndo();
       installPart(c, { color: col, reversed: c.state.reversed });
-      this.leadsUnsoldered(c);
+      this.afterFit(c);
       sfxSolder();
       this.recompute(false);
       this.renderInspectTab();
@@ -5429,7 +5467,7 @@ export class PcbApp {
       if (!this.benchAllows(c, 'replace')) return;
       this.pushUndo();
       installPart(c, { value: v });
-      this.leadsUnsoldered(c);
+      this.afterFit(c);
       sfxSolder();
       this.recompute(false);
       this.renderInspectTab();
@@ -5441,7 +5479,7 @@ export class PcbApp {
       if (!this.benchAllows(c, 'replace')) return;
       this.pushUndo();
       installPart(c, { value: v });
-      this.leadsUnsoldered(c);
+      this.afterFit(c);
       sfxSolder();
       this.recompute(false);
       this.renderInspectTab();

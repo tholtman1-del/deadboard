@@ -92,6 +92,7 @@ export const BOARD_INFO: Record<string, BoardInfo> = {
   'hr-skipping-pattern': { level: 3.1, symptom: tk('Four LEDs, all dark'), teaches: ['tool:iron', 'fault:cold'] },
   'hr-conductor-repair': { level: 3.3, symptom: tk('One of two LEDs stays dark'), teaches: ['tool:staple', 'fault:open'] },
   'hr-conformal-coating': { level: 3.6, symptom: tk('One of two LEDs stays dark'), teaches: ['tool:decoat', 'tool:coat', 'fault:cold'] },
+  'hr-esd': { level: 3.8, symptom: tk('Pressed, the LED stays dark'), teaches: ['tool:replace', 'part:mosfet', 'fault:missing'] },
   'hr-thermal-shunt': { level: 2.9, symptom: tk('Pressed, the LEDs stay dark'), teaches: ['tool:shunt', 'part:bjt', 'fault:cold'] },
   'hr-clean-inspect': { level: 2.2, symptom: tk('Reworked, both LEDs dark, left a mess'), teaches: ['tool:wick', 'tool:ipa', 'fault:bridge'] },
   'demo-olimex-esp32-devkit-lipo': { level: 4.4, teaches: ['part:schottky', 'part:charger', 'part:mcu'] },

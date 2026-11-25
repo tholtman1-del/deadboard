@@ -48,7 +48,7 @@ export function installPart(c: Component, o: InstallOpts = {}) {
   if (o.color) c.color = o.color;
   // a fresh part has no internal failure (leak/drift) and fresh joints
   // lifted pads are board damage: a new part cannot bond to them
-  c.state = { ...c.state, populated: true, burnt: false, cold: [...(c.state.lifted ?? [])], reversed: !!o.reversed, leak: undefined, drift: undefined, coldOhms: undefined, intermittent: undefined, holes: undefined, shunts: undefined };
+  c.state = { ...c.state, populated: true, burnt: false, cold: [...(c.state.lifted ?? [])], reversed: !!o.reversed, leak: undefined, drift: undefined, coldOhms: undefined, intermittent: undefined, holes: undefined, shunts: undefined, esdHandled: undefined, esdDamaged: undefined };
 }
 
 export function removePart(c: Component) {

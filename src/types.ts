@@ -85,6 +85,9 @@ export interface ComponentState {
   coating?: 'removed' | import('./coating').CoatingType;
   /** An iron was put on this part's coating and charred it (NEETS 14 p. 3-4): board damage. */
   coatCharred?: true;
+  /** Handled (fitted) by an ungrounded technician, and whether the discharge damaged it (src/esd.ts). */
+  esdHandled?: true;
+  esdDamaged?: true;
   /** Table 3-1 preferred-order rank of the removal method used, and the best one possible here. */
   coatMethodRank?: number;
   coatBestRank?: number;

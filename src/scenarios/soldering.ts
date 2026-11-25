@@ -4,7 +4,7 @@
 import type { Board, Component, LedColor, Objective, Scenario, ScenarioMeta } from '../types';
 import { buildConnectivity } from '../connectivity';
 import { lockFlag, topology } from '../crypto';
-import { addBlob, cutTrace } from '../ops';
+import { addBlob, cutTrace, removePart } from '../ops';
 import { Builder } from './builder';
 import { setReference } from './reference';
 
@@ -254,9 +254,47 @@ async function conformalCoating(): Promise<Scenario> {
   (b) => { b.components.find((c) => c.ref === 'R2')!.state.cold = [pad(b, 'R2', '2')]; });
 }
 
+/** A MOSFET switch: SW1 drives Q1's gate (1 kΩ, 100 kΩ pull-down), Q1 sinks the LED. Q1 is missing. */
+async function esdBoard(): Promise<Scenario> {
+  const k = new Builder(64, 42);
+  const j1 = k.header('J1', 5, [6, 20], 0, '5V DC');
+  k.tactile('SW1', [18, 12]);
+  const r1 = k.resistor('R1', 1000, [32, 14.25]);
+  const r2 = k.resistor('R2', 100000, [36, 30], 90);
+  const r3 = k.resistor('R3', 330, [46, 8]);
+  const d1 = k.led('D1', 'red', [52, 12], -90); // anode up (10.73), cathode down (13.27)
+  const q1 = k.to92('Q1', '2N7000', [44, 26], 0, { S: '1', G: '2', D: '3' });
+  k.track('F', [k.pad(j1, '1'), [6, 4], [40.92, 4], k.pad(r3, '1')], 0.9, '+5V');
+  k.track('F', [[14.75, 9.75], [14.75, 4]], 0.8, '+5V');
+  k.track('F', [[21.25, 14.25], k.pad(r1, '1')], 0.8, 'SW_OUT');
+  k.track('F', [k.pad(r1, '2'), [44, 14.25], k.pad(q1, '2')], 0.8, 'GATE');
+  k.track('F', [k.pad(r2, '1'), [k.pad(r2, '1')[0], 20], [44, 20]], 0.8, 'GATE'); // clear of Q1's source pad
+  k.track('F', [k.pad(r3, '2'), [52, 8], k.pad(d1, '2')], 0.8, 'LED_A');
+  k.track('F', [k.pad(d1, '1'), [52, 26], k.pad(q1, '3')], 0.8, 'DRAIN');
+  k.track('B', [k.pad(q1, '1'), [41.46, 38], [6, 38], k.pad(j1, '2')], 0.9, 'GND');
+  k.track('B', [k.pad(r2, '2'), [36, 38]], 0.9, 'GND');
+  k.text([10, 41], 'HI-REL 9  ESD', 1.4);
+  const sw = (on: boolean) => ({ SW1: on });
+  const sc = await finalize('hr-esd', {
+    title: 'ESD',
+    author: 'DEADBOARD',
+    difficulty: 3,
+    description: 'A MOSFET switch: pressing SW1 should light D1. Q1, a 2N7000, is missing. A MOS transistor is damaged by as little as 35 V of static, and it is winter: the air is dry. Fit and solder a new Q1 without zapping it.',
+    hints: [
+      'Q1\'s footprint is empty. Before you touch the new part: Bench → ESD protection, put the wrist strap on.',
+      'Fit Q1 from the Parts bin (8), then hold the iron on its three leads with "+ flux" and clean with Isopropyl.',
+      'If D1 stays dark after a fit without the strap, the gate is ruptured: take Q1 out again (extractor, X) and fit a new one, grounded this time.',
+    ],
+    par: 5,
+  }, k.b, [{ type: 'led', ref: 'D1', on: true, switches: sw(true) }, { type: 'led', ref: 'D1', on: false, switches: sw(false) }], 'PCB{gr0und3d_b3f0r3_y0u_t0uch}',
+  (b) => { removePart(b.components.find((c) => c.ref === 'Q1')!); });
+  sc.solver = 'spice';
+  return sc;
+}
+
 export async function solderingScenarios(): Promise<Scenario[]> {
-  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern(), conductorRepair(), conformalCoating()]);
+  return Promise.all([solderAndFlux(), heatAndTime(), cleanAndInspect(), desoldering(), thermalShunt(), skippingPattern(), conductorRepair(), conformalCoating(), esdBoard()]);
 }
 
 /** The track's boards, in order. */
-export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern', 'hr-conductor-repair', 'hr-conformal-coating'] as const;
+export const SOLDERING_TRACK_IDS = ['hr-solder-flux', 'hr-heat-time', 'hr-clean-inspect', 'hr-desoldering', 'hr-thermal-shunt', 'hr-skipping-pattern', 'hr-conductor-repair', 'hr-conformal-coating', 'hr-esd'] as const;

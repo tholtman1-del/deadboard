@@ -48,6 +48,8 @@ function normalizeComponent(c: Component): Component {
       ...(c.state?.holes && typeof c.state.holes === 'object' && { holes: Object.fromEntries(Object.entries(c.state.holes).filter(([k, v]) => Number.isInteger(Number(k)) && (v === 'clear' || v === 'sweat'))) }),
       ...(typeof c.state?.coating === 'string' && ['removed', 'parylene', 'epoxy', 'acrylic', 'polyurethane', 'varnish', 'rtv'].includes(c.state.coating) && { coating: c.state.coating }),
       ...(c.state?.coatCharred === true && { coatCharred: true }),
+      ...(c.state?.esdHandled === true && { esdHandled: true }),
+      ...(c.state?.esdDamaged === true && { esdDamaged: true }),
       ...(Array.isArray(c.state?.shunts) && { shunts: c.state.shunts.filter((x) => Number.isInteger(x)) }),
       ...(Array.isArray(c.state?.fluxResidue) && { fluxResidue: c.state.fluxResidue.filter((x) => Number.isInteger(x)) }),
       ...(Array.isArray(c.state?.intermittent) && { intermittent: c.state.intermittent.filter((f) => f && typeof f.threshold === 'number' && ['thermal-open', 'thermal-leak', 'flex-open', 'flex-close'].includes(f.kind)) }),

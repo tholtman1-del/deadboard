@@ -27,6 +27,10 @@ export interface Lesson {
   original: string[];
   /** What to do on this board. */
   task: string;
+  /** Bench conditions the board starts with: wrist strap on or off, and the air's humidity. */
+  bench?: { grounded: boolean; humidity: 'low' | 'high' };
+  /** A table from the module rebuilt from data: 3-1 coating removal, 3-2 static charges. */
+  table2?: 'table-3-2';
   /** Station setting the board starts with (Bench → Rework). */
   station: 'r350' | 'r350f' | 'r400f';
   /** Inspection rules graded on this board (the others are shown as notes). */
@@ -299,6 +303,40 @@ export const LESSONS: Lesson[] = [
       { ref: 'Q2', q: tk('What three methods are used to remove protective material?'), a: tk('Chemical, mechanical, and thermal.'), page: '3-7' },
       { ref: 'Q4', q: tk('Abrasion, cutting, and peeling are examples of what type of protective material removal?'), a: tk('Mechanical.'), page: '3-7' },
       { ref: 'Q5', q: tk('Why should the coating material be replaced once the required repair has been completed?'), a: tk('To ensure protective characteristics are maintained.'), page: '3-7' },
+    ],
+  },
+  {
+    scenario: 'hr-esd',
+    title: tk('Electrostatic discharge'),
+    source: { ...NEETS14_SOURCE, pages: '3-38 – 3-42' },
+    points: [
+      tk('Static builds up whenever two materials rub or separate; you only feel a discharge from about 3,500–4,000 V. Lower voltages pass unnoticed.'),
+      tk('MOS devices are the most sensitive: a MOSFET can be damaged by as little as 35 V. Bipolar transistors and diodes by less than 3,000 V.'),
+      tk('Dry air makes it far worse: a worker at the bench carries about 6,000 V at 10–20 % humidity, about 100 V at 65–90 %.'),
+      tk('Damage is not always immediate: a device can be degraded and fail early.'),
+      tk('Ground yourself before servicing (wrist strap), keep ESD-sensitive parts in their packaging until needed, and hold them by the body, never by the leads.'),
+    ],
+    numbers: [
+      { label: tk('MOS devices damaged from'), value: '35 V' },
+      { label: tk('Bipolar transistors and diodes'), value: '< 3 000 V' },
+      { label: tk('You feel a discharge from'), value: '3 500 – 4 000 V' },
+    ],
+    table2: 'table-3-2',
+    figure: { src: 'lessons/neets14/fig-3-32.png', caption: tk('Figure 3-32. ESD wrist strap.') },
+    original: [
+      'Electrostatic discharge (ESD) can destroy or damage many electronic components including integrated circuits and discrete semiconductor devices. Certain devices are more susceptible to ESD damage than others. Because of this, warning symbols are now used to identify ESD-sensitive (ESDS) items (figure 3-31).',
+      'Metal oxide semiconductor (MOS) devices are the most susceptible to damage from ESD. For example, an MOS field-effect transistor (MOSFET) can be damaged by a static voltage potential of as little as 35 volts. Commonly used discrete bipolar transistors and diodes (often used in ESD-protective circuits), although less susceptible to ESD, can be damaged by voltage potentials of less than 3,000 electrostatic volts. Damage does not always result in sudden device failure but sometimes results in device degradation and early failure. Table 3-2 clearly shows that electrostatic voltages well in excess of 3,000 volts can be easily generated, especially under low-humidity conditions.',
+      '1. Before starting to service equipment, the technician should be grounded to discharge any static electric charge built up on the body. This can be accomplished with the use of a test lead (a single-wire conductor with a series resistance of 1 megohm equipped with alligator clips on each end). One clip end is connected to the grounded equipment frame, and the other clip end is touched with a bare hand. Figure 3-32 shows a more refined ground strap which frees both hands for work.',
+      '4. Minimize handling of ESDS devices and assemblies. Keep replacement devices or assemblies, with their connector shorting bars, clips, and so forth, intact in their electrostatic-free packages until needed. Place removed repairable ESD devices or assemblies with their connector shorting bars/clips installed in electrostatic-free packages as soon as they are removed from the equipment. ESDS devices or assemblies are to be transported and stored only in protective packaging.',
+      '6. When removing or replacing an ESDS device or assembly in the equipment, hold the device or assembly through the electrostatic-free wrap if possible. Otherwise pick up the device or assembly by its body only. Do not touch component leads, connector pins, or any other electrical connections or paths on boards, even though they are covered by conformal coating.',
+    ],
+    task: tk('Q1 (a 2N7000 MOSFET) is missing and the air is dry. Put the wrist strap on first (Bench → ESD protection), then fit Q1 from the Parts bin (8), solder its three leads with "+ flux" and clean with Isopropyl (0).'),
+    station: 'r350f',
+    bench: { grounded: false, humidity: 'low' },
+    grades: ['dull-joint', 'pad-lifted', 'part-overheated', 'flux-residue', 'esd-damage', 'esd-handling'],
+    questions: [
+      { ref: 'Q35', q: tk('What is the purpose of the wrist ground strap?'), a: tk('To discharge any static charge built up in the body.'), page: '3-46' },
+      { ref: 'Q34', q: tk('List two causes of damage to ESD-sensitive electronic components.'), a: tk('ESD, improper stowage, and improper handling.'), page: '3-46' },
     ],
   },
 ];

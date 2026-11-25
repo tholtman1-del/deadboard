@@ -14,7 +14,7 @@ const src = (page: string): RuleSource => ({ doc: NEETS14, page });
 export type FindingKind =
   | 'pad-lifted' | 'part-overheated' | 'mlcc-cracked' | 'part-displaced' | 'dull-joint'
   | 'flux-residue' | 'loose-solder' | 'long-dwell' | 'wire-repair' | 'no-shunt' | 'skip-pattern' | 'nick'
-  | 'coating-charred' | 'coating-missing' | 'coating-mismatch' | 'coating-method';
+  | 'coating-charred' | 'coating-missing' | 'coating-mismatch' | 'coating-method' | 'esd-damage' | 'esd-handling';
 
 /**
  * `procedural`: about how the work was done, which the finished board does not show; listed only
@@ -38,6 +38,8 @@ export const RULES: Record<FindingKind, Rule> = {
   'coating-missing': { kind: 'coating-missing', severity: 'reject', title: tk('Coating not replaced'), rule: tk('Once the required repairs have been completed, the conformal coating must be replaced.'), source: src('3-6') },
   'coating-mismatch': { kind: 'coating-mismatch', severity: 'reject', title: tk('Wrong coating type'), rule: tk('To ensure the same protective characteristics, use the same type of replacement coating as that removed.'), source: src('3-6') },
   'coating-method': { kind: 'coating-method', severity: 'note', procedural: true, title: tk('Not the gentlest removal method'), rule: tk('Removal techniques are listed in ascending order of their damageability: always try the method which causes the least amount of damage first.'), source: src('3-3, Table 3-1') },
+  'esd-damage': { kind: 'esd-damage', severity: 'reject', title: tk('Damaged by static'), rule: tk('A MOS device can be damaged by a static potential of as little as 35 volts, bipolar transistors and diodes by less than 3,000 volts. Damage does not always cause sudden failure: it can degrade the device so that it fails early.'), source: src('3-39') },
+  'esd-handling': { kind: 'esd-handling', severity: 'note', procedural: true, title: tk('Handled without a ground strap'), rule: tk('Before servicing equipment the technician is grounded to discharge any static charge built up on the body; ESD-sensitive devices are handled by their body, never by their leads.'), source: src('3-40 – 3-41') },
   'nick': { kind: 'nick', severity: 'reject', title: tk('Nicked conductor'), rule: tk('Nicks or scratches in a conductor must be repaired if over one-tenth of its cross-sectional area is affected, as its current-carrying capability is reduced.'), source: src('3-31') },
   'wire-repair': { kind: 'wire-repair', severity: 'note', title: tk('Wire repair'), rule: tk('A wire lap-soldered across a break is stronger than a solder bridge but not highly reliable; the clinched staple is the preferred repair of a broken conductor.'), source: src('3-32') },
 };
@@ -104,6 +106,12 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
     if (n.depth <= 0.1) continue;
     const bridged = staples.some((j) => j.la === n.layer && distToSeg(n.at, j.a, j.b) < 1 && Math.hypot(j.a[0] - n.at[0], j.a[1] - n.at[1]) > 0.8 && Math.hypot(j.b[0] - n.at[0], j.b[1] - n.at[1]) > 0.8);
     if (!bridged) add({ kind: 'nick', where: `${n.at[0].toFixed(1)}, ${n.at[1].toFixed(1)} mm`, detail: `${Math.round(n.depth * 100)} %` });
+  }
+
+  // static: a sensitive part fitted by an ungrounded technician, and what the discharge did
+  for (const c of board.components) {
+    if (c.state.esdDamaged && c.state.populated) add({ kind: 'esd-damage', where: c.ref });
+    if (c.state.esdHandled && c.state.populated) add({ kind: 'esd-handling', where: c.ref });
   }
 
   // conformal coating: taken off where needed, never charred, put back with the same type

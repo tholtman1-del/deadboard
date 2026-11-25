@@ -4,23 +4,23 @@
     {
       "id": "board-notes",
       "name": "Board notes (knowledge packs for the shipped boards)",
-      "version": "1.10.0",
+      "version": "1.11.0",
       "author": "Biga73 (idea) · DEADBOARD",
       "description": "An example data mod: a knowledge pack for every board that ships with DEADBOARD. Rails, where each one comes from, what to expect at which pin, and what a low reading usually means, each marked documented, derived or estimated. The packs describe the working board and point at likely causes, the way the board's hints do; they don't name the planted faults. Based on the device knowledge pack RFC by Biga73.",
       "license": "CC0-1.0",
       "file": "examples/board-notes.zip",
-      "size": 12602,
-      "sha256": "f1beb9f3ee4dcdb24709aac6e1317adeeb22d895172cbf98424b12d2294a24ae",
+      "size": 12953,
+      "sha256": "979ce0e23133708e23b755819463b42e69f1b8b221344774d67710e0829770d3",
       "requires": {
         "official-boards": "^1.0"
       },
       "contents": {
-        "knowledge": 27
+        "knowledge": 28
       },
       "code": false,
       "example": true,
       "bench": {
-        "pass": 27,
+        "pass": 28,
         "warn": 0,
         "fail": 0
       }

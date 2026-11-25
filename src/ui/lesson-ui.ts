@@ -5,6 +5,20 @@ import { t } from '../i18n';
 import type { Lesson } from '../lessons/neets14';
 import { BEST_JOINT_C, DWELL_LIMIT_S, RULES, type Inspection } from '../workmanship';
 import { COATINGS, METHODS, TABLE_3_1 } from '../coating';
+import { TABLE_3_2 } from '../esd';
+
+/** NEETS 14 Table 3-2: typical measured static charges, at low and high relative humidity. */
+function table32Html(esc: Esc): string {
+  const v = (n: number) => n.toLocaleString('en-US').replace(/,/g, ' ');
+  return `
+    <div class="lesson-table">
+      <div class="sub">${t('Table 3-2. Typical measured static charges (volts)')}</div>
+      <div class="lt-scroll"><table>
+        <thead><tr><th></th><th>${t('Low humidity (10–20 %)')}</th><th>${t('High humidity (65–90 %)')}</th></tr></thead>
+        <tbody>${TABLE_3_2.map((r) => `<tr><th>${esc(t(r.item))}</th><td class="mono">${v(r.low)}</td><td class="mono">${v(r.high)}</td></tr>`).join('')}</tbody>
+      </table></div>
+    </div>`;
+}
 
 /** NEETS 14 Table 3-1, from the data the bench uses: preferred order per coating, with the table's notes. */
 function table31Html(esc: Esc): string {
@@ -34,6 +48,7 @@ export function lessonBriefHtml(l: Lesson, esc: Esc, base: string, phone: boolea
       <ul class="lesson-points">${l.points.map((p) => `<li>${esc(t(p))}</li>`).join('')}</ul>
       ${l.numbers.length ? `<dl class="lesson-nums">${l.numbers.map((n) => `<div><dt>${esc(t(n.label))}</dt><dd class="mono">${esc(t(n.value))}</dd></div>`).join('')}</dl>` : ''}
       ${l.table === 'table-3-1' ? table31Html(esc) : ''}
+      ${l.table2 === 'table-3-2' ? table32Html(esc) : ''}
       ${l.figure ? `<figure class="lesson-fig"><img src="${esc(base + l.figure.src)}" alt="${esc(t(l.figure.caption))}" loading="lazy" /><figcaption>${esc(t(l.figure.caption))}</figcaption></figure>` : ''}`;
   const task = `<div class="lesson-task"><b>${t('On this board')}</b><span>${esc(t(l.task))}</span></div>`;
   // phones: the task first, the rules folded (the text keeps its size; it is folded, not shrunk)

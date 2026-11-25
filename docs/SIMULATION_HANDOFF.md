@@ -8,7 +8,7 @@ No reference hardware is available, so realism is validated against *design inte
 ## Status (start here)
 
 - **High-reliability soldering track: Phase 1 pushed (`8fb70ba`, live); Phase 2 (`fd53b00`) and
-  lessons 6–8 (`4d036fd`, `b15380c`, + conformal coating) committed locally, NOT pushed (the auto-mode
+  lessons 6–9 (`4d036fd`, `b15380c`, `493834f`, + ESD) committed locally, NOT pushed (the auto-mode
   permission check refused `git push`; the user pushes, or allows it).** A separate learning path after NEETS Module 14 (NAVEDTRA 14186, Navy 2M
   soldering; Distribution A, public domain). Research and the 3-phase plan: `ideas/navy-2m-soldering.md`
   (local only). User's choices: lesson card + original text before, workmanship debrief + the module's
@@ -67,9 +67,14 @@ No reference hardware is available, so realism is validated against *design inte
     footnotes A–F), rebuilt as a table in the lesson card; tools Coating removal (U, method in Bench)
     and Conformal coating (J, type in Bench); iron on coating chars it (`coatCharred`); rules
     charred / missing / mismatch / gentlest-method. Lesson grading is now simply "graded = fails".
-  - **Next:** ESD (NEETS 3-38 – 3-40: Table 3-2 static voltages by humidity, MOS 35 V, bipolar
-    < 3000 V, latent damage) as lesson 9; eyelet and replacement-pad repairs; read the 2M
-    certification manual + T.O. 00-25-259 (the user downloads them).
+  - **Lesson 9 ESD (2026-11-25):** `src/esd.ts` = Table 3-2 as data (bench worker 6,000 V dry /
+    100 V humid), thresholds MOS 35 V / bipolar + diodes 3,000 V; fitting a sensitive part ungrounded
+    (`afterFit`, every Inspector install) ruptures a MOS gate (G–S leak 100 Ω, estimate) or marks a
+    bipolar part degraded (latent); Bench: ESD protection (strap) + Humidity, a lesson can preset them
+    (`Lesson.bench`). Rules `esd-damage`, `esd-handling` (procedural). Board `hr-esd` (2N7000 switch,
+    Q1 missing; devicelib gained 2N7000, unverified). Table 3-2 rebuilt in the lesson card.
+  - **Next:** eyelet and replacement-pad repairs (3-33), flat packs (3-29), TO packages (3-27);
+    read the 2M certification manual + T.O. 00-25-259 (the user downloads them).
 
 - **NEXT SESSION — START HERE (written end of 2026-11-24).** All code up to `c789ba5` is pushed and
   live; the local `.claude/` folder (skills, settings) is untracked on purpose, never commit it.

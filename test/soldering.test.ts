@@ -7,6 +7,7 @@ import { ALLOYS, IRON_G, ReworkMonitor, heldPads, limitsFor, type ReworkEvent } 
 import { cleanFluxWithIpa, fluxResidueNear } from '../src/residue';
 import { RULES, inspect } from '../src/workmanship';
 import { TABLE_3_1, applyCoating, removeCoating, workable } from '../src/coating';
+import { TABLE_3_2, benchCharge, handle as handleEsd } from '../src/esd';
 import { LESSONS, lessonFor } from '../src/lessons/neets14';
 import { lessonAccepted } from '../src/ui/lesson-ui';
 import { SOLDERING_TRACK_IDS, solderingScenarios } from '../src/scenarios/soldering';
@@ -319,12 +320,34 @@ async function main() {
     { const { b, r2 } = fresh(); r2.state.coatCharred = true; assert(inspect(b, referenceBoard(sc)!, [], []).findings.some((f) => f.kind === 'coating-charred'), 'an iron on the coating chars it: rejected'); }
   }
 
+  // ---- ESD (pp. 3-38 – 3-42, Table 3-2) ----
+  {
+    assert(benchCharge('low') === 6000 && benchCharge('high') === 100 && TABLE_3_2.length === 6, 'Table 3-2: a worker at the bench carries 6,000 V in dry air, 100 V in humid air');
+    const sc = scs.find((x) => x.id === 'hr-esd')!;
+    const l9 = lessonFor('hr-esd')!;
+    const fit = (grounded: boolean, humidity: 'low' | 'high') => {
+      const b = structuredClone(sc.board), q = b.components.find((c) => c.ref === 'Q1')!;
+      installPart(q);
+      const out = handleEsd(q, grounded, humidity);
+      return { out, works: evaluateObjectives(b, buildConnectivity(b), sc.objectives, 'spice').allPassed, ins: inspect(b, referenceBoard(sc)!, [], []) };
+    };
+    const strap = fit(true, 'low');
+    assert(strap.out === 'protected' && strap.works && lessonAccepted(l9, strap.ins), 'grounded: the new MOSFET works and the lesson passes');
+    const zap = fit(false, 'low');
+    assert(zap.out === 'gate-ruptured' && !zap.works && zap.ins.findings.some((f) => f.kind === 'esd-damage'), '6,000 V into a MOSFET (35 V): the gate ruptures, D1 stays dark');
+    const humid = fit(false, 'high');
+    assert(humid.out === 'gate-ruptured', 'even humid air (100 V) is above a MOSFET\'s 35 V');
+    const b = structuredClone(sc.board), led = b.components.find((c) => c.ref === 'D1')!;
+    assert(handleEsd(led, false, 'high') === 'safe' && handleEsd(led, false, 'low') === 'latent', 'an LED (a diode, < 3,000 V): safe at 100 V, degraded at 6,000 V without a visible effect');
+  }
+
   // ---- lesson data ----
   assert(LESSONS.length === SOLDERING_TRACK_IDS.length && LESSONS.every((l, i) => l.scenario === SOLDERING_TRACK_IDS[i]), 'one lesson per board, in order');
   for (const l of LESSONS) {
     assert(l.points.length >= 3 && l.original.length >= 1 && l.questions.length >= 1, `${l.scenario}: rules, original text and review questions`);
     assert(l.original.every((p) => p.length > 80 && !/-\s$/.test(p)), `${l.scenario}: whole quoted paragraphs`);
     assert(l.grades.every((g) => g in RULES), `${l.scenario}: grades known rules`);
+    if (l.bench) assert(['low', 'high'].includes(l.bench.humidity), `${l.scenario}: bench humidity`);
     assert(['r350', 'r350f', 'r400f'].includes(l.station), `${l.scenario}: a station the bench offers`);
     if (l.figure) assert(existsSync(`${root}public/${l.figure.src}`), `${l.scenario}: figure ${l.figure.src} is in public/`);
     for (const q of l.questions) assert(/^Q\d+$/.test(q.ref) && /^\d-\d+$/.test(q.page) && q.a.length > 2, `${l.scenario} ${q.ref}: numbered, with page and answer`);
