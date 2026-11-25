@@ -65,7 +65,8 @@ function filletsSvg(): string {
   const resolve = (svg: string) => svg.replace(/(\d+(?:\.\d+)?)([+-])(\d+(?:\.\d+)?)/g, (_, a, op, b) => String(op === '+' ? Number(a) + Number(b) : Number(a) - Number(b)));
   const cells = [
     cell(0, t('Target'), 'dg-ok', fill + target),
-    cell(1, t('Too little'), 'dg-bad', '<rect x="CX-7" y="TOP+14" width="14" height="14" class="dg-solder"/><path d="MCX-9 TOP Q CX TOP+3 CX+9 TOP Z" class="dg-solder"/>'),
+    // the barrel only part filled: one concave meniscus sunk inside the hole, no fillet on the pad
+    cell(1, t('Too little'), 'dg-bad', '<path d="MCX-7 BOT L CX-7 TOP+11 Q CX TOP+19 CX+7 TOP+11 L CX+7 BOT Z" class="dg-solder"/>'),
     cell(2, t('Too much'), 'dg-bad', fill + '<path d="MCX-17 TOP C CX-20 TOP-26 CX+20 TOP-26 CX+17 TOP Z" class="dg-solder"/>'),
     cell(3, t('Icicle'), 'dg-bad', fill + target + '<path d="MCX-3 BOT+2 L CX BOT+18 L CX+3 BOT+2 Z" class="dg-solder"/>'),
     cell(4, t('Not wetted'), 'dg-bad', '<rect x="CX-7" y="TOP+4" width="14" height="24" class="dg-dull"/><path d="MCX-10 TOP+1 Q CX-6 TOP-8 CX-2 TOP-6 L CX+2 TOP-6 Q CX+6 TOP-8 CX+10 TOP+1 Z" class="dg-dull"/>'),
@@ -107,4 +108,162 @@ function patchSvg(): string {
 export function lessonDiagramHtml(d: LessonDiagram): string {
   const body = d === 'phase' ? phaseSvg() : d === 'fillets' ? filletsSvg() : d === 'shotgun' ? shotgunSvg() : patchSvg();
   return `<div class="lesson-diagram">${body}</div>`;
+}
+
+/** Six common packages and how to read pin 1 or polarity on each (NEETS 14 pp. 1-27 – 1-28, T.O. 07-6.10). */
+export function polaritySvg(): string {
+  const W = 470, H = 224;
+  const box = (x: number, y: number, title: string, sub: string, inner: string) =>
+    `<g transform="translate(${x},${y})">
+      <rect x="0" y="0" width="148" height="104" rx="5" class="dg-card"/>
+      <text x="74" y="15" class="dg-lbl dg-strong" text-anchor="middle">${title}</text>
+      ${inner}
+      <text x="74" y="96" class="dg-lbl" text-anchor="middle">${sub}</text>
+    </g>`;
+  // 1. DIP (top view): notch on left, pin 1 bottom-left, counting counterclockwise
+  const dipPins = [1, 2, 3, 4].map((n, i) => {
+    const px = 42 + i * 21;
+    return `<rect x="${px - 5}" y="62" width="10" height="7" rx="${n === 1 ? 1 : 3}" class="dg-pad"/>
+      <text x="${px}" y="79" class="dg-lbl ${n === 1 ? 'dg-ok' : ''}" text-anchor="middle">${n}</text>
+      <rect x="${px - 5}" y="27" width="10" height="7" rx="3" class="dg-pad"/>
+      <text x="${px}" y="24" class="dg-lbl" text-anchor="middle">${9 - n}</text>`;
+  }).join('');
+  const dip = `<rect x="30" y="34" width="88" height="28" rx="2" class="dg-body"/>
+    <path d="M30 43 a5 5 0 0 1 0 10 Z" class="dg-notch"/>
+    <circle cx="42" cy="55" r="2.5" class="dg-dot"/>${dipPins}`;
+
+  // 2. Flat pack (top view): dot index bottom-left, gull-wing leads, counterclockwise
+  const fpPins = [1, 2, 3, 4].map((n, i) => {
+    const px = 44 + i * 20;
+    return `<rect x="${px - 2.5}" y="60" width="5" height="11" class="dg-lead"/>
+      <text x="${px}" y="81" class="dg-lbl ${n === 1 ? 'dg-ok' : ''}" text-anchor="middle">${n}</text>
+      <rect x="${px - 2.5}" y="25" width="5" height="11" class="dg-lead"/>`;
+  }).join('');
+  const fp = `<rect x="34" y="36" width="80" height="24" rx="2" class="dg-body"/>
+    <circle cx="44" cy="53" r="2.8" class="dg-dot"/>${fpPins}`;
+
+  // 3. TO-39 / TO-5 (bottom view): tab at 7:30, 45° from E; pins 1 (E), 2 (B), 3 (C) clockwise from it
+  const to39 = `<g transform="translate(74,52)">
+    <rect x="-5" y="-3.5" width="10" height="7" transform="translate(-18.4,18.4) rotate(45)" class="dg-lead"/>
+    <circle cx="0" cy="0" r="24" class="dg-solder"/>
+    <circle cx="0" cy="0" r="19" class="dg-board"/>
+    <circle cx="-13" cy="0" r="3" class="dg-cu"/><text x="-28" y="4" class="dg-lbl dg-ok" text-anchor="end">1 E</text>
+    <circle cx="0" cy="-13" r="3" class="dg-cu"/><text x="0" y="-28" class="dg-lbl" text-anchor="middle">2 B</text>
+    <circle cx="13" cy="0" r="3" class="dg-cu"/><text x="28" y="4" class="dg-lbl" text-anchor="start">3 C</text>
+    <text x="0" y="12" class="dg-lbl" text-anchor="middle">${t('CW')}</text>
+  </g>`;
+
+  // 4. TO-92 (flat face toward you, leads down): 1, 2, 3 left to right
+  const to92 = `<rect x="52" y="26" width="44" height="24" rx="3" class="dg-body"/>
+    <text x="74" y="42" class="dg-lbl" text-anchor="middle">${t('flat')}</text>
+    <rect x="58" y="50" width="3" height="22" class="dg-lead"/><text x="59.5" y="83" class="dg-lbl dg-ok" text-anchor="middle">1</text>
+    <rect x="72.5" y="50" width="3" height="22" class="dg-lead"/><text x="74" y="83" class="dg-lbl" text-anchor="middle">2</text>
+    <rect x="87" y="50" width="3" height="22" class="dg-lead"/><text x="88.5" y="83" class="dg-lbl" text-anchor="middle">3</text>`;
+
+  // 5. Diode & LED: cathode band on diode, flat edge + short lead on LED
+  const diodeLed = `
+    <line x1="16" y1="36" x2="72" y2="36" class="dg-line"/>
+    <rect x="28" y="29" width="32" height="14" rx="2" class="dg-body"/>
+    <rect x="51" y="29" width="5" height="14" class="dg-solder"/>
+    <text x="20" y="32" class="dg-lbl">A</text><text x="64" y="32" class="dg-lbl dg-ok">K</text>
+    <path d="M104 28 A12 12 0 1 0 116 48 L116 28 Z" class="dg-pad"/>
+    <rect x="103" y="48" width="2.5" height="26" class="dg-lead"/><text x="100" y="81" class="dg-lbl" text-anchor="end">+</text>
+    <rect x="111" y="48" width="2.5" height="18" class="dg-lead"/><text x="116" y="75" class="dg-lbl dg-ok" text-anchor="start">K −</text>
+    <text x="108" y="25" class="dg-lbl" text-anchor="middle">${t('flat = K')}</text>`;
+
+  // 6. Electrolytic (− stripe) vs Tantalum (+ stripe): classic polarity trap
+  const caps = `
+    <rect x="22" y="28" width="42" height="30" rx="4" class="dg-body"/>
+    <rect x="52" y="28" width="10" height="30" class="dg-solder"/>
+    <text x="57" y="47" class="dg-lbl dg-bad" text-anchor="middle">−</text>
+    <text x="43" y="72" class="dg-lbl" text-anchor="middle">${t('Al elec.')}</text>
+    <rect x="84" y="32" width="42" height="22" rx="3" class="dg-cu"/>
+    <rect x="84" y="32" width="10" height="22" class="dg-solder"/>
+    <text x="89" y="47" class="dg-lbl dg-ok" text-anchor="middle">+</text>
+    <text x="105" y="72" class="dg-lbl" text-anchor="middle">${t('Tantalum')}</text>`;
+
+  return `<div class="lesson-diagram">
+    <svg viewBox="0 0 ${W} ${H}" class="dg-svg dg-wide" role="img" aria-label="${t('Component pin 1 and polarity markings')}">
+      ${box(4, 4, t('DIP (top view)'), t('pin 1 left of notch, CCW'), dip)}
+      ${box(161, 4, t('Flat pack (top view)'), t('pin 1 CCW from dot'), fp)}
+      ${box(318, 4, t('TO-39 / TO-5 (bottom)'), t('CW from tab · can = C'), to39)}
+      ${box(4, 114, t('TO-92 (flat face)'), t('1–2–3 L→R (check sheet)'), to92)}
+      ${box(161, 114, t('Diode & LED'), t('band / flat + short = K'), diodeLed)}
+      ${box(318, 114, t('Polarised caps'), t('stripe: − Al, + tantalum'), caps)}
+    </svg>
+  </div>`;
+}
+
+export type DrillDiagram =
+  | 'fillet-target' | 'fillet-excess' | 'fillet-icicle' | 'fillet-under'
+  | 'wire-acc' | 'wire-touch' | 'fp-target' | 'fp-overhang'
+  | 'clinch-iso' | 'clinch-semi';
+
+/** Focused cross-section or top-view drawing for one visual inspection drill card (no answer shown). */
+export function drillSvg(id: DrillDiagram): string {
+  const W = 220, H = 112;
+  const wrap = (inner: string, label: string) =>
+    `<svg viewBox="0 0 ${W} ${H}" class="dg-svg dg-drill" role="img" aria-label="${label}">${inner}</svg>`;
+
+  // Through-hole solder fillets (T.O. 07-6.20, 05-4.2.10, 05-4.2.12)
+  if (id.startsWith('fillet-')) {
+    const cx = 110, top = 46, bot = 74;
+    const base = `
+      <rect x="28" y="${top}" width="164" height="${bot - top}" class="dg-board"/>
+      <rect x="${cx - 9}" y="${top}" width="18" height="${bot - top}" class="dg-hole"/>
+      <rect x="${cx - 24}" y="${top - 3}" width="48" height="3" class="dg-cu"/>
+      <rect x="${cx - 24}" y="${bot}" width="48" height="3" class="dg-cu"/>
+      <rect x="${cx - 3}" y="12" width="6" height="86" class="dg-lead"/>`;
+    const full = `<rect x="${cx - 9}" y="${top}" width="18" height="${bot - top}" class="dg-solder"/>`;
+    const concave = `<path d="M${cx - 24} ${top - 3} Q ${cx - 6} ${top - 5} ${cx - 3} ${top - 18} L ${cx - 3} ${top} L ${cx + 3} ${top} L ${cx + 3} ${top - 18} Q ${cx + 6} ${top - 5} ${cx + 24} ${top - 3} Z" class="dg-solder"/>`;
+    const solder = id === 'fillet-target' ? full + concave
+      : id === 'fillet-excess' ? full + `<path d="M${cx - 26} ${top - 3} C ${cx - 30} ${top - 38} ${cx + 30} ${top - 38} ${cx + 26} ${top - 3} Z" class="dg-solder"/>`
+      : id === 'fillet-icicle' ? full + concave + `<path d="M${cx + 4} ${bot + 3} L ${cx + 24} ${bot + 26} L ${cx + 12} ${bot + 3} Z" class="dg-solder"/>`
+      : `<path d="M${cx - 9} ${bot} L ${cx - 9} ${top + 12} Q ${cx} ${top + 20} ${cx + 9} ${top + 12} L ${cx + 9} ${bot} Z" class="dg-solder"/>`;
+    return wrap(base + solder, t('Through-hole solder joint cross-section'));
+  }
+
+  // Turret terminal wire clearance (T.O. 08-6.4): post on right, insulation + 1D / 2D ticks
+  if (id === 'wire-acc' || id === 'wire-touch') {
+    const cx = 158, cy = 54, R = 16, r = 21, D = 26, edge = cx - R;
+    const gap = id === 'wire-acc' ? 1.6 * D : 0;
+    const insEnd = edge - gap;
+    const ticks = [1, 2].map((n) => `<line x1="${edge - n * D}" x2="${edge - n * D}" y1="48" y2="66" class="dg-axis"/><text x="${edge - n * D}" y="78" class="dg-lbl" text-anchor="middle">${n}D</text>`).join('');
+    return wrap(`
+      <circle cx="${cx}" cy="${cy}" r="${R}" class="dg-solder"/>
+      <line x1="${edge}" x2="${edge}" y1="18" y2="66" class="dg-ref"/>
+      <line x1="16" x2="${insEnd}" y1="${cy - r}" y2="${cy - r}" stroke="var(--text-2)" stroke-width="14"/>
+      <line x1="${insEnd}" x2="${cx}" y1="${cy - r}" y2="${cy - r}" stroke="#c9ccd2" stroke-width="7"/>
+      <path d="M${cx} ${cy - r} A${r} ${r} 0 0 1 ${cx} ${cy + r}" fill="none" stroke="#c9ccd2" stroke-width="7"/>
+      ${ticks}
+      <text x="16" y="98" class="dg-lbl">${id === 'wire-acc' ? t('clearance: 1.6 D') : t('clearance: 0 D (touching)')}</text>`, t('Turret terminal wire clearance'));
+  }
+
+  // Flat-pack lead on land (T.O. 18-6.6)
+  if (id === 'fp-target' || id === 'fp-overhang') {
+    const toe = id === 'fp-target' ? 148 : 186;
+    return wrap(`
+      <rect x="20" y="72" width="180" height="22" class="dg-board"/>
+      <rect x="92" y="68" width="84" height="4" class="dg-cu"/>
+      <rect x="20" y="28" width="44" height="34" rx="2" class="dg-body"/>
+      <path d="M64 44 L78 44 Q84 44 88 52 L92 62 Q95 66 102 66 L${toe} 66" fill="none" stroke="#c9ccd2" stroke-width="5" stroke-linecap="butt"/>
+      <path d="M92 68 Q96 66 100 63 L${Math.min(toe, 174)} 63 L${Math.min(toe + 6, 176)} 68 Z" class="dg-solder"/>
+      <line x1="176" x2="176" y1="54" y2="86" class="dg-ref"/>
+      <text x="176" y="49" class="dg-lbl" text-anchor="middle">${t('land end')}</text>
+      <text x="22" y="106" class="dg-lbl">${id === 'fp-target' ? t('lead on land: 65 %') : t('toe overhangs land')}</text>`, t('Flat pack lead on its land'));
+  }
+
+  // Clinched lead on an isolated pad (T.O. 07-6.17, 07-6.18): no connecting conductor
+  const cx = 110, top = 56, bot = 84;
+  const lead = id === 'clinch-iso'
+    ? `<path d="M${cx} 96 L${cx} ${top - 6} Q${cx} ${top - 10} ${cx - 8} ${top - 10} L${cx - 32} ${top - 10}" fill="none" stroke="#c9ccd2" stroke-width="6"/>`
+    : `<path d="M${cx} 96 L${cx} ${top - 6} Q${cx} ${top - 12} ${cx - 6} ${top - 18} L${cx - 20} ${top - 32}" fill="none" stroke="#c9ccd2" stroke-width="6"/>`;
+  return wrap(`
+    <rect x="28" y="${top}" width="164" height="${bot - top}" class="dg-board"/>
+    <rect x="${cx - 8}" y="${top}" width="16" height="${bot - top}" class="dg-hole"/>
+    <rect x="${cx - 24}" y="${top - 3}" width="48" height="3" class="dg-cu"/>
+    <rect x="${cx - 24}" y="${bot}" width="48" height="3" class="dg-cu"/>
+    ${lead}
+    <text x="${cx}" y="22" class="dg-lbl" text-anchor="middle">${t('isolated pad (no run)')}</text>
+    <text x="28" y="106" class="dg-lbl">${id === 'clinch-iso' ? t('90° full clinch') : t('45° semi-clinch · 1 pad dia')}</text>`, t('Clinched lead on an isolated pad'));
 }

@@ -1919,6 +1919,27 @@ body.is-mobile .loadout-bar select { flex: 1 1 auto; width: auto; max-width: non
 .dg-body { fill: #25272b; stroke: var(--border-strong); }
 .dg-notch { fill: var(--surface); stroke: var(--muted); stroke-width: 1.2; }
 .dg-pad { fill: var(--surface-2); stroke: #c8a24a; stroke-width: 1.6; }
+.dg-card { fill: var(--surface-2); stroke: var(--border); stroke-width: 1; }
+.dg-wide { max-width: 100%; }
+.dg-drill { max-width: 240px; }
+.gd-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; color: var(--text-2); }
+.gd-drill-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.gd-drill-card { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
+.gd-drill-card.ok { border-color: var(--accent); }
+.gd-drill-card.bad { border-color: var(--danger-text); }
+.gd-drill-head { display: flex; gap: 8px; font-size: 12.5px; color: var(--text); line-height: 1.4; }
+.gd-drill-act { display: flex; gap: 6px; flex-wrap: wrap; }
+.gd-drill-why { margin: 0; font-size: 12px; color: var(--text-2); line-height: 1.45; }
+.gd-drill-why b.ok { color: var(--accent); }
+.gd-drill-why b.bad { color: var(--danger-text); }
+@media print {
+  html, body, #app { height: auto !important; overflow: visible !important; background: #fff !important; }
+  #app > *:not(#modal-root) { display: none !important; }
+  #modal-root, #guide-close-bg { position: static !important; background: #fff !important; padding: 0 !important; display: block !important; }
+  .guide-modal { width: 100% !important; max-width: none !important; max-height: none !important; border: 0 !important; box-shadow: none !important; background: #fff !important; color: #111 !important; }
+  .guide-modal .gd-tabs, .guide-modal .gd-noprint { display: none !important; }
+  .guide-modal .gd-body { max-height: none !important; overflow: visible !important; padding: 8px 0 !important; }
+}
 /* the held iron: which joint, how long, molten or not */
 .iron-hud { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 25; padding: 5px 10px; border-radius: var(--radius); background: var(--float); border: 1px solid var(--border-strong); font-size: 12px; color: var(--text-2); pointer-events: none; }
 .iron-lift { position: absolute; left: 50%; top: 48px; transform: translateX(-50%); z-index: 26; }

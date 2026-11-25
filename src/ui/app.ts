@@ -68,7 +68,7 @@ import { START_PREP, wireMeasureHtml, wirePrepHtml, wirePreviewSvg } from './wir
 import { COATINGS, COAT_TESTS, ID_TYPES, METHODS, applyCoating, coatingName, methodName, observe, removeCoating, workable, type CoatMethod, type CoatTest, type CoatingType } from '../coating';
 import { SOLDERING_TRACK_IDS } from '../scenarios/soldering';
 import { debriefHtml, lessonAccepted, lessonBriefHtml } from './lesson-ui';
-import { glossaryItemsHtml, guideHtml } from './guide-ui';
+import { glossaryItemsHtml, guideHtml, type ReviewFilter } from './guide-ui';
 import { Renderer, type RendererKind, type VizMode } from '../render/renderer';
 import { NoAdapterError, gpuDiagnosis, webGlInfo } from '../render/gpuprobe';
 import { gpuHelp } from './gpuhelp';
@@ -117,7 +117,7 @@ const TOOLS: { id: ToolId; key: string; ico: string; lbl: string; tip: string }[
   { id: 'staple', key: 'k', ico: 'staple', lbl: tk('Clinched staple'), tip: tk('Repair a broken or nicked conductor the high-reliability way: click the copper on one side of the damage, then the other (same side of the board)') },
   { id: 'padfix', key: 'e', ico: 'eyelet', lbl: tk('Pad repair'), tip: tk('Replace a lifted or missing pad: a new pad epoxied on, an eyelet set through it, lap-soldered to its run (click the pad)') },
   { id: 'coatest', key: 'q', ico: 'probe', lbl: tk('Coating test'), tip: tk('Test the conformal coating on a part (press, alcohol or heat, set in Bench) to identify its type, as in the 2M manual\'s flowchart') },
-  { id: 'decoat', key: 'u', ico: 'scrape', lbl: tk('Coating removal'), tip: tk('Take the conformal coating off a part\'s leads and pads (click the part); the method is set in Bench, as in NEETS Table 3-1') },
+  { id: 'decoat', key: 'u', ico: 'scrape', lbl: tk('Coating removal'), tip: tk('Take the conformal coating off a part\'s leads and pads (click the part); the method is set in Bench, as in the removal table (Table 06-3; NEETS Table 3-1 in lesson 8)') },
   { id: 'coat', key: 'j', ico: 'coat', lbl: tk('Conformal coating'), tip: tk('Put conformal coating back on a part after the repair (the type is set in Bench)') },
   { id: 'hookup', key: 'w', ico: 'hookup', lbl: tk('Hook-up wire'), tip: tk('Wire terminals together the 2M way (turret, hook, pierced tab, solder cup): click a terminal and prepare that end, then the other terminal') },
   { id: 'pliers', key: 'l', ico: 'pliers', lbl: tk('Lead pliers'), tip: tk('Straighten a clinched lead (click its pad): duckbill pliers turn it 15° to break the sweat joint, then it is straightened. Wick its surface solder off first') },
@@ -280,9 +280,10 @@ export class PcbApp {
   private ironHold: { src: { until: number; g: number }; start: number; where: string; el: HTMLElement | null; lift?: HTMLButtonElement; comp: Component; pad: number; vacuum: boolean; done: boolean; melted?: boolean; slow?: boolean } | null = null;
   /** The lesson text module, once loaded (src/lessons/neets14.ts is its own chunk). */
   private neets: typeof import('../lessons/neets14') | null = null;
-  /** The soldering course's guide (about, safety, glossary, reference): open tab, glossary search, where Close returns to. */
+  /** The soldering course's guide (about, safety, glossary, reference, drill, review): open tab, glossary search, where Close returns to. */
   private showGuide: import('../lessons/guide').GuideTab | null = null;
   private guideQuery = '';
+  private guideReviewFilter: ReviewFilter = 'again';
   private guideBack: 'boards' | 'lesson' | null = null;
   private guideMod: typeof import('../lessons/guide') | null = null;
   /** Soldering-track lesson dialog: before the repair, or the inspection after it. */
@@ -968,7 +969,7 @@ export class PcbApp {
               <option value="">${t('Not identified')}</option>
               ${ID_TYPES.map((x) => `<option value="${x.id}">${x.code} · ${t(coatingName(x.id))}</option>`).join('')}
             </select></label>
-            <label class="bench-row"><span>${t('Coating removal')}</span><select id="coat-method" title="${t('Method for taking conformal coating off (NEETS Table 3-1)')}">
+            <label class="bench-row"><span>${t('Coating removal')}</span><select id="coat-method" title="${t('Method for taking conformal coating off (Table 06-3 / NEETS Table 3-1)')}">
               ${METHODS.map((m) => `<option value="${m.id}">${t(m.name)}</option>`).join('')}
             </select></label>
             <label class="bench-row"><span>${t('Conformal coating')}</span><select id="coat-type" title="${t('Coating type to put back after a repair')}">
@@ -5538,6 +5539,9 @@ export class PcbApp {
       this.showLesson = b.dataset.lesson === 'debrief' ? 'debrief' : 'brief';
       this.renderModal();
     }));
+    this.sideBodyEl.querySelectorAll<HTMLButtonElement>('[data-guide]').forEach((b) => b.addEventListener('click', () => {
+      this.openGuide(b.dataset.guide as import('../lessons/guide').GuideTab, null);
+    }));
     this.sideBodyEl.querySelector('#btn-open-catalog')?.addEventListener('click', () => this.openBoardCatalog());
     this.sideBodyEl.querySelector('#btn-get-notes')?.addEventListener('click', () => {
       this.showMods = true;
@@ -7580,11 +7584,12 @@ export class PcbApp {
     });
   }
 
-  /** Overview card of a soldering-track board: the lesson, the inspection, and the track. */
+  /** Overview card of a soldering-track board: the lesson, the inspection, quick guide access, and the track. */
   private lessonCardHtml(title: string): string {
     const ids = SOLDERING_TRACK_IDS as readonly string[];
     const ins = this.lastInspection;
     const ok = ins && lessonAccepted(lessonMeta(this.activeScenario.id), ins);
+    const again = Object.values(this.quizState()).filter((v) => v === 'again').length;
     return `
       <div class="card">
         <div class="card-title">
@@ -7593,6 +7598,8 @@ export class PcbApp {
         </div>
         <div class="row wrap">
           <button class="btn sm" data-lesson="brief">${icon('book', 12)}<span>${t('Lesson: {title}', { title: this.esc(t(title)) })}</span></button>
+          <button class="btn sm ghost" data-guide="reference">${t('Guide')}</button>
+          ${again ? `<button class="btn sm ghost" data-guide="review">${t('Review ({n})', { n: again })}</button>` : ''}
           ${ins ? `<button class="btn sm" data-lesson="debrief"><span class="badge ${ok ? 'pass' : 'fail'}">${ok ? t('Accepted') : t('Rejected')}</span><span>${t('Inspection')}</span></button>` : ''}
         </div>
         <div class="muted">${t('Based on NEETS Module 14 and the Navy\'s 2M repair and certification manuals, all public domain. A board counts as done when it works and passes inspection.')}</div>
@@ -7664,9 +7671,10 @@ export class PcbApp {
   }
 
   /** Opens the course guide on a tab; Close goes back to where it was opened from. */
-  private openGuide(tab: import('../lessons/guide').GuideTab, back: 'boards' | 'lesson') {
+  private openGuide(tab: import('../lessons/guide').GuideTab, back: 'boards' | 'lesson' | null) {
     this.guideBack = back;
     if (back === 'boards') this.showBoards = false;
+    if (tab === 'review') this.guideReviewFilter = Object.values(this.quizState()).some((v) => v === 'again') ? 'again' : 'all';
     this.showGuide = tab;
     this.renderModal();
   }
@@ -7677,15 +7685,24 @@ export class PcbApp {
       return;
     }
     const tab = this.showGuide!;
+    if (tab === 'review' && !this.neets) {
+      void import('../lessons/neets14').then((m) => { this.neets = m; if (this.showGuide === 'review') this.renderModal(); });
+    }
     this.modalRootEl.innerHTML = `
       <div class="modal-backdrop" id="guide-close-bg">
         <div class="modal lesson-modal guide-modal" role="dialog" aria-modal="true" aria-labelledby="guide-h">
           <div class="modal-head">
             <h2 id="guide-h">${t('Course guide')} <span class="muted">${t('High-reliability soldering')}</span></h2>
-            <button class="btn ghost icon sm" id="guide-close" title="${t('Close')}" aria-label="${t('Close')}">${icon('x', 14)}</button>
+            <button class="btn ghost icon sm gd-noprint" id="guide-close" title="${t('Close')}" aria-label="${t('Close')}">${icon('x', 14)}</button>
           </div>
-          ${guideHtml(this.guideMod, tab, (x) => this.esc(x), this.guideQuery)}
-          <div class="row lesson-actions"><button class="btn primary" id="guide-done">${this.guideBack === 'lesson' ? t('Back to the lesson') : t('Close')}</button></div>
+          ${guideHtml(this.guideMod, tab, (x) => this.esc(x), {
+            query: this.guideQuery,
+            drill: this.drillState(),
+            quiz: this.quizState(),
+            lessons: this.neets?.LESSONS ?? null,
+            reviewFilter: this.guideReviewFilter,
+          })}
+          <div class="row lesson-actions gd-noprint"><button class="btn primary" id="guide-done">${this.guideBack === 'lesson' ? t('Back to the lesson') : t('Close')}</button></div>
         </div>
       </div>`;
     const close = () => {
@@ -7693,13 +7710,16 @@ export class PcbApp {
       if (this.guideBack === 'boards') this.showBoards = true;
       this.guideBack = null;
       this.renderModal();
+      this.renderMissionTab();
     };
     const q = <T extends HTMLElement>(sel: string) => this.modalRootEl.querySelector<T>(sel);
     q('#guide-close')?.addEventListener('click', close);
     q('#guide-done')?.addEventListener('click', close);
     q('#guide-close-bg')?.addEventListener('click', (e) => { if ((e.target as HTMLElement).id === 'guide-close-bg') close(); });
     this.modalRootEl.querySelectorAll<HTMLButtonElement>('[data-guide-tab]').forEach((b) => b.addEventListener('click', () => {
-      this.showGuide = b.dataset.guideTab as import('../lessons/guide').GuideTab;
+      const next = b.dataset.guideTab as import('../lessons/guide').GuideTab;
+      if (next === 'review') this.guideReviewFilter = Object.values(this.quizState()).some((v) => v === 'again') ? 'again' : 'all';
+      this.showGuide = next;
       this.renderModal();
       this.modalRootEl.querySelector<HTMLElement>(`[data-guide-tab="${this.showGuide}"]`)?.focus({ preventScroll: true });
     }));
@@ -7710,7 +7730,49 @@ export class PcbApp {
       const list = q('#gd-gloss');
       if (list && this.guideMod) list.innerHTML = glossaryItemsHtml(this.guideMod, (x) => this.esc(x), this.guideQuery);
     });
+    q('#gd-print')?.addEventListener('click', () => window.print());
+    // inspection drill verdicts (kept on this device)
+    this.modalRootEl.querySelectorAll<HTMLButtonElement>('[data-drill]').forEach((b) => b.addEventListener('click', () => {
+      const id = b.dataset.drill!, v = b.dataset.drillV as import('../lessons/guide').DrillVerdict;
+      const d = this.drillState();
+      d[id] = v;
+      try { localStorage.setItem('pcbfix_track_drill', JSON.stringify(d)); } catch { /* private mode */ }
+      const scroll = q('.gd-body')?.scrollTop ?? 0;
+      this.renderModal();
+      const box = q('.gd-body');
+      if (box) box.scrollTop = scroll;
+      q<HTMLElement>(`[data-drill="${CSS.escape(id)}"][data-drill-v="${v}"]`)?.focus({ preventScroll: true });
+    }));
+    q('#gd-drill-reset')?.addEventListener('click', () => {
+      try { localStorage.removeItem('pcbfix_track_drill'); } catch { /* private mode */ }
+      this.renderModal();
+    });
+    // missed-questions review filter and self-check marks
+    this.modalRootEl.querySelectorAll<HTMLButtonElement>('[data-rev-filter]').forEach((b) => b.addEventListener('click', () => {
+      this.guideReviewFilter = b.dataset.revFilter as ReviewFilter;
+      this.renderModal();
+      q<HTMLElement>(`[data-rev-filter="${this.guideReviewFilter}"]`)?.focus({ preventScroll: true });
+    }));
+    this.modalRootEl.querySelectorAll<HTMLButtonElement>('[data-quiz]').forEach((b) => b.addEventListener('click', () => {
+      const key = b.dataset.quiz!, st = this.quizState();
+      st[key] = b.dataset.quizV === 'known' ? 'known' : 'again';
+      try { localStorage.setItem('pcbfix_track_quiz', JSON.stringify(st)); } catch { /* private mode */ }
+      const scroll = q('.gd-body')?.scrollTop ?? 0;
+      this.renderModal();
+      q(`[data-quiz="${CSS.escape(key)}"]`)?.closest('details')?.setAttribute('open', '');
+      const box = q('.gd-body');
+      if (box) box.scrollTop = scroll;
+      q<HTMLElement>(`[data-quiz="${CSS.escape(key)}"][data-quiz-v="${st[key]}"]`)?.focus({ preventScroll: true });
+    }));
     (search ?? q<HTMLElement>(`[data-guide-tab="${tab}"]`))?.focus({ preventScroll: true });
+  }
+
+  /** The learner's answers on the course guide's visual inspection drill (item id → verdict). */
+  private drillState(): Record<string, import('../lessons/guide').DrillVerdict> {
+    try {
+      const v = JSON.parse(localStorage.getItem('pcbfix_track_drill') ?? '{}');
+      return v && typeof v === 'object' ? v : {};
+    } catch { return {}; }
   }
 
   /** The learner's self-check answers to the course's review questions (lesson-ui quizKey → known / again). */

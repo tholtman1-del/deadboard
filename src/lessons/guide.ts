@@ -3,8 +3,25 @@
 // 00-25-259, WP 003 00) and NEETS Module 14's own (pp. 3-40 – 3-46), quoted in `original`; the
 // short points, the glossary definitions and the reference rows are ours, each with its source.
 import { tk } from '../i18n';
+import type { DrillDiagram } from '../ui/lesson-diagrams';
 
-export type GuideTab = 'about' | 'safety' | 'glossary' | 'reference';
+export type GuideTab = 'about' | 'safety' | 'glossary' | 'reference' | 'drill' | 'review';
+export type DrillVerdict = 'target' | 'acceptable' | 'defect';
+export interface DrillItem { id: DrillDiagram; prompt: string; answer: DrillVerdict; why: string; src: string }
+
+/** Visual workmanship inspection drill: Target, Acceptable, or Defect per T.O. 00-25-259. */
+export const INSPECTION_DRILL: DrillItem[] = [
+  { id: 'fillet-target', prompt: tk('Plated hole 100 % filled, concave fillet covers the pad, lead outline still visible.'), answer: 'target', why: tk('Target: 100 % vertical hole fill, full pad coverage and a concave fillet with the lead visible.'), src: 'T.O. 07-6.20' },
+  { id: 'fillet-excess', prompt: tk('Plated hole filled, but a convex solder ball hides the lead outline.'), answer: 'defect', why: tk('Defect (excessive solder): too much solder hides the parts being joined and must be removed and resoldered.'), src: 'T.O. 05-4.2.10' },
+  { id: 'fillet-icicle', prompt: tk('Concave fillet on top, sharp solder point sticking out from the bottom pad.'), answer: 'defect', why: tk('Defect (solder projection / icicle): comes from reflowing without flux or lifting the iron before the solder; reflow with flux.'), src: 'T.O. 05-4.2.12' },
+  { id: 'fillet-under', prompt: tk('Plated-through hole only half filled vertically, meniscus sunk inside the barrel.'), answer: 'defect', why: tk('Defect (insufficient solder): vertical fill of a plated-through hole must be 100 %.'), src: 'T.O. 07-6.20' },
+  { id: 'wire-acc', prompt: tk('Turret wire wrapped 180°, cut flush; bare wire clearance is 1.6 D (between 1 D and 2 D).'), answer: 'acceptable', why: tk('Acceptable: target clearance is 1 wire diameter, and up to 2 wire diameters is acceptable without touching the terminal.'), src: 'T.O. 08-6.4' },
+  { id: 'wire-touch', prompt: tk('Turret wire wrapped 180°, cut flush; insulation touches the outside edge of the post.'), answer: 'defect', why: tk('Defect: wire insulation must never contact the terminal or solder fillet.'), src: 'T.O. 08-6.4' },
+  { id: 'fp-target', prompt: tk('Flat-pack gull-wing lead rests on 65 % of its land length, toe inside the land.'), answer: 'target', why: tk('Target: flat-pack lead length on the land is 50–80 % of the land length, with the toe on the land.'), src: 'T.O. 18-6.6' },
+  { id: 'fp-overhang', prompt: tk('Flat-pack gull-wing lead covers the whole land and its toe overhangs the end.'), answer: 'defect', why: tk('Defect: the toe of a flat-pack lead must never overhang the land.'), src: 'T.O. 18-6.6' },
+  { id: 'clinch-iso', prompt: tk('Through-hole lead on an isolated pad (no run) bent flat to a 90° full clinch.'), answer: 'defect', why: tk('Defect: a lead terminating on an isolated pad may not be fully clinched; use a 45° semi-clinch.'), src: 'T.O. 07-6.18' },
+  { id: 'clinch-semi', prompt: tk('Through-hole lead on an isolated pad bent 45° (semi-clinch), cut to one pad diameter.'), answer: 'target', why: tk('Target: a 45° semi-clinch of one pad diameter may be used on an isolated pad.'), src: 'T.O. 07-6.17' },
+];
 
 export const GUIDE_ABOUT = {
   points: [

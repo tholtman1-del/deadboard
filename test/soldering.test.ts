@@ -9,6 +9,9 @@ import { RULES, inspect } from '../src/workmanship';
 import { ID_TYPES, TABLE_06_3, TABLE_3_1, applyCoating, observe, removeCoating, workable } from '../src/coating';
 import { TABLE_3_2, benchCharge, handle as handleEsd } from '../src/esd';
 import { CONTENT, LESSONS, lessonFor } from '../src/lessons/neets14';
+import * as GUIDE from '../src/lessons/guide';
+import { GUIDE_TABS, guideHtml } from '../src/ui/guide-ui';
+import { drillSvg, polaritySvg } from '../src/ui/lesson-diagrams';
 import { LESSON_META } from '../src/lessons/track';
 import { lessonAccepted } from '../src/ui/lesson-ui';
 import { SOLDERING_TRACK_IDS, solderingScenarios } from '../src/scenarios/soldering';
@@ -624,6 +627,20 @@ async function main() {
     if (l.figure) assert(existsSync(`${root}public/${l.figure.src}`), `${l.scenario}: figure ${l.figure.src} is in public/`);
     for (const q of l.questions) assert(q.source === 'to' ? /^S\d+$/.test(q.ref) && /^\d\d-\d/.test(q.page) : /^Q\d+$/.test(q.ref) && /^\d-\d+$/.test(q.page), `${l.scenario} ${q.ref}: numbered, with page or paragraph`);
     for (const q of l.questions) assert(q.a.length > 2, `${l.scenario} ${q.ref}: an answer`);
+  }
+  {
+    // course guide: all tabs render cleanly, polarity SVG + inspection drill cards + missed-questions review
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    assert(GUIDE.INSPECTION_DRILL.length >= 8 && new Set(GUIDE.INSPECTION_DRILL.map((x) => x.id)).size === GUIDE.INSPECTION_DRILL.length, 'inspection drill has unique cases');
+    assert(polaritySvg().includes('<svg') && GUIDE.INSPECTION_DRILL.every((x) => drillSvg(x.id).includes('<svg')), 'polarity and drill diagrams render SVGs');
+    const st = { query: '', drill: { 'fillet-target': 'target' as const }, quiz: { 'hr-solder-flux|m14|Q11|2-20': 'again' as const }, lessons: LESSONS, reviewFilter: 'again' as const };
+    for (const tab of GUIDE_TABS) {
+      const html = guideHtml(GUIDE, tab.id, esc, st);
+      assert(html.length > 100, `guide tab ${tab.id} renders`);
+    }
+    assert(guideHtml(GUIDE, 'reference', esc, st).includes('gd-print'), 'reference tab offers Print cheat sheet');
+    assert(guideHtml(GUIDE, 'review', esc, st).includes('Q11'), 'review tab surfaces questions marked Not yet');
+    assert(guideHtml(GUIDE, 'drill', esc, st).includes('1 of 10 correct'), 'drill tab scores answered verdicts');
   }
 
   console.log('SOLDERING TESTS PASSED (alloys, copper map, THT joint physics, pour vs track, flux and residue, inspection rules, desoldering: wick / plunger / vacuum + refit, thermal shunt, skipping pattern, track boards, lessons)');
