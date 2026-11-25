@@ -1,4 +1,4 @@
-# DEADBOARD — handoff (updated later on 2026-11-25: final-practical dock, silkscreen numbers, two-wire rules — uncommitted, see the first Status bullet; tool dock + course UI live at b632b87; 2M course map below; analytics: read the data from 11-27)
+# DEADBOARD — handoff (updated later on 2026-11-25: final-practical dock, silkscreen numbers, two-wire rules — live at 341b030, see the first Status bullet; tool dock + course UI live at b632b87; 2M course map below; analytics: read the data from 11-27)
 
 Goal: make DEADBOARD (formerly PCB//FIX) a realistic board-repair trainer, as close to a real bench as possible,
 **universal** (any board, not just the MacBook), with honest provenance for every value.
@@ -7,9 +7,9 @@ No reference hardware is available, so realism is validated against *design inte
 
 ## Status (start here)
 
-- **NEXT SESSION — START HERE (updated later on 2026-11-25).** Last pushed code `b632b87`. On top of
-  it, **uncommitted** in the working tree (tests + build green, checked in Chrome), waiting for the
-  user's OK to commit / push:
+- **NEXT SESSION — START HERE (updated later on 2026-11-25).** Previous code `b632b87`. On top of
+  it, pushed and live as `341b030` (tests + build green, checked in Chrome, Pages deploy green;
+  approved with "commit and publish"):
   - **Final practical dock:** `LessonMeta.dock` (track.ts) = a lesson's whole dock, most needed first,
     in place of the 14 bench tools; its `teaches` tools never fold, the rest fold from the list's end
     when the window is short (`dockPlan().rank`). The practical lists inspect, iron, the ten 2M tools,
@@ -28,7 +28,7 @@ No reference hardware is available, so realism is validated against *design inte
     it. Tests: `test/terminals.test.ts` (unit + a crossed second wire fails all three wire lessons).
   To do, in order:
   1. Ask the user for **play-through notes** on the 2M course and the dock / palette (the user has
-     not played the course yet), and for the OK to commit + push the work above.
+     not played the course yet).
   2. Known nit: Pages actions on Node 20.
   3. Analytics: read the data from 11-27 (baselines in the 11-24 entry). No new events were added.
   4. Still open from the manuals: see the course map's "Open from the manuals" below (two-wire rules
