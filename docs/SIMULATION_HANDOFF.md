@@ -1,4 +1,4 @@
-# DEADBOARD — handoff (updated end of 2026-11-25: 2M soldering course, 19 boards, live — see the first Status bullet; analytics: read the data from 11-27)
+# DEADBOARD — handoff (updated end of 2026-11-25: tool dock + course UI live at b632b87, then the 2M soldering course map — see the first two Status bullets; analytics: read the data from 11-27)
 
 Goal: make DEADBOARD (formerly PCB//FIX) a realistic board-repair trainer, as close to a real bench as possible,
 **universal** (any board, not just the MacBook), with honest provenance for every value.
@@ -7,7 +7,24 @@ No reference hardware is available, so realism is validated against *design inte
 
 ## Status (start here)
 
-- **Tool dock + course UI pass (2026-11-25, not committed yet).** With the course's 10 tools the dock
+- **NEXT SESSION — START HERE (end of 2026-11-25).** Last code commit `b632b87` (tool dock + course
+  UI), pushed, Pages deploy green, checked live on deadboard.org. Working tree clean apart from the
+  untracked `.claude/`. To do, in order:
+  1. Ask the user for **play-through notes** on the 2M course and on the new dock / palette (the
+     user has not played the course yet).
+  2. Open choice for the user: the **final practical** pins only the 4 tools in its `BOARD_INFO`
+     `teaches` (extract, shunt, decoat, staple); the other six 2M tools are in the palette (pinned
+     once picked). Offer to pin all ten there. Careful: `teaches` also drives "New: skill" chips and
+     skill bars, so a separate dock list may be better than widening `teaches`.
+  3. Known nits still open: silkscreen lesson numbers (`hr-coating-id` none, `hr-esd` says 9,
+     `hr-pad-repair` says 10) + re-render thumbs; Pages actions on Node 20.
+  4. Analytics: read the data from 11-27 (baselines in the 11-24 entry). New dock: no new events
+     were added (rule: none without the maintainer asking).
+  - How the UI was checked: dev server `npx vite --port 5199`, a throwaway playwright-core script
+    (Chrome, `?automation=1`, `window.deadboard.open(id)`, close `#lesson-close` / `#tut-close`,
+    click `#btn-more-tools` for the palette, `[data-bp-act="course"]` for the course list) at
+    1440×800, 1366×640, 1280×720, phone 390×844 + 844×390 (`isMobile`, `hasTouch`).
+- **Tool dock + course UI pass (2026-11-25, live at `b632b87`).** With the course's 10 tools the dock
   (24 tools) ran off a laptop screen and the course looked like one more challenge. Now: the dock pins
   the 14 bench tools; the 2M tools (`HIREL_TOOLS`) are pinned only where a course lesson teaches them
   (`BOARD_INFO.teaches`, new-to-the-course ones dotted), when in use, or once picked on that board
