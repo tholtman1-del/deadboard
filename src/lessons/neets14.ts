@@ -154,8 +154,10 @@ export const CONTENT: LessonContent[] = [
       tk('A manual vacuum plunger never removes all the solder: in a plated hole the lead stays stuck to the wall by a paper-thin sweat joint, and the jolt can lift the pad.'),
       tk('Continuous (motorized) vacuum is the most reliable: heat the joint, apply vacuum when the solder melts and stir the lead so no sweat joint forms.'),
       tk('Heat-and-shake and heat-and-pull are never used: they splatter solder, damage plated holes and lift pads.'),
+      tk('Soldering the new part: feed solder until the hole is filled and the pad covered, then take solder and tip away together. Too little leaves the hole unfilled; too much hides the lead in a convex blob (T.O. 07-6.20, 05-4.2.10). The iron\'s readout shows the fill.'),
     ],
     numbers: [
+      { label: tk('New joint'), value: tk('hole 100 % filled, pad ≥ 75 % covered, the lead still visible') },
       { label: tk('Solder wick'), value: tk('surface joints, unsupported holes') },
       { label: tk('Manual plunger'), value: tk('leaves a sweat joint in plated holes') },
       { label: tk('Continuous vacuum'), value: tk('plated holes: the hole comes out clean') },

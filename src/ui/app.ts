@@ -3779,7 +3779,9 @@ export class PcbApp {
     if (molten) h.melted = true;
     // no melt within 2–3 s: the manual says stop, clean, then raise the tip temperature
     if (!h.melted && !h.slow && sec > MELT_WITHIN_S && this.rework) { h.slow = true; this.toast(this.rework.noteSlowMelt(h.comp, h.pad).detail, 'warn'); }
-    h.el.textContent = `${h.where} · ${sec.toFixed(1)} s${molten ? ` · ${t('molten')}` : ''}${h.vacuum ? ` · ${h.done ? t('hole clear') : t('vacuum')}` : ''}`;
+    // a new joint being filled: how much solder is in it (what the eye sees as the fillet grows)
+    const fill = h.comp.state.solderFill?.[h.pad];
+    h.el.textContent = `${h.where} · ${sec.toFixed(1)} s${molten ? ` · ${t('molten')}` : ''}${h.vacuum ? ` · ${h.done ? t('hole clear') : t('vacuum')}` : ''}${fill !== undefined && !h.vacuum ? ` · ${t('fill {p} %', { p: Math.round(fill * 100) })}` : ''}`;
     h.el.classList.toggle('molten', molten);
   }
 

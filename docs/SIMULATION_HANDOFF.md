@@ -163,7 +163,16 @@ No reference hardware is available, so realism is validated against *design inte
     R5 (330 Ω, full-clinched along bottom runs from a via on VBUS2) and green D5. On the practical
     R5 is burned open over a 4 mm burn (4.7 kΩ char): coating off, free the clinched leads, patch the
     laminate, refit clinched, recoat. Every Appendix C miniature project is now on the card; par 52.
-  - **Next from the manuals:** two-wire rules (overlap, alternating directions on a hook) are not modelled (the tool stacks
+  - **Solder volume on new joints (2026-11-25, all boards):** `rework.ts` `FEED_RATE` (1 ideal fill
+    per second of feeding into a molten joint with the tip on it; estimate) and `FILL_LIMITS`
+    (pad 0.75, plated hole 1, excess 2). Only joints made in an empty hole are graded
+    (`state.solderFill`, set when the hole fills, grows while fed; cleared by extraction, new
+    parts, removal); reflowed factory joints keep theirs. Rules `solder-insufficient` (07-6.20,
+    NEETS p. 3-24) and `solder-excess` (05-4.2.10, 05-6.1), graded in every lesson; the iron's
+    readout shows "fill … %", the renderer sizes the fillet (thin / full / convex ball). Desoldering
+    lesson gained the point. Wire terminals keep their own ok / starved model.
+  - **Next from the manuals:** icicles (05-4.2.12: lifting the iron before the solder, or reflowing
+    without flux), pinholes / blowholes; two-wire rules (overlap, alternating directions on a hook) are not modelled (the tool stacks
     wires); bifurcated terminals (08-6.8); resistive tweezers for cups; remaining 05-6.1 defects
     need a solder-volume model (convex fillet, icicles, solder balls).
   - **Follow-ups:** flat packs (3-29)

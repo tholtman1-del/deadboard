@@ -1051,8 +1051,17 @@ export class Renderer {
             if (hasB) op.dome.pushTRS(padPos[0], padPos[1], -ht - 0.04, d, d, -0.58, 0, 0.52, 0.5, 0.46, 1, 0, 0.35, 0.85);
             if (hasF) op.dome.pushTRS(padPos[0], padPos[1], ht + 0.04, d * 0.85, d * 0.85, 0.42, 0, 0.52, 0.5, 0.46, 1, 0, 0.35, 0.85);
           } else {
-            if (hasB) op.dome.pushTRS(padPos[0], padPos[1], -ht - 0.04, d, d, -0.58, 0, 0.85, 0.87, 0.91, 1, 0, 0.94, 0.14);
-            if (hasF) op.dome.pushTRS(padPos[0], padPos[1], ht + 0.04, d * 0.85, d * 0.85, 0.42, 0, 0.85, 0.87, 0.91, 1, 0, 0.94, 0.14);
+            // a new joint shows how much solder went in: thin and partial, full, or a convex ball (T.O. 07-6.20, 05-4.2.10)
+            const f = c.state.solderFill?.[pi];
+            const ds = f === undefined ? 1 : f < 1 ? 0.55 + 0.45 * f : 1 + 0.12 * (f - 1);
+            const hs = f === undefined ? 1 : Math.max(0.25, Math.min(2.4, f < 1 ? f : 1 + 0.7 * (f - 1)));
+            if (f !== undefined && f > 2) {
+              if (hasB) op.sphere.pushTRS(padPos[0], padPos[1], -ht - 0.35 * hs, d * ds, d * ds, 0.9 * hs, 0, 0.85, 0.87, 0.91, 1, 0, 0.94, 0.14);
+              if (hasF) op.dome.pushTRS(padPos[0], padPos[1], ht + 0.04, d * 0.85, d * 0.85, 0.42, 0, 0.85, 0.87, 0.91, 1, 0, 0.94, 0.14);
+            } else {
+              if (hasB) op.dome.pushTRS(padPos[0], padPos[1], -ht - 0.04, d * ds, d * ds, -0.58 * hs, 0, 0.85, 0.87, 0.91, 1, 0, 0.94, 0.14);
+              if (hasF) op.dome.pushTRS(padPos[0], padPos[1], ht + 0.04, d * 0.85 * (f !== undefined && f < 1 ? ds : 1), d * 0.85 * (f !== undefined && f < 1 ? ds : 1), 0.42 * (f !== undefined && f < 1 ? hs : 1), 0, 0.85, 0.87, 0.91, 1, 0, 0.94, 0.14);
+            }
           }
           // Clipped component lead protruding slightly on opposite side of board
           const leadZ = c.side === 'F' ? -ht - 0.42 : ht + 0.42;

@@ -111,6 +111,11 @@ export interface ComponentState {
    * can be cleared.
    */
   clinch?: Record<number, import('./clinch').Clinch>;
+  /**
+   * New joints made in rework (an empty hole filled with fresh solder): pad index → solder in it,
+   * in ideal fills (src/rework.ts FEED_RATE). Graded for insufficient and excessive solder.
+   */
+  solderFill?: Record<number, number>;
   /** Clinched leads whose surface solder was wicked off: only a sweat joint holds them to the pad. */
   surfaceWicked?: number[];
   /** Intermittent faults driven by temperature / board flex (see src/intermittent.ts). */

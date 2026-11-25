@@ -90,6 +90,8 @@ async function main() {
     for (const pi of [0, 1]) { heat(r2, pi, 1.5, true); cool(); }
     for (const c of b.components) c.state.fluxResidue = undefined;
     assert(evaluateObjectives(b, buildConnectivity(b), sc.objectives, 'fast').allPassed, `the board works (${JSON.stringify(r2.state)})`);
+    const fills = Object.values(r2.state.solderFill ?? {});
+    assert(fills.length === 2 && fills.every((v) => v >= 1 && v <= 2), `both new joints filled within limits (${fills.map((v) => v.toFixed(2)).join(', ')})`);
     return inspect(b, ref, rw.episodes, rw.log);
   };
   const good = play((c) => clinchFitted(c, 'full', 1, true));

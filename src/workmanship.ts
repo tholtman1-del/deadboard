@@ -4,7 +4,7 @@
 // is advice. Universal: nothing here knows any particular board.
 import { tk } from './i18n';
 import type { Board } from './types';
-import { isHeatSensitive, type JointEpisode, type ReworkEvent } from './rework';
+import { FILL_LIMITS, isHeatSensitive, isPlated, type JointEpisode, type ReworkEvent } from './rework';
 import { judgeClinch, terminationName, terminationOf } from './clinch';
 import { judgeBurn, type LamArea } from './laminate';
 import { isWire, judge, type Check, type CheckArea, type TerminalType } from './terminals';
@@ -24,7 +24,8 @@ export type FindingKind =
   | 'overheated-joint' | 'slow-melt' | 'coating-id' | 'coating-id-order'
   | 'wire-strip' | 'wire-tinning' | 'wire-clearance' | 'wire-forming' | 'wire-solder'
   | 'clinch' | 'termination-style'
-  | 'laminate-burn' | 'laminate-excavation' | 'epoxy-fill' | 'buttercoat';
+  | 'laminate-burn' | 'laminate-excavation' | 'epoxy-fill' | 'buttercoat'
+  | 'solder-insufficient' | 'solder-excess';
 
 /**
  * `procedural`: about how the work was done, which the finished board does not show; listed only
@@ -66,6 +67,8 @@ export const RULES: Record<FindingKind, Rule> = {
   'laminate-excavation': { kind: 'laminate-excavation', severity: 'reject', title: tk('Laminate excavation'), rule: tk('All burnt laminate is removed. For a surface patch the excavation is 75 % of the laminate thickness deep, its walls straight and perpendicular, undercut about 50 % of the thickness, and the top edge beveled one laminate thickness wide.'), source: src('3-37'), also: [to('11-6.2, 11-5.2')] },
   'epoxy-fill': { kind: 'epoxy-fill', severity: 'reject', title: tk('Epoxy fill'), rule: tk('The undercut is filled with bubble-free epoxy, the excavation overfilled by about 5 % of the thickness, cured, and restored to the original laminate level. No voids over 20 % of the thickness, no uncured epoxy.'), source: src('3-37'), also: [to('11-6.3')] },
   'buttercoat': { kind: 'buttercoat', severity: 'reject', title: tk('Buttercoat'), rule: tk('A thin, smooth, continuous layer of cured epoxy covers and overlaps the exposed fiber weave in the repair area.'), source: to('11-6.4') },
+  'solder-insufficient': { kind: 'solder-insufficient', severity: 'reject', title: tk('Insufficient solder'), rule: tk('The pad on the termination side is at least 75 % covered with wetted solder (100 % is the target), and the vertical fill of a plated-through hole is 100 %.'), source: src('3-24'), also: [to('07-6.20')] },
+  'solder-excess': { kind: 'solder-excess', severity: 'reject', title: tk('Excessive solder'), rule: tk('Too much solder hides the parts being joined: the fillet is convex and their outline is not discernible. The solder must be removed and the joint resoldered.'), source: to('05-4.2.10, 05-6.1') },
   'wire-repair': { kind: 'wire-repair', severity: 'note', title: tk('Wire repair'), rule: tk('A wire lap-soldered across a break is stronger than a solder bridge but not highly reliable; the clinched staple is the preferred repair of a broken conductor.'), source: src('3-32') },
 };
 
@@ -158,6 +161,18 @@ export function inspect(board: Board, reference: Board | undefined, episodes: re
     if (st === 'removed') add({ kind: 'coating-missing', where: c.ref });
     else if (st && st !== board.coating.type) add({ kind: 'coating-mismatch', where: c.ref, detail: st });
     if (c.state.coatMethodRank !== undefined && c.state.coatBestRank !== undefined && c.state.coatMethodRank > c.state.coatBestRank) add({ kind: 'coating-method', where: c.ref, detail: `#${c.state.coatMethodRank}` });
+  }
+
+  // new joints: how much fresh solder went in (07-6.20, 05-4.2.10)
+  for (const c of board.components) {
+    if (!c.state.populated) continue;
+    for (const [k, v] of Object.entries(c.state.solderFill ?? {})) {
+      const pi = Number(k), pct = `${Math.round(v * 100)} %`;
+      if (c.state.cold.includes(pi)) continue; // not a joint yet
+      if (v < FILL_LIMITS.pad) add({ kind: 'solder-insufficient', where: padName(c.ref, pi), detail: pct });
+      else if (v < FILL_LIMITS.hole && isPlated(c, pi)) add({ kind: 'solder-insufficient', where: padName(c.ref, pi), detail: pct });
+      else if (v > FILL_LIMITS.excess) add({ kind: 'solder-excess', where: padName(c.ref, pi), detail: pct });
+    }
   }
 
   // clinched leads (07-6.17 / 07-6.18), and a replacement terminated like the original (07-5.5)

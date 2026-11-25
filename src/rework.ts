@@ -126,8 +126,15 @@ export const OXIDIZE_MOLTEN_S = 6;
 export const OXIDIZE_REFLOWS = 3;
 /** Solder should melt within 2–3 s of heat (T.O. 00-25-259 03-5.4, 05-5.3.4). */
 export const MELT_WITHIN_S = 3;
+/**
+ * Fresh solder fed into a molten new joint, in ideal fills per second of feeding with the tip on it
+ * (an estimate: a hand-fed through-hole joint fills in about a second). Under 0.75 the pad is not
+ * covered, under 1 a plated hole is not filled, over 2 the joint is excessive (T.O. 07-6.20, 05-4.2.10).
+ */
+export const FEED_RATE = 1.0;
+export const FILL_LIMITS = { pad: 0.75, hole: 1, excess: 2 } as const;
 
-interface JointState { above: number; melted: boolean; hot: number; ep?: JointEpisode; fed: boolean; /** heatings of the same solder */ reflows: number }
+interface JointState { above: number; melted: boolean; hot: number; ep?: JointEpisode; fed: boolean; /** heatings of the same solder */ reflows: number; /** fresh solder in this joint (ideal fills) */ vol: number }
 
 /** What was done on a board, kept by the caller across monitors. */
 export interface ReworkHistory { episodes: JointEpisode[]; log: (ReworkEvent & { t: number })[] }
@@ -175,7 +182,7 @@ export class ReworkMonitor {
     const key = `${c.id}#${pi}`;
     const js = this.joints.get(key);
     if (js) { js.fed = true; if (js.melted && c.state.holes?.[pi] === 'clear') js.melted = false; } // a molten empty hole fills on the next step
-    else this.joints.set(key, { above: 0, melted: false, hot: 0, fed: true, reflows: 0 });
+    else this.joints.set(key, { above: 0, melted: false, hot: 0, fed: true, reflows: 0, vol: 0 });
   }
 
   /**
@@ -213,6 +220,8 @@ export class ReworkMonitor {
       if (js) js.reflows = 0;
       if (c.state.oxidized?.includes(pi)) { const left = c.state.oxidized.filter((x) => x !== pi); c.state.oxidized = left.length ? left : undefined; }
       if (!c.state.cold.includes(pi)) c.state.cold = [...c.state.cold, pi].sort((a, b) => a - b);
+      if (c.state.solderFill?.[pi] !== undefined) { const { [pi]: _gone, ...rest } = c.state.solderFill; void _gone; c.state.solderFill = Object.keys(rest).length ? rest : undefined; }
+      if (js) js.vol = 0;
     };
     const clinched = !!c.state.clinch?.[pi];
     if (clinched && mode !== 'wick') {
@@ -267,17 +276,23 @@ export class ReworkMonitor {
       c.pads.forEach((p, pi) => {
         const key = `${c.id}#${pi}`;
         let js = this.joints.get(key);
-        if (!js) this.joints.set(key, (js = { above: 0, melted: false, hot: 0, fed: false, reflows: 0 }));
+        if (!js) this.joints.set(key, (js = { above: 0, melted: false, hot: 0, fed: false, reflows: 0, vol: 0 }));
         const tj = this.thermal.jointTemp(c, pi);
         if (tj >= L.alloy.liquidus) {
           if (!js.ep) {
             js.ep = { ref: c.ref, pad: pi, molten: 0, dwell: 0, peak: tj, flux: ps.flux > 0, t: this.thermal.time, open: true, shunt: !!c.state.shunts?.includes(pi), bodyPeak: T, ...(c.state.burnt && { dead: true }) };
             this.episodes.push(js.ep);
             if (c.state.holes?.[pi] !== 'clear') js.reflows++;
+            js.vol = c.state.solderFill?.[pi] ?? 0;
           }
           js.ep.molten += dt;
           const tipOn = this.thermal.sources.some((s) => s.kind === 'iron' && s.partId === c.id && (s.pad === undefined || s.pad === pi) && this.thermal.time <= s.until + 1e-9);
           if (tipOn) js.ep.dwell += dt;
+          // fresh solder flowing into a new joint while it is fed; the fillet grows with it
+          if (tipOn && js.fed) {
+            js.vol += dt * FEED_RATE;
+            if (c.state.solderFill?.[pi] !== undefined) c.state.solderFill = { ...c.state.solderFill, [pi]: js.vol };
+          }
           // heated too long, or the same solder reflowed again and again: it oxidizes (dull, grainy)
           const why = js.ep.dwell >= OXIDIZE_MOLTEN_S ? 'long' : js.reflows >= OXIDIZE_REFLOWS ? 'repeated' : null;
           if (why && !c.state.burnt && c.state.holes?.[pi] !== 'clear' && !c.state.oxidized?.includes(pi)) {
@@ -309,6 +324,7 @@ export class ReworkMonitor {
               c.state.holes = Object.keys(rest).length ? rest : undefined;
               c.state.cold = c.state.cold.filter((x) => x !== pi);
               js.reflows = 0; // fresh solder
+              c.state.solderFill = { ...(c.state.solderFill ?? {}), [pi]: js.vol }; // a new joint: its fill is graded
               if (c.state.oxidized?.includes(pi)) { const left = c.state.oxidized.filter((x) => x !== pi); c.state.oxidized = left.length ? left : undefined; }
               if (ps.flux > 0 && !c.state.fluxResidue?.includes(pi)) c.state.fluxResidue = [...(c.state.fluxResidue ?? []), pi].sort((a, b) => a - b);
               ev.push({ kind: 'filled', ref: c.ref, pad: pi, detail: t('{ref} pad {pad}: soldered, the hole filled', { ref: c.ref, pad: p.name }) });

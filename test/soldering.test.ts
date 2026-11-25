@@ -496,6 +496,26 @@ async function main() {
     assert(inRow.findings.some((f) => f.kind === 'skip-pattern'), 'pins heated one after the other are caught');
   }
 
+  // ---- solder volume on new joints (T.O. 07-6.20, 05-4.2.10) ----
+  {
+    const sc = scs.find((x) => x.id === 'hr-desoldering')!;
+    const fillAfter = (hold: number) => {
+      const b = structuredClone(sc.board), r2 = b.components.find((c) => c.ref === 'R2')!;
+      removePart(r2); installPart(r2, { value: 330 });
+      r2.state.holes = { 0: 'clear', 1: 'clear' }; r2.state.cold = [0, 1];
+      const m = new ThermalModel(b), rw = new ReworkMonitor(b, m, limitsFor('sn63'));
+      rw.applyFlux(r2.at[0], r2.at[1], 8); rw.feedSolder(r2, 0);
+      m.addSource({ kind: 'iron', x: 0, y: 0, temp: 316, g: IRON_G.flux, pmax: 60, until: hold, partId: r2.id, pad: 0 });
+      for (let t = 0; t < hold + 4; t += 0.05) { m.step(0.05); rw.update(0.05); }
+      for (const c of b.components) c.state.fluxResidue = undefined;
+      return { fill: r2.state.solderFill?.[0], kinds: inspect(b, referenceBoard(sc)!, rw.episodes, rw.log).findings.filter((f) => f.where === 'R2.1').map((f) => f.kind) };
+    };
+    const short = fillAfter(0.7), good = fillAfter(1.8), long = fillAfter(4.5);
+    assert(short.fill !== undefined && short.fill < 1 && short.kinds.includes('solder-insufficient'), `lifted too soon: the plated hole is not filled (${short.fill?.toFixed(2)})`);
+    assert(good.fill !== undefined && good.fill >= 1 && good.fill <= 2 && !good.kinds.some((k) => k.startsWith('solder-')), `about a second of feeding: a full fillet (${good.fill?.toFixed(2)})`);
+    assert(long.fill !== undefined && long.fill > 2 && long.kinds.includes('solder-excess'), `kept feeding: excessive solder (${long.fill?.toFixed(2)})`);
+  }
+
   // ---- lesson data ----
   assert(LESSON_META.length === CONTENT.length && LESSON_META.every((m) => CONTENT.some((c) => c.scenario === m.scenario)), 'every lesson has its bench data (track.ts) and its text (neets14.ts)');
   assert(LESSONS.length === SOLDERING_TRACK_IDS.length && LESSONS.every((l, i) => l.scenario === SOLDERING_TRACK_IDS[i]), 'one lesson per board, in order');
