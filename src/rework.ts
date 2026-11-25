@@ -129,10 +129,11 @@ export const MELT_WITHIN_S = 3;
 /**
  * Fresh solder fed into a molten new joint, in ideal fills per second of feeding with the tip on it
  * (an estimate: a hand-fed through-hole joint fills in about a second). Under 0.75 the pad is not
- * covered, under 1 a plated hole is not filled, over 2 the joint is excessive (T.O. 07-6.20, 05-4.2.10).
+ * covered, under 1 a plated hole is not filled, over 2.5 the joint is excessive (T.O. 07-6.20, 05-4.2.10):
+ * a full fillet takes about 1 – 2.5 s of feeding, in line with the manuals' 2 – 3 s soldering action.
  */
 export const FEED_RATE = 1.0;
-export const FILL_LIMITS = { pad: 0.75, hole: 1, excess: 2 } as const;
+export const FILL_LIMITS = { pad: 0.75, hole: 1, excess: 2.5 } as const;
 
 interface JointState { above: number; melted: boolean; hot: number; ep?: JointEpisode; fed: boolean; /** heatings of the same solder */ reflows: number; /** fresh solder in this joint (ideal fills) */ vol: number }
 

@@ -52,7 +52,7 @@ import { cleanFluxWithIpa, cleanWithIpa, fluxResidueNear, residueNear } from '..
 import { discoverPowerTree, railVoltage, type PowerTree } from '../spice/powertree';
 import { fmtHz, sampleSignal, signalOn, type ScopeSignal } from '../scope';
 import type { PowerStateName } from '../spice/sequencer';
-import { HOTAIR_H, IRON_G, MELT_WITHIN_S, PREHEAT_H, ReworkMonitor, VACUUM_SECONDS, heldPads, isThroughHole, limitsFor, type ExtractMode, type ReworkEvent, type ReworkHistory } from '../rework';
+import { FILL_LIMITS, HOTAIR_H, IRON_G, MELT_WITHIN_S, PREHEAT_H, ReworkMonitor, VACUUM_SECONDS, heldPads, isThroughHole, limitsFor, type ExtractMode, type ReworkEvent, type ReworkHistory } from '../rework';
 import { inspect, type Inspection } from '../workmanship';
 import { lessonMeta } from '../lessons/track';
 import { handle as handleEsd, type Humidity } from '../esd';
@@ -3781,7 +3781,7 @@ export class PcbApp {
     if (!h.melted && !h.slow && sec > MELT_WITHIN_S && this.rework) { h.slow = true; this.toast(this.rework.noteSlowMelt(h.comp, h.pad).detail, 'warn'); }
     // a new joint being filled: how much solder is in it (what the eye sees as the fillet grows)
     const fill = h.comp.state.solderFill?.[h.pad];
-    h.el.textContent = `${h.where} · ${sec.toFixed(1)} s${molten ? ` · ${t('molten')}` : ''}${h.vacuum ? ` · ${h.done ? t('hole clear') : t('vacuum')}` : ''}${fill !== undefined && !h.vacuum ? ` · ${t('fill {p} %', { p: Math.round(fill * 100) })}` : ''}`;
+    h.el.textContent = `${h.where} · ${sec.toFixed(1)} s${molten ? ` · ${t('molten')}` : ''}${h.vacuum ? ` · ${h.done ? t('hole clear') : t('vacuum')}` : ''}${fill !== undefined && !h.vacuum ? ` · ${fill < FILL_LIMITS.pad ? t('pad not covered') : fill < FILL_LIMITS.hole ? t('hole not full') : fill <= FILL_LIMITS.excess ? t('full fillet') : t('excess, convex')}` : ''}`;
     h.el.classList.toggle('molten', molten);
   }
 
