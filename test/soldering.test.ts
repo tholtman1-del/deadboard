@@ -343,7 +343,7 @@ async function main() {
       const { b, r2 } = fresh();
       assert(!workable(b, r2), 'a coated part cannot be worked on');
       assert(!removeCoating(b, r2, 'ballmill', false, '3-1').ok && !removeCoating(b, r2, 'peel', false, '3-1').ok, 'methods Table 3-1 does not list for polyurethane do nothing');
-      assert(!removeCoating(b, r2, 'solvent', false, '3-1').ok, 'solvent only for specific polyurethane compositions (A): not this one');
+      { const s = removeCoating(b, r2, 'solvent', false, '3-1'); assert(!s.ok && s.why === 'composition', 'solvent only for specific polyurethane compositions (A): not this one, and it says so'); }
       const r = removeCoating(b, r2, 'hotair', false, '3-1');
       assert(r.ok && r.rank === 1 && r.best === 1 && r.identifies && workable(b, r2), 'hot air jet: first choice for polyurethane, and it identifies the coating');
     }

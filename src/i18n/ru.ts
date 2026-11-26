@@ -1641,6 +1641,8 @@ const ru: Catalog = {
   "Why should the coating material be replaced once the required repair has been completed?": "Зачем после ремонта снова наносят покрытие?",
   "To ensure protective characteristics are maintained.": "Чтобы сохранить защитные свойства.",
   "Coating removal": "Снятие покрытия",
+  "{method} does nothing to this coating: Table {table} lists it for some compositions of this type only, and this one does not dissolve.": "«{method}» на это покрытие не действует: таблица {table} указывает его только для некоторых составов этого типа, а это покрытие не растворяется.",
+  "Pick another method in Bench → Coating removal.": "Выберите другой способ в «Стенд → Снятие покрытия».",
   "Put conformal coating back on a part after the repair (the type is set in Bench)": "Снова нанести влагозащитное покрытие на деталь после ремонта (тип выбирается в «Стенде»)",
   "Coating type to put back after a repair": "Тип покрытия, наносимого после ремонта",
   "The iron charred the conformal coating on {ref}: coating is never taken off with a soldering iron. Remove it with a proper method first (Coating removal, U).": "Паяльник обуглил влагозащитное покрытие на {ref}: покрытие никогда не снимают паяльником. Сначала снимите его подходящим способом (Снятие покрытия, U).",

@@ -79,7 +79,7 @@ export function workable(board: Board, c: Component): boolean {
 
 export type RemoveResult =
   | { ok: true; rank: number; best: number; identifies: boolean }
-  | { ok: false; why: 'not-listed' | 'thin-only' | 'thick-only' | 'already' };
+  | { ok: false; why: 'not-listed' | 'composition' | 'thin-only' | 'thick-only' | 'already' };
 
 /**
  * Removes the coating around a part with one method, as the removal table allows (`dry`: only says
@@ -94,7 +94,7 @@ export function removeCoating(board: Board, c: Component, method: CoatMethod, dr
   if (cell.thin && coat.thick) return { ok: false, why: 'thin-only' };
   if (cell.thick && !coat.thick) return { ok: false, why: 'thick-only' };
   // "specific coating compositions only" (A): the board says whether its coating is one of them
-  if (cell.some && !coat.solventSoluble) return { ok: false, why: 'not-listed' };
+  if (cell.some && !coat.solventSoluble) return { ok: false, why: 'composition' };
   const best = Math.min(...Object.values(rows[coat.type]).filter((x): x is Cell => !!x && !(x.thin && coat.thick) && !(x.thick && !coat.thick) && !(x.some && !coat.solventSoluble)).map((x) => x.rank));
   if (dry) return { ok: true, rank: cell.rank, best, identifies: !!cell.ids };
   c.state.coating = 'removed';

@@ -986,9 +986,7 @@ export class PcbApp {
               <option value="inject3">${t('Inject {v}·{a}', { v: '3.3 V', a: '1 A' })}</option>
             </select></label>
             <label class="bench-row"><span>${t('Current limit')}</span><select id="ocp-select" title="${t('Bench supply current limit (OCP)')}">
-              <option value="0">${t('No limit')}</option>
-              <option value="0.1">100 mA</option>
-              <option value="0.5">500 mA</option>
+              ${this.ocpOptions()}
             </select></label>
             <label class="bench-row"><span>${t('Solver')}</span><select id="solver-select" title="${t('Circuit solver: fast piecewise-linear DC · SPICE (real device physics, realistic meter) · SPICE + PWR (adds the board\'s regulators from its power tree)')}">
               <option value="fast">${t('Fast DC')}</option>
@@ -2700,16 +2698,52 @@ export class PcbApp {
     return { volts, amps, cc: !!sim.ccLimited };
   }
 
+  /** Opens Bench (the More sheet on phones) and flashes one setting's row, so a message can point at it. */
+  private showBenchSetting(sel: string) {
+    const el = this.mount.querySelector<HTMLElement>(sel);
+    const row = el?.closest<HTMLElement>('.bench-row');
+    if (!el || !row) return;
+    if (this.mobile) {
+      const more = this.mount.querySelector<HTMLElement>('#m-more');
+      if (more) { more.hidden = false; this.updateTopButtons(); }
+    } else {
+      const pop = this.mount.querySelector<HTMLElement>('#bench-pop');
+      if (pop?.hidden) {
+        this.mount.querySelector<HTMLElement>('#settings-pop')?.setAttribute('hidden', '');
+        this.mount.querySelector('#btn-settings')?.classList.remove('active');
+        pop.hidden = false;
+        this.mount.querySelector('#btn-bench')?.classList.add('active');
+      }
+    }
+    row.classList.remove('flash');
+    void row.offsetWidth; // restart the animation
+    row.classList.add('flash');
+    row.scrollIntoView({ block: 'center' });
+    setTimeout(() => row.classList.remove('flash'), 2000);
+  }
+
+  /** Current-limit presets of the bench supply (Bench → Current limit and the supply card). */
+  private ocpOptions() {
+    return [0, 0.01, 0.05, 0.1, 0.5, 1].map((a) => `<option value="${a}">${a === 0 ? t('No limit') : a < 1 ? `${Math.round(a * 1000)} mA` : `${a} A`}</option>`).join('');
+  }
+
+  private setOcp(amps: number) {
+    this.ocpAmps = amps;
+    this.recompute(false);
+    this.renderUI();
+  }
+
   private renderPsu() {
     if (!this.powerOn && !this.boot.history.length) { this.psuBoxEl.innerHTML = ''; return; }
     if (!this.psuBoxEl.querySelector('.psu-card')) {
       this.psuBoxEl.innerHTML = `
         <div class="psu-card">
-          <div class="psu-head"><span>${t('Bench supply')}</span><span class="muted" id="psu-mode"></span></div>
+          <div class="psu-head"><span>${t('Bench supply')}</span><span class="muted" id="psu-cv"></span></div>
           <div class="psu-lcd">
             <div class="v" id="psu-v"></div><div class="a" id="psu-a"></div>
             <div class="l">VOLTS</div><div class="l r">AMPS</div>
           </div>
+          <label class="psu-set"><span>${t('Current limit')}</span><select class="psu-limit" id="psu-limit" title="${t('Bench supply current limit (OCP)')}">${this.ocpOptions()}</select></label>
           <canvas class="psu-chart" id="psu-chart" width="528" height="128" aria-hidden="true"></canvas>
           <div class="psu-state" id="psu-state"></div>
         </div>`;
@@ -2718,6 +2752,8 @@ export class PcbApp {
         this.psuExpanded = !this.psuExpanded;
         this.psuBoxEl.classList.toggle('expanded', this.psuExpanded);
       });
+      // the current limit is set on the supply itself too (same setting as Bench → Current limit)
+      this.psuBoxEl.querySelector('#psu-limit')?.addEventListener('change', (e) => this.setOcp(Number((e.target as HTMLSelectElement).value) || 0));
     }
     this.psuBoxEl.classList.toggle('expanded', this.psuExpanded || (!this.mobile && this.bootSequenced));
     const rd = this.supplyReading();
@@ -2725,7 +2761,10 @@ export class PcbApp {
     const q = (id: string) => this.psuBoxEl.querySelector<HTMLElement>(id)!;
     q('#psu-v').textContent = `${rd.volts.toFixed(2)} V`;
     q('#psu-a').textContent = amps >= 1 ? `${amps.toFixed(3)} A` : `${(amps * 1000).toFixed(1)} mA`;
-    q('#psu-mode').textContent = this.psuInject ? t('injection') : rd.cc ? t('CC limit') : this.ocpAmps > 0 ? `OCP ${this.ocpAmps} A` : 'CV';
+    q('#psu-cv').textContent = this.psuInject ? t('injection') : rd.cc ? t('CC limit') : 'CV';
+    const lim = this.psuBoxEl.querySelector<HTMLSelectElement>('#psu-limit')!;
+    lim.value = String(this.ocpAmps);
+    lim.closest<HTMLElement>('.psu-set')!.hidden = !!this.psuInject; // injection has its own fixed limit
     const st = q('#psu-state');
     const b = this.boot;
     let txt = '', warn = false;
@@ -3266,11 +3305,7 @@ export class PcbApp {
       this.recompute(true);
       this.renderUI();
     });
-    q('#ocp-select').addEventListener('change', (e) => {
-      this.ocpAmps = Number((e.target as HTMLSelectElement).value) || 0;
-      this.recompute(false);
-      this.renderUI();
-    });
+    q('#ocp-select').addEventListener('change', (e) => this.setOcp(Number((e.target as HTMLSelectElement).value) || 0));
     q('#solver-select').addEventListener('change', (e) => {
       const v = (e.target as HTMLSelectElement).value;
       if (v.includes('/')) {
@@ -4556,7 +4591,10 @@ export class PcbApp {
         this.toast(r.why === 'already' ? t('The coating is already off {ref}.', { ref: c.ref })
           : r.why === 'thin-only' ? t('{method} is for thin coatings only: this coating is thick.', { method: t(methodName(this.coatMethod)) })
           : r.why === 'thick-only' ? t('{method} is for thick coatings only (0.025 in and thicker).', { method: t(methodName(this.coatMethod)) })
+          : r.why === 'composition' ? t('{method} does nothing to this coating: Table {table} lists it for some compositions of this type only, and this one does not dissolve.', { method: t(methodName(this.coatMethod)), table })
           : t('{method} does nothing to this coating: Table {table} does not list it for this type.', { method: t(methodName(this.coatMethod)), table }), 'info');
+        // the method is a bench setting: point at it, so the next try can be a different one
+        if (r.why !== 'already') { this.toast(t('Pick another method in Bench → Coating removal.'), 'info'); this.showBenchSetting('#coat-method'); }
       }
       this.renderUI();
       return;
