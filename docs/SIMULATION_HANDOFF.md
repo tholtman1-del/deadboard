@@ -1,4 +1,4 @@
-# DEADBOARD — handoff (end of 2026-11-25: start at the first Status bullet; course audit + guide live at 2d1634d; 2M course map below; analytics: read the data from 11-27)
+# DEADBOARD — handoff (2026-11-26: start at the first Status bullet; bug-report fixes live at 1f62acb; 2M course map below; analytics: read the data from 11-27)
 
 Goal: make DEADBOARD (formerly PCB//FIX) a realistic board-repair trainer, as close to a real bench as possible,
 **universal** (any board, not just the MacBook), with honest provenance for every value.
@@ -7,7 +7,42 @@ No reference hardware is available, so realism is validated against *design inte
 
 ## Status (start here)
 
-- **NEXT SESSION — START HERE (end of 2026-11-25).** Everything is committed, pushed and live on
+- **NEXT SESSION — START HERE (2026-11-26, after the bug-report round).** All pushed and live
+  (`e848ccb`, `1f62acb`, Pages deploy green). Working tree clean apart from `.claude/` and
+  `docs/NEETS_AUDIT_AND_IMPROVEMENTS.md` (still untracked on purpose, see the 11-25 bullet below).
+  The 11-25 bullet below is still the to-do list (play-through notes first); this round added:
+  - **Waiting on the user:** they hit the "3D graphics aren't available" **error screen on a Windows
+    machine with an integrated card** (date / build unknown). Ask them to reopen deadboard.org there.
+    If the bench starts, it was the canvas lock (below) or a pre-fallback build. If the error screen
+    stays, get the report (or a screenshot): the new `WebGL2:` line under "Technical detail" (and
+    `WebGL2 fallback:` in the report's GPU line) says why the fallback failed: `no WebGL context` =
+    Chrome gives that GPU no WebGL at all (blocklisted, no SwiftShader fallback; only a Canvas2D /
+    software renderer would help), `WebGL2 shader: …` = a GLSL problem in `src/render/gpu-webgl2.ts`
+    to fix on that driver (shaders exist twice: WGSL in shaders.ts too).
+  - **Bug reports pulled** (`npm run feedback -- --repro`): 41 total, 3 new. Every Chrome/Windows
+    "Could not acquire a WebGPU adapter" report predates the WebGL2 fallback (`52de4b3`); none since.
+  - **`e848ccb` Bench (lesson 8 report, Russian player, left a contact; no reply sent yet, offer to
+    draft one):** solvent on polyurethane in Table 3-1 is note A (some compositions only) and the game
+    said "the table does not list it": now `RemoveResult.why = 'composition'` with its own message.
+    A failed removal method adds "Pick another method in Bench → Coating removal." and opens Bench at
+    that row, flashing (`showBenchSetting(sel)` in app.ts; phones: the More sheet). Reusable for any
+    Bench setting a message should point at. The **bench supply card has a Current limit row**
+    (`#psu-limit`, synced with `#ocp-select` via `setOcp`; presets from `ocpOptions()`: none, 10, 50,
+    100, 500 mA, 1 A; hidden while injecting; phones: shown when the card is expanded). The card's
+    mode label is `#psu-cv` now (it shared the id `#psu-mode` with the Bench Supply select).
+  - **`1f62acb` Render:** `Renderer.create` throws `NoRendererError` (gpuprobe.ts: WebGPU error as
+    the message, `.webgl2` = the fallback's error, `.tried`, `.noAdapter`); the error screen and
+    `gpuDiagnosis(tried, gl, webgl2)` show it. `WebGPUBackend.create` builds and validates buffers +
+    pipelines inside error scopes **before** `canvas.getContext('webgpu')`: a canvas with a webgpu
+    context can never give WebGL2, so a GPU that fails pipeline setup now falls back. Firefox help
+    (`gpuhelp.ts`) names `webgl.disabled` first (two Firefox/macOS reports with "WebGL: none", likely
+    LibreWolf / Mullvad / hardened profiles).
+  - **Checked:** headless Chrome (playwright-core, desktop + phone, Russian): decoat hint + Bench row,
+    supply-card limit in sync; WebGPU, `?renderer=webgl2`, and `--disable-gpu` (error screen shows
+    "WebGL2: no WebGL context"). `npm test` green except **`test/solve.test.ts` "100x pickAt budget"
+    (25 ms)**, which flakes on this Mac about half the time **with or without** these changes
+    (26–29 ms): pre-existing; consider raising the budget or measuring a median.
+- **Previous START HERE (end of 2026-11-25; its to-do list still stands).** Everything is committed, pushed and live on
   deadboard.org (last code `2d1634d`, Pages deploy green, checked live). Working tree clean apart from
   `.claude/` and `docs/NEETS_AUDIT_AND_IMPROVEMENTS.md` (an external audit the user dropped in; untracked
   on purpose, it names local manual paths: ask before committing it; every point in it is now dealt with).
