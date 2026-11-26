@@ -31,7 +31,9 @@ export class WebGPUBackend implements GpuBackend {
   private texW = 0;
   private texH = 0;
 
-  private constructor(private device: GPUDevice, private ctx: GPUCanvasContext) {}
+  private ctx!: GPUCanvasContext;
+
+  private constructor(private device: GPUDevice) {}
 
   /**
    * `allowFallback`: also accept the browser's software adapter. The caller says no while a
@@ -42,15 +44,27 @@ export class WebGPUBackend implements GpuBackend {
     const { adapter, via, tried } = await requestAnyAdapter(allowFallback);
     if (!adapter) throw new NoAdapterError(tk('Could not acquire a WebGPU adapter.'), tried);
     const device = await withTimeout(adapter.requestDevice(), GPU_REQUEST_TIMEOUT_MS, 'requestDevice');
-    const ctx = canvas.getContext('webgpu');
-    if (!ctx) throw new Error(tk('Could not create a WebGPU canvas context.'));
-    const b = new WebGPUBackend(device, ctx);
+    const b = new WebGPUBackend(device);
     const info = adapter.info;
     const gpu = info ? [info.vendor, info.architecture, info.device, info.description].filter(Boolean).join(' / ') || 'unknown' : 'unknown';
     b.description = `${gpu}${via !== 'high-performance' ? ` (${via} adapter; ${tried.join(', ')})` : ''}`;
     b.format = navigator.gpu.getPreferredCanvasFormat();
+    // Buffers and pipelines first, checked, and only then the canvas: once a canvas has a 'webgpu'
+    // context it can never give a WebGL2 one, so a GPU that can't build the pipelines (a weak
+    // integrated card, an old driver) must fail here, while the WebGL2 fallback can still start.
+    device.pushErrorScope('out-of-memory');
+    device.pushErrorScope('validation');
+    try {
+      b.init(meshes);
+    } finally {
+      const [validation, oom] = await Promise.all([device.popErrorScope(), device.popErrorScope()]);
+      const err = validation ?? oom;
+      if (err) { device.destroy(); throw new Error(`WebGPU setup failed: ${err.message}`); }
+    }
+    const ctx = canvas.getContext('webgpu');
+    if (!ctx) { device.destroy(); throw new Error(tk('Could not create a WebGPU canvas context.')); }
     ctx.configure({ device, format: b.format, alphaMode: 'premultiplied' });
-    b.init(meshes);
+    b.ctx = ctx;
     return b;
   }
 

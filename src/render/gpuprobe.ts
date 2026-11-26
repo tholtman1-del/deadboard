@@ -74,14 +74,28 @@ export function webGlInfo(): WebGlInfo | null {
   }
 }
 
-/** One line for the bug report from the WebGPU error screen. */
-export function gpuDiagnosis(tried: string[], gl: WebGlInfo | null): string {
+/** One line for the bug report from the WebGPU error screen. `webgl2`: why the fallback failed. */
+export function gpuDiagnosis(tried: string[], gl: WebGlInfo | null, webgl2: string | null = null): string {
   return [
     `navigator.gpu: ${'gpu' in navigator ? 'yes' : 'no'}`,
     tried.length ? `adapter tries: ${tried.join(', ')}` : '',
     gl ? `WebGL: ${gl.renderer}${gl.software ? ' (software)' : ''}` : 'WebGL: none',
+    webgl2 ? `WebGL2 fallback: ${webgl2}` : '',
     isSecureContext ? '' : 'insecure context',
   ].filter(Boolean).join('; ');
+}
+
+/**
+ * Thrown when neither WebGPU nor the WebGL2 fallback started: the WebGPU error is the message (the
+ * error screen explains that one), the fallback's own error goes into the bug report.
+ */
+export class NoRendererError extends Error {
+  constructor(readonly gpu: unknown, readonly webgl2: string | null) {
+    super(gpu instanceof Error ? gpu.message : gpu ? String(gpu) : webgl2 ?? 'no renderer');
+  }
+  /** Adapter requests that came back empty (none when WebGPU failed later or was skipped). */
+  get tried(): string[] { return this.gpu instanceof NoAdapterError ? this.gpu.tried : []; }
+  get noAdapter(): boolean { return this.gpu instanceof NoAdapterError; }
 }
 
 /** Thrown when no request gave an adapter; carries the attempts for the report. */

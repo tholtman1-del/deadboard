@@ -11,7 +11,7 @@ import { buildUnitMeshes } from './meshes';
 import { GLOW_FLOATS, INSTANCE_FLOATS, type GpuBackend, type InstanceDraw } from './backend';
 import { WebGPUBackend } from './gpu-webgpu';
 import { WebGL2Backend } from './gpu-webgl2';
-import { webGlInfo } from './gpuprobe';
+import { NoRendererError, webGlInfo } from './gpuprobe';
 import { textStrokes } from './font';
 import { BOTH_GAP, type Camera } from './camera';
 import { airwiresFor, type Airwire } from '../airwires';
@@ -312,14 +312,16 @@ export class Renderer {
         if (force === 'webgpu') throw e;
       }
     }
+    let glErr: string | null = gl ? null : 'no WebGL context';
     if (!r.backend && gl) {
       try {
         r.backend = await WebGL2Backend.create(canvas, r.meshes);
       } catch (e) {
         if (force === 'webgl2') throw e;
+        glErr = e instanceof Error ? e.message : String(e);
       }
     }
-    if (!r.backend) throw gpuErr ?? new Error('no renderer');
+    if (!r.backend) throw new NoRendererError(gpuErr, glErr);
     const why = gpuErr instanceof Error ? `; WebGPU: ${gpuErr.message}${'tried' in gpuErr ? ` (${(gpuErr as { tried: string[] }).tried.join(', ')})` : ''}` : '';
     r.adapterDescription = r.backend.description + why;
     return r;

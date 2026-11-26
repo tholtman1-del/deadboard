@@ -23,7 +23,7 @@ export function gpuHelp(ua: string, gl: WebGlInfo | null, maxTouchPoints = 0): s
       ? t('Firefox could not start 3D graphics on this phone: open DEADBOARD in Chrome.')
       : t('Your browser could not start 3D graphics. Update Chrome and «Android System WebView» from the Play Store, restart the phone and try again.');
   }
-  if (ff) return t('Firefox is not giving web pages any 3D graphics (neither WebGPU nor WebGL). In Settings → Performance, untick «Use recommended performance settings», tick «Use hardware acceleration when available», and restart Firefox. about:support → Graphics says why WebGL is blocked; updating the graphics driver usually fixes it.');
+  if (ff) return t('Firefox is not giving web pages any 3D graphics (neither WebGPU nor WebGL). WebGL may be switched off: open about:config and set webgl.disabled to false (LibreWolf: Settings → LibreWolf → «Enable WebGL»; privacy-hardened Firefox and Mullvad Browser turn it off too). Otherwise, in Settings → Performance, untick «Use recommended performance settings», tick «Use hardware acceleration when available», and restart Firefox. about:support → Graphics says why WebGL is blocked.');
   if (/Safari\//.test(ua) && !/Chrome|Chromium|Edg\//.test(ua)) return t('Safari could not start 3D graphics. Update macOS, or open DEADBOARD in Chrome or Firefox.');
   return t('Your browser is not giving web pages any 3D graphics (neither WebGPU nor WebGL). Turn on «Use graphics acceleration when available» (Chrome / Edge: Settings → System) and restart the browser. If it is on already, open chrome://gpu: if WebGL says «Disabled», your graphics card or driver is on the browser\'s blocklist. Update the driver, or as a last resort enable «Override software rendering list» in chrome://flags.');
 }

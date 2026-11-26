@@ -70,7 +70,7 @@ import { SOLDERING_TRACK_IDS } from '../scenarios/soldering';
 import { debriefHtml, lessonAccepted, lessonBriefHtml } from './lesson-ui';
 import { glossaryItemsHtml, guideHtml, type ReviewFilter } from './guide-ui';
 import { Renderer, type RendererKind, type VizMode } from '../render/renderer';
-import { NoAdapterError, gpuDiagnosis, webGlInfo } from '../render/gpuprobe';
+import { NoAdapterError, NoRendererError, gpuDiagnosis, webGlInfo } from '../render/gpuprobe';
 import { gpuHelp } from './gpuhelp';
 import { setSoundEnabled, sfxBeep, sfxBlow, sfxClick, sfxCut, sfxSolder, sfxWin, soundEnabled } from './audio';
 import { icon } from './icons';
@@ -678,8 +678,9 @@ export class PcbApp {
       this.renderer = await Renderer.create(this.canvas, force === 'webgl2' || force === 'webgpu' ? force as RendererKind : undefined);
     } catch (err) {
       this.startDone = true;
-      trackEvent('bench failed', { reason: err instanceof NoAdapterError ? 'no adapter' : 'error', layout: this.mobile ? 'phone' : 'desktop' });
-      this.showWebGpuError(err instanceof Error ? err.message : String(err), err instanceof NoAdapterError ? err.tried : []);
+      const noAdapter = err instanceof NoRendererError ? err.noAdapter : err instanceof NoAdapterError;
+      trackEvent('bench failed', { reason: noAdapter ? 'no adapter' : 'error', layout: this.mobile ? 'phone' : 'desktop' });
+      this.showWebGpuError(err instanceof Error ? err.message : String(err), err instanceof NoRendererError ? err.tried : err instanceof NoAdapterError ? err.tried : [], err instanceof NoRendererError ? err.webgl2 : null);
       bootDone(); // a GPU problem, not a mod's
       return;
     }
@@ -743,7 +744,7 @@ export class PcbApp {
     }
   }
 
-  private showWebGpuError(msg: string, tried: string[] = []) {
+  private showWebGpuError(msg: string, tried: string[] = [], webgl2: string | null = null) {
     const gl = webGlInfo();
     const app = inAppBrowser(navigator.userAgent);
     const android = /Android/.test(navigator.userAgent);
@@ -763,7 +764,7 @@ export class PcbApp {
         <div class="card">
           <div class="card-title lg">${t('3D graphics aren\'t available')}</div>
           ${app === null ? `<p class="text-2" style="margin:0">${this.esc(gpuHelp(navigator.userAgent, gl, navigator.maxTouchPoints))}</p>` : ''}
-          <p class="muted" style="margin:0">${t('Technical detail: {error}', { error: this.esc(t(msg)) })}</p>
+          <p class="muted" style="margin:0">${t('Technical detail: {error}', { error: this.esc(t(msg)) })}${webgl2 ? `<br>WebGL2: ${this.esc(webgl2)}` : ''}</p>
         </div>
         <div class="card">
           <div class="card-title">${t('Still stuck? Tell us')}</div>
@@ -777,7 +778,7 @@ export class PcbApp {
     });
     const host = this.mount.querySelector<HTMLElement>('#fb-host');
     // no bench to snapshot here: the report says what this browser offers instead
-    const gpu = `${gpuDiagnosis(tried, gl)}${app === null ? '' : `; in-app browser: ${app || 'Android WebView'}`}`;
+    const gpu = `${gpuDiagnosis(tried, gl, webgl2)}${app === null ? '' : `; in-app browser: ${app || 'Android WebView'}`}`;
     if (host) mountFeedbackForm(host, () => ({ error: msg, gpu, view: 'WebGPU error screen (no bench, no snapshot)' }), { kind: 'bug' });
   }
 

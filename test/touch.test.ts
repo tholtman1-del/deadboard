@@ -140,6 +140,7 @@ const kinds = (ev: Ev[]) => ev.map((e) => e[0]);
   assert(/graphics acceleration/.test(noGl) && /chrome:\/\/gpu/.test(noGl) && !/Vulkan|Unsafe WebGPU/.test(noGl), `Chrome on Linux without WebGL: turn acceleration on, not WebGPU flags (${noGl})`);
   assert(/WebGL2/.test(gpuHelp(linuxChrome, { renderer: 'Mesa Intel(R) HD Graphics 4000', software: false })), 'WebGL but no WebGL2: update browser and driver');
   assert(/Settings → Performance/.test(gpuHelp('Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0', null)), 'Firefox: its own setting');
+  assert(/webgl.disabled/.test(gpuHelp('Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:160.0) Gecko/20100101 Firefox/160.0', null)), 'Firefox: WebGL switched off in about:config');
   assert(/Update iOS/.test(gpuHelp('Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1', null)), 'iPhone');
   assert(/Android System WebView/.test(gpuHelp('Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0 Mobile Safari/537.36', null)), 'Chrome on Android');
   assert(/Update macOS/.test(gpuHelp('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15', null)), 'Safari on a Mac');
